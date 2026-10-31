@@ -37,12 +37,20 @@ fingerprint = [
   "B2A3 DCA3 50E6 7256 740D F904 DE4E C67B E4B0 DCA0",
 ]
 
+# mise puts the tool's own bin dirs ahead of PATH during a postinstall, so each script resets PATH: a poisoned
+# tarball must not shadow sed or install. Zed's updater would bypass mise's digest and release age check, so
+# the env var below turns it off (zed's auto_update.rs skips polling and shows this text when it is set).
+[env]
+ZED_UPDATE_EXPLANATION = "Updates come from mise: run `mise upgrade github:zed-industries/zed`."
+
 # Zed and Zen ship tarballs with no .desktop file that survives an upgrade, so each postinstall writes the menu
 # entry and icon with Exec on the mise shim (a versioned install dir is gone after the next upgrade).
 # Zed's releases carry GitHub artifact attestations, which mise verifies on install.
 [tools."github:zed-industries/zed"]
 version = "latest"
+filter_bins = "zed"
 postinstall = '''
+export PATH=/usr/bin:/bin
 d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i"
 install -m644 "$MISE_TOOL_INSTALL_PATH/share/icons/hicolor/512x512/apps/zed.png" "$i/zed.png"
 sed -e "s|^TryExec=zed|TryExec=$HOME/.local/share/mise/shims/zed|" -e "s|^Exec=zed|Exec=$HOME/.local/share/mise/shims/zed|" \
@@ -55,13 +63,17 @@ asset_pattern = "zed-linux-aarch64.tar.gz"
 
 # Zen publishes no signature and no attestation, so the only check is the sha256 digest GitHub reports for the
 # asset, which mise verifies. That proves the download matches what the release lists, not who built it.
-# filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH.
+# filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH. Its MAR updater would bypass that digest
+# and the release age, so the postinstall writes a policy that turns it off (about:policies lists it as active).
 [tools."github:zen-browser/desktop"]
 version = "latest"
 filter_bins = "zen"
 postinstall = '''
+export PATH=/usr/bin:/bin
 d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/128x128/apps"; mkdir -p "$d" "$i"
 install -m644 "$MISE_TOOL_INSTALL_PATH/browser/chrome/icons/default/default128.png" "$i/zen.png"
+mkdir -p "$MISE_TOOL_INSTALL_PATH/distribution"
+echo '{"policies": {"DisableAppUpdate": true, "DisableTelemetry": true}}' > "$MISE_TOOL_INSTALL_PATH/distribution/policies.json"
 cat > "$d/zen.desktop" <<EOF
 [Desktop Entry]
 Type=Application
