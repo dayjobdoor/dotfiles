@@ -1,0 +1,2 @@
+# Sourced files are optional per-machine overrides or system files; never present at lint time.
+disable=SC1091

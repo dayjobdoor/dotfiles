@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+#MISE description="Sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip (builds it first)"
+#MISE depends=["build sandbox"]
+#USAGE arg "[image]" default="djd:sandbox" help="Image to test"
+set -euo pipefail
+# set -e alone fails silently; name the check that stopped the run
+trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
+
+image=${usage_image:-${1:-djd:sandbox}}
+ok() { echo "ok $*"; }
+# -e NAME forwards the token from the environment instead of putting it on the command line
+export MISE_GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+
+docker run --rm "$image" djd doctor
+# `docker run IMAGE tool` and `docker exec` get no login shell; the image PATH must carry the shims
+docker run --rm "$image" rg --version >/dev/null
+ok tools on PATH without a login shell
+# env -i drops the image's ENV PATH, so only ~/.profile can put the shims there (agents start shells this way)
+docker run --rm "$image" env -i HOME=/home/ubuntu bash -lc 'rg --version' >/dev/null
+ok .profile puts the shims on PATH
+
+# Every start is interactive, on a tty. The first one fetches the pinned sheldon plugins and fills the init
+# cache, so its output is dropped; the second reads the cache. Anything printed is a broken init script.
+out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic true; bash -ic true' | tr -d '\r')
+[ -z "$out" ] || {
+    printf 'interactive shell startup printed:\n%s\n' "$out" >&2
+    exit 1
+}
+ok interactive shells start silently
+
+# stub banner tools: a login shell that runs a command (agents, `zsh -lc`) must not mix .zlogin's banner into
+# the command's output, and an interactive one must still show it (or the stubs would prove nothing)
+docker run --rm "$image" bash -c '
+    set -e
+    mkdir /tmp/stub
+    for c in fortune cowsay figlet lolcat; do printf "#!/bin/sh\necho BANNER\n" >/tmp/stub/$c && chmod +x /tmp/stub/$c; done
+    export PATH=/tmp/stub:$PATH
+    [ -z "$(zsh -lc true)" ]
+    [ -n "$(zsh -lic true 2>/dev/null)" ]
+'
+ok login banner stays out of command output
+
+# One container: djd apply moves a real file aside instead of failing on it, a checkout that moved (the
+# `make init` path) is linked back by install.sh, and the machine converges afterwards. plan covers packages,
+# files, services and the firewall; doctor adds dotfiles, the login shell and the mise link.
+docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
+    set -e
+    rm ~/.bashrc && echo custom >~/.bashrc
+    [ -z "$(find ~ -maxdepth 1 -name "*.djd-backup-*")" ]
+    mv ~/.dotfiles ~/src
+    ~/src/install.sh
+    [ "$(readlink ~/.dotfiles)" = "$HOME/src" ]
+    test -L ~/.bashrc
+    grep -q custom ~/.bashrc.djd-backup-*
+    djd doctor
+    mise bootstrap plan --detailed-exitcode
+'
+ok conflicting file backed up, moved checkout relinked, re-apply converges
+
+# the age key, an encrypted value, and the value coming back through the secrets module. age.strict is off, so
+# a broken decrypt would otherwise just leave the variable unset
+docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
+    set -e
+    djd secret keygen >/dev/null
+    [ "$(stat -c %a ~/.config/djd/age.txt)" = 600 ]
+    ! djd secret keygen >/dev/null 2>&1
+    printf "s3cret\n" | djd secret set DJD_CHECK >/dev/null
+    grep -q DJD_CHECK ~/.dotfiles/mise-config/config.secrets.toml
+    ! grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml
+    printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
+    [ "$(mise exec -- printenv DJD_CHECK)" = s3cret ]
+'
+ok secrets round trip

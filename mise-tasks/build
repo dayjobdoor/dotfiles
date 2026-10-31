@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Build a Docker image: sandbox (default), desktop or full"
+#USAGE arg "[flavor]" default="sandbox" { choices "sandbox" "desktop" "full"; }
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+flavor=${usage_flavor:-${1:-sandbox}}
+case $flavor in
+sandbox) modules=agent ;;
+desktop) modules="agent desktop" ;;
+full) modules="agent full" ;;
+*)
+    echo "usage: build [sandbox|desktop|full]" >&2
+    exit 2
+    ;;
+esac
+# the token reaches the build only as a BuildKit secret, never as ARG/ENV
+export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+docker build -f .devcontainer/Dockerfile --build-arg DJD_MODULES="$modules" \
+    --build-arg DJD_REVISION="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" \
+    --secret id=github_token,env=GITHUB_TOKEN -t "djd:$flavor" .

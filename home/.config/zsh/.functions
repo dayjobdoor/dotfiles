@@ -1,0 +1,45 @@
+alias mv="mv -i"
+alias cp="cp -i"
+alias rm="rm -i"
+alias mkdir="mkdir -p"
+
+if command -v ping >/dev/null 2>&1; then
+    function ping() {
+        command ping -c 3 "${@:-1.1.1.1}"
+    }
+fi
+
+if command -v xdg-open >/dev/null 2>&1; then
+    alias lh="xdg-open http://localhost:3000"
+    alias ggg="xdg-open https://youtu.be"
+    alias web="xdg-open https://goog.le"
+fi
+
+if command -v xsel >/dev/null 2>&1; then
+    alias cx="xsel -b -i"
+    alias cv="xsel -b -o"
+    alias cb="xsel -b"
+fi
+
+if command -v lsd >/dev/null 2>&1; then
+    alias ls='lsd --group-directories-first'
+    alias l='ls -la'
+    alias ll='ls -l'
+    alias la='ls -a'
+    alias lt='ls --tree'
+fi
+
+if command -v bat >/dev/null 2>&1; then
+    alias cat="bat -p"
+fi
+
+if command -v tree >/dev/null 2>&1; then
+    alias tree="tree -NC"
+fi
+
+if command -v openssl >/dev/null 2>&1; then
+    function sec() {
+        ENV_FILE="${ENV_FILE:-.env}"
+        echo "${1:-SECRET}=$(openssl rand -base64 32)" >> "${ENV_FILE}"
+    }
+fi

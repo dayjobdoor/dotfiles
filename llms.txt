@@ -1,0 +1,29 @@
+# dayjobdoor/dotfiles
+
+> Ubuntu 26.04 (amd64, arm64) dotfiles managed entirely by mise: packages, system files, firewall, dotfiles, login shell and tools come from `mise bootstrap`. Modules (agent, server, desktop, full, secrets) are mise config environments; `djd` is the CLI. Ships agent sandbox and XFCE/RDP desktop images and an agentOS export.
+
+Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (containers, VMs). Never commit secrets; values go in age ciphertext through `djd secret set`.
+
+## Docs
+
+- [README](README.md): install, modules, djd, desktop over RDP, VMs, agentOS, fork, development tasks
+- [Architecture](docs/architecture.md): why the design is what it is, covering symlinks, the install flow, modules, hooks, secrets, shell startup, agentOS, Docker images, and CI decisions
+- [Reference](docs/reference.md): layout tree, module contents, djd commands, make targets, hooks, shell startup files, environment variables, agentOS, Docker images
+- [CI/CD reference](docs/ci.md): workflows, what each test proves, repo tasks, running CI with act, the release chain
+- [How-to guides](docs/how-to.md): run CI locally, keep a VM after a failed test, update pinned tools, raise the mise release, publish the first release
+- [History](docs/history.md): comparison with budybye/dotfiles, origin, planned work
+- [AGENTS.md](AGENTS.md): rules for coding agents, where each kind of change goes, verification commands
+- [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets, Docker and server hardening
+- [DESIGN.md](DESIGN.md): colors, fonts and theme tokens (google-labs-code/design.md format)
+
+## Configuration
+
+- [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise. config.toml is the base module and config.<module>.toml (agent, server, desktop, full, secrets) the others. tasks/djd has the djd commands, hooks/ the hook scripts.
+- [home/](home/): dotfiles symlinked into ~
+- [mise-tasks/](mise-tasks/): repo tasks (lint:shell, lint:config, lint:workflows, lint:design, lint:docs, lint:secrets, build, test, test:desktop, test:vm, ci)
+- [mise.toml](mise.toml): the short repo tasks (lint, lint:fix, agentos:*, shell, up, down, pre-commit) and mise settings. Each task declares its own tools.
+
+## Optional
+
+- [.github/workflows/](.github/workflows/): CI, tag, release image and weekly full-module workflows
+- [agentos/boot.mjs](agentos/boot.mjs): agentOS export and boot check

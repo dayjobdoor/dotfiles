@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+# act secrets and variables (mise run ci passes GITHUB_TOKEN from the environment instead)
+.secrets
+.vars
+*.local.toml
+*.local
+# *.local also matches the .local directory name
+!/home/.local/
+**/gh/hosts.yml
+**/rclone/rclone.conf
+**/auth.json
+*.pem
+*.key
+# age identities (mise defaults to ~/.config/mise/age.txt, which is this repo)
+age.txt
+.DS_Store
+dist/
+node_modules/
+# the global ~/.config/git/ignore (home/.config/git/ignore) excludes *lock.json; lockfiles here are tracked
+!*lock.json

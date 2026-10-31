@@ -1,0 +1,94 @@
+# Module server: reachable host with ssh, mDNS, firewall and docker.
+
+[tools]
+lazydocker = "latest"
+
+[bootstrap.packages]
+"apt:openssh-server" = "latest"
+"apt:avahi-daemon" = "latest"
+"apt:ufw" = "latest"
+"apt:docker.io" = "latest"
+"apt:docker-compose-v2" = "latest"
+"apt:docker-buildx" = "latest"
+
+# Key-only SSH. Cloud images already turn passwords off through cloud-init, but a machine installed from an ISO
+# allows them, and the desktop module needs a user password for RDP. 10- sorts before cloud-init's 50- and
+# 60- drop-ins; sshd keeps the first value it reads.
+[bootstrap.files."/etc/ssh/sshd_config.d/10-djd.conf"]
+content = """
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+"""
+mode = "0644"
+owner = "root"
+group = "root"
+
+# Published container ports bind to 127.0.0.1 unless `-p` names an address: Docker's port rules bypass ufw.
+# `ip` covers the default bridge, default-network-opts the networks created later (compose's).
+[bootstrap.files."/etc/docker/daemon.json"]
+content = """
+{
+  "ip": "127.0.0.1",
+  "default-network-opts": { "bridge": { "com.docker.network.bridge.host_binding_ipv4": "127.0.0.1" } }
+}
+"""
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["docker"]
+
+[bootstrap.services.docker]
+# dockerd reads both only at start
+on_change = "restart"
+
+[bootstrap.linux.firewall]
+backend = "ufw"
+default_incoming = "deny"
+default_outgoing = "allow"
+
+[[bootstrap.linux.firewall.rules]]
+name = "ssh"
+port = 22
+protocol = "tcp"
+action = "limit"
+
+# mDNS needs no rule: Ubuntu's ufw before.rules already accepts multicast 5353, and a rule here would open
+# unicast 5353 to everyone. RDP is password login, so only private networks reach it; from anywhere else,
+# tunnel it: ssh -L 33389:localhost:3389 <host>. Open even without the desktop module, so the firewall stays
+# out of desktop (which also runs in Docker).
+[[bootstrap.linux.firewall.rules]]
+name = "rdp-10"
+port = 3389
+protocol = "tcp"
+source = "10.0.0.0/8"
+
+[[bootstrap.linux.firewall.rules]]
+name = "rdp-172"
+port = 3389
+protocol = "tcp"
+source = "172.16.0.0/12"
+
+[[bootstrap.linux.firewall.rules]]
+name = "rdp-192"
+port = 3389
+protocol = "tcp"
+source = "192.168.0.0/16"
+
+# IPv6 unique local and link-local, which avahi's AAAA records point LAN clients at
+[[bootstrap.linux.firewall.rules]]
+name = "rdp-ula"
+port = 3389
+protocol = "tcp"
+source = "fc00::/7"
+
+[[bootstrap.linux.firewall.rules]]
+name = "rdp-link-local"
+port = 3389
+protocol = "tcp"
+source = "fe80::/10"
+
+# This module owns the post-packages and pre-dotfiles hooks; one owner per phase key across modules.
+[bootstrap.hooks]
+post-packages = 'u=$(id -un); id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"'
+pre-dotfiles = "~/.config/mise/hooks/server-pre-dotfiles"

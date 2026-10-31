@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+# djd tasks are plain bash; installing tools belongs to `djd apply`, not to every task run
+export MISE_TASK_RUN_AUTO_INSTALL=false
+# mise 2026.10.23 detects an active ufw by matching the English "Status: active"; under a Japanese
+# locale (desktop module, or LC_ALL forwarded by orb/ssh) the firewall reports drift forever
+export LC_ALL=C.UTF-8
+# from $HOME, so a project's mise.toml in the current directory never joins `mise bootstrap`
+cd "$HOME"
+case "${1:-help}" in
+help | -h | --help)
+    mise tasks ls --global --no-header | awk '$1 ~ /^djd:/ { sub(/^djd:/, "", $1); print }'
+    exit 0
+    ;;
+esac
+cmd=$1
+shift
+exec mise run "djd:$cmd" "$@"

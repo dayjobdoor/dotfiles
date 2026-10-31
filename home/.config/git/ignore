@@ -1,0 +1,115 @@
+# Global excludes (core.excludesfile in ~/.config/git/config): they apply to every repository, and a name
+# without a leading slash matches at any depth.
+# See https://git-scm.com/docs/gitignore and https://github.com/github/gitignore/tree/master/Global
+
+*.gz
+node_modules
+*.env
+*lock.json
+bun.lock
+.envrc
+.npmrc
+
+#
+# Operating systems / desktop environments.
+#
+
+# Linux.
+*~
+.directory
+.fuse_hidden*
+.nfs*
+.Trash-*
+
+# macOS.
+._*
+._.DS_Store
+.apdisk
+.AppleDB
+.AppleDesktop
+.AppleDouble
+.com.apple.timemachine.donotpresent
+.DocumentRevisions-V100
+.DS_Store
+.fseventsd
+.Icon*
+.LSOverride
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+Network Trash Folder
+Temporary Items
+
+# Windows.
+$RECYCLE.BIN/
+[Dd]esktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+Thumbs.db
+Thumbs.db:encryptable
+*.stackdump
+
+#
+# Editors/IDEs.
+#
+
+# JetBrains IDE (PHPStorm, etc.).
+.idea/*
+*.iws
+
+# LibreOffice.
+.~lock.*#
+
+# TextMate.
+*.tmproj
+*.tmproject
+tmtags
+
+# Vi/Vim.
+[._]*.s[a-v][a-z]
+!*.svg
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+tags
+[._]*.un~
+
+# Visual Studio Code.
+*.code-workspace
+
+#
+# Web development.
+#
+
+# Drupal.
+sites/*/settings.local.php
+sites/*/files
+
+# Sass.
+.!*
+
+# SQL.
+*.sql
+*.sql.*
+
+# Agent tools (local state and caches).
+.claude/settings.local.json
+.pi/sessions
+.claude
+.codex
+.atl
+.codegraph
+graphify-out
+.graphifyignore
+
+# musubi
+steering
+templates
+storage
+
+.decapod

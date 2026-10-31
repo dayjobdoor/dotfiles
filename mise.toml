@@ -1,0 +1,56 @@
+# Repo development: lint, image builds and tests, local CI. `make <task>` runs `mise run <task>`.
+# Longer tasks are files in mise-tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
+# Each task names the tools it needs (`tools`, or a `#MISE tools=` header in a file task), so `mise run <task>`
+# installs only those and the agentos job does not fetch the linters. mise.lock pins their versions.
+min_version = "2026.10.23"
+
+[tasks.lint]
+description = "Static checks: shell, mise configs, workflows, Dockerfile, DESIGN.md, docs links, secrets (the lint:* tasks, in parallel)"
+depends = [
+  "lint:shell",
+  "lint:config",
+  "lint:workflows",
+  "lint:design",
+  "lint:docs",
+  "lint:secrets",
+]
+
+[tasks."lint:fix"]
+description = "Rewrite shell and mise TOML formatting"
+depends = ["lint:shell --fix", "lint:config --fix"]
+
+[tasks.pre-commit]
+description = "Scan staged changes for secrets"
+tools.gitleaks = "latest"
+run = "gitleaks git --pre-commit --staged --redact --no-banner"
+
+[tasks."agentos:export"]
+description = "Write the agentOS bundle (dotfiles + registry packages + env)"
+tools.node = "lts"
+sources = ["home/.config/git/*", "agentos/boot.mjs", "home/.profile"]
+outputs = ["dist/agentos/bundle.json"]
+run = "node agentos/boot.mjs --export dist/agentos/bundle.json"
+
+[tasks."agentos:boot"]
+description = "Boot an agentOS VM with the bundle and assert it works"
+tools.node = "lts"
+run = ["npm ci --prefix agentos", "node agentos/boot.mjs"]
+
+[tasks.shell]
+description = "Open a shell in the sandbox image"
+run = "docker run --rm -it --init djd:sandbox"
+
+[tasks.up]
+description = "Start the desktop container (RDP on 127.0.0.1:33389; PASSWORD in .devcontainer/.env)"
+run = "docker compose -f .devcontainer/compose.yaml up -d --build desktop"
+
+[tasks.down]
+description = "Stop the desktop container"
+run = "docker compose -f .devcontainer/compose.yaml down"
+
+[settings]
+# `mise lock` covers these platforms whatever machine runs it (CI is linux-x64 and linux-arm64, a Mac is macos-arm64)
+lockfile_platforms = ["linux-x64", "linux-arm64", "macos-arm64"]
+# mise.lock records npm tools as an embedded-aube dependency graph, which installs only with aube;
+# without this, djd machines would use the agent module's bun and refuse the locked install
+npm.package_manager = "aube"

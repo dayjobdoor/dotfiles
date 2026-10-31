@@ -1,0 +1,29 @@
+command = $(command -v zsh) -l
+
+theme = Kanagawa Dragon
+
+font-family = "HackGen35 Console NF"
+font-size = 13.0
+font-thicken = true
+
+# DESIGN.md surface / on-surface; change them there first
+background = #112233
+foreground = #D4C69A
+background-opacity = 0.78
+
+cursor-style = block
+cursor-style-blink = true
+
+mouse-hide-while-typing = true
+
+# keep output visible after the command exits
+wait-after-command = true
+
+# a single space hides the title
+title = " "
+
+window-padding-x = 8
+window-padding-y = 8
+window-padding-balance = true
+
+quick-terminal-screen = mouse

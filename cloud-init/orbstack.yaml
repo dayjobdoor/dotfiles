@@ -1,0 +1,17 @@
+#cloud-config
+# OrbStack machine or LXD container for trying these dotfiles (test:vm uses it for both).
+# Create:  orb create -c cloud-init/orbstack.yaml ubuntu:resolute djd-vm
+# Install: orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
+
+hostname: djd-vm
+timezone: Asia/Tokyo
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+# No ssh_pwauth: OrbStack images lack openssh-server, so cloud-init would write a one-line
+# /etc/ssh/sshd_config that the package then keeps, without its sshd_config.d Include. The server
+# module turns password SSH off.

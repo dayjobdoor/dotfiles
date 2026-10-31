@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@rivet-dev/agentos-core": "0.4.6"
+  }
+}

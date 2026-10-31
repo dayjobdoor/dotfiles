@@ -1,0 +1,249 @@
+# https://starship.rs/config/
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = true
+
+scan_timeout = 420
+
+command_timeout = 4200
+
+palette = 'color'
+
+continuation_prompt = "▶▶"
+
+format = """
+[ ](gray)\
+[░▒▓](gray)\
+$os\
+$username\
+$hostname\
+[](fg:gray bg:navy)\
+$directory\
+[](fg:navy bg:dark)\
+$git_branch\
+$git_commit\
+$git_state\
+$git_metrics\
+$git_status\
+[](fg:dark bg:dd)\
+$fill\
+$mise\
+$nodejs\
+$rust\
+$golang\
+$php\
+$java\
+$python\
+$ruby\
+$bun\
+$package\
+[](fg:dd bg:ddd)\
+$time\
+$battery\
+$memory_usage\
+[](fg:ddd bg:ddd)\
+$cmd_duration\
+[](fg:ddd)\
+${custom.jj}\
+$line_break\
+$character\
+$localip\
+$docker_context\
+${custom.arch}\
+$shell\
+"""
+
+# DESIGN.md palette; change it there first
+[palettes.color]
+# Kanagawa Dragon
+gray = '#a6a69c'    # dragonGray
+white = '#c5c9c5'   # dragonWhite
+navy = '#8ba4b0'    # dragonBlue2
+dark = '#8992a7'    # dragonViolet
+dd = '#181616'      # dragonBlack3
+ddd = '#12120f'     # dragonBlack1
+red = '#c4746e'     # dragonRed
+green = '#87a987'   # dragonGreen
+yellow = '#b6927b'  # dragonOrange
+blue = '#8ea4a2'    # dragonAqua
+
+[os]
+disabled = false
+style = "fg:dd bg:gray"
+
+[os.symbols]
+Windows = " "
+Ubuntu = " "
+Linux = " "
+Macos = " "
+Raspbian = " "
+RedHatEnterprise = " "
+
+[username]
+disabled = false
+style_user = "fg:dd bg:gray"
+style_root = "fg:red bg:gray"
+format = '[($user)@]($style bold)'
+show_always = true
+
+[hostname]
+ssh_only = false
+disabled = false
+style = "fg:dd bg:gray"
+format = '[$ssh_symbol$hostname:]($style bold)'
+
+[directory]
+style = "fg:dd bg:navy"
+format = "[ $path]($style bold)"
+truncate_to_repo = false
+truncation_length = 5
+truncation_symbol = "…/"
+
+[directory.substitutions]
+"Documents" = " "
+"Downloads" = "  "
+"Music" = "  "
+"Pictures" = "  "
+
+[git_branch]
+symbol = " "
+style = "fg:dd bg:dark"
+format = '[ $symbol $branch ]($style bold)'
+disabled = true
+
+[git_status]
+style = "fg:dd bg:dark"
+format = '[($all_status$ahead_behind)]($style bold)'
+conflicted = "💥 "
+ahead = "🏎💨 "
+behind = "😰 "
+diverged = "😵 "
+untracked = "🌚 "
+stashed = "📦 "
+modified = "📝 "
+staged = '🔦 '
+renamed = "🏷 "
+deleted = "🗑 "
+disabled = true
+
+[nodejs]
+symbol = " "
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[rust]
+symbol = " "
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[golang]
+symbol = "ﳑ "
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[php]
+symbol = " "
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[java]
+symbol = '🌟 '
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[python]
+symbol = ' '
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[ruby]
+symbol = ' '
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[bun]
+symbol = '🍞 '
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[package]
+symbol = " "
+style = "fg:gray bg:dd"
+format = '[ $symbol($version)]($style bold)'
+
+[time]
+disabled = false
+time_format = "%R" # Hour:Minute Format
+style = "fg:gray bg:ddd"
+format = '[ $time]($style bold)'
+
+[battery]
+disabled = false
+full_symbol = ' '
+charging_symbol = ' '
+discharging_symbol = '⚠️ '
+format = '[ $symbol$percentage]($style bold)'
+
+# threshold 101: always show the battery
+[[battery.display]]
+threshold = 101
+style = "fg:gray bg:ddd"
+
+[memory_usage]
+disabled = false
+threshold = -1
+symbol = " "
+style = "fg:gray bg:ddd"
+format = '[ $symbol${ram_pct}]($style bold)'
+
+[cmd_duration]
+style = "fg:navy bg:ddd"
+min_time = 4200
+format = '[$duration]($style bold)'
+
+[localip]
+ssh_only = true
+disabled = false
+style = "fg:dd bg:gray"
+format = '[@$localipv4]($style bold) '
+
+[docker_context]
+format = "[🐋$context](fg:blue bold) "
+
+[mise]
+# disabled: $health runs mise doctor, which is too slow for a prompt
+disabled = true
+symbol = "󰏗 "
+style = "fg:gray bg:dd"
+format = "[ $symbol$health]($style bold)"
+healthy_symbol = "✓"
+unhealthy_symbol = "⚠"
+
+[character]
+success_symbol = "[♨︎ ](fg:green bold)"
+error_symbol = "[♨︎ ](fg:red bold)"
+
+[shell]
+disabled = false
+fish_indicator = ' '
+powershell_indicator = '_ '
+style = 'fg:green'
+format = '[$indicator](fg:green bold) [](fg:yellow bold) '
+
+# arch badge, shown on x86_64 only
+[custom.arch]
+command = "uname -m"
+when = """ test $(uname -m) = "x86_64" """
+style = "bold gray"
+format = "[$output]($style bold) "
+
+[custom.jj]
+when = "jj-starship detect"
+shell = ["jj-starship"]
+style = "fg:dd bg:gray"
+format = "[$output]($style bold) "
+
+[gcloud]
+disabled = true
+

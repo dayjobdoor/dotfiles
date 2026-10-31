@@ -1,0 +1,37 @@
+name: Full module
+# Weekly smoke of the opt-in full toolbox. Not part of the tag chain, so a red run never blocks releases.
+on:
+  schedule:
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 180
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - name: Build full image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise trust mise.toml && mise run build full
+      - name: Doctor
+        # djd:full is the image the previous step built on this runner, not a pulled one
+        run: docker run --rm djd:full djd doctor # jactionlint ignore=unpinned-images
+      - name: Update
+        env:
+          MISE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # the only run of `djd update`: a machine upgrading itself to the newest mise and tools while the
+        # other jobs stay on the pinned mise
+        run: docker run --rm -e MISE_GITHUB_TOKEN djd:full zsh -lc 'djd update && djd doctor' # jactionlint ignore=unpinned-images

@@ -1,0 +1,20 @@
+# Workflow actions are pinned to commit SHAs; Dependabot moves the SHA and its version comment together.
+# mise tools are not covered: run `mise lock --bump` and commit mise.lock.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # skip releases younger than a week; jactionlint's dependabot-cooldown rule checks it
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /agentos
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

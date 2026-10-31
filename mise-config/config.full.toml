@@ -1,0 +1,474 @@
+# Module full: the whole personal toolbox (ported from budybye/dotfiles). Requires agent (npm: tools use bun).
+
+[settings]
+cargo.binstall = true
+rust.cargo_home = "~/.local/share/cargo"
+rust.rustup_home = "~/.local/share/rustup"
+
+[bootstrap.packages]
+"apt:apt-utils" = "latest"
+"apt:wget" = "latest"
+"apt:cmake" = "latest"
+"apt:ncdu" = "latest"
+"apt:multitail" = "latest"
+"apt:moreutils" = "latest"
+"apt:autoconf" = "latest"
+"apt:lsb-release" = "latest"
+"apt:libdb-dev" = "latest"
+"apt:libgdbm-dev" = "latest"
+"apt:libgmp-dev" = "latest"
+"apt:libgmpxx4ldbl" = "latest"
+"apt:libgdbm-compat-dev" = "latest"
+"apt:libstd-rust-dev" = "latest"
+"apt:libncurses-dev" = "latest"     # libncurses5-dev is gone in 26.04
+"apt:libffi-dev" = "latest"
+"apt:net-tools" = "latest"
+"apt:nmap" = "latest"
+"apt:rsyslog" = "latest"
+"apt:ruby" = "latest"
+"apt:rsync" = "latest"
+"apt:command-not-found" = "latest"
+# GUI: only when the desktop module is selected too (env gating keeps headless full machines CLI-only)
+"apt:flatpak" = { version = "latest", env = "desktop" }
+"apt:libnss3-tools" = { version = "latest", env = "desktop" }          # browser certificate stores (mkcert)
+"apt:libfreetype-dev" = { version = "latest", env = "desktop" }        # libfreetype6-dev is gone in 26.04
+"apt:libfontconfig1-dev" = { version = "latest", env = "desktop" }
+"apt:libxcb-xfixes0-dev" = { version = "latest", env = "desktop" }
+"apt:libxkbcommon-dev" = { version = "latest", env = "desktop" }
+"apt:libgtk-3-dev" = { version = "latest", env = "desktop" }
+"apt:libwebkit2gtk-4.1-dev" = { version = "latest", env = "desktop" }
+"apt:libgtk-layer-shell-dev" = { version = "latest", env = "desktop" }
+"apt:mpd" = { version = "latest", env = "desktop" }
+"apt:mpc" = { version = "latest", env = "desktop" }
+"apt:ncmpcpp" = { version = "latest", env = "desktop" }
+
+[tools]
+# Grouped roughly by implementation language. Commented-out entries are kept for re-enabling.
+
+# https://mise.jdx.dev/dev-tools/backends/http.html
+# "http:android-cli" = "latest"
+# "http:cursor-cli" = "latest"
+# "http:grok" = "latest"
+
+# =============================================================================
+# JavaScript / TypeScript: runtimes / npm CLIs / agent tooling
+# =============================================================================
+# runtimes / package managers
+deno = "latest"
+pnpm = "latest"
+
+# AI / agent / DX
+wacli = "latest" # whats up
+# codex = "latest"
+# opencode = "latest"      # anomalyco/opencode (TypeScript)
+# gemini = "latest"
+# copilot = "latest"
+
+# secrets / config (JS/TS)
+bitwarden = "latest" # bitwarden/clients (TypeScript)
+# dotenvx = "latest"
+# bitwarden-secrets-manager = "latest"
+
+# cloud / SaaS / DX (JS/TS)
+serverless = "latest"       # npm
+wrangler = "latest"
+devcontainer-cli = "latest"
+# graphite = "latest"
+
+# frontend / lint / format / toys
+viteplus = "latest"  # npm:vite-plus
+prettier = "latest"
+json5 = "latest"
+orval = "latest"
+just = "latest"
+watchexec = "latest" # auto runner
+# hunk = "latest"          # modem-dev/hunk (TypeScript)
+# marp-cli = "latest"  # → github:marp-team/marp-cli
+
+# github (TypeScript / JavaScript)
+"github:marp-team/marp-cli" = "latest"
+"github:microsoft/typescript" = "latest"
+"github:yusukebe/ax" = "latest"          # web
+# "github:Egonex-AI/Understand-Anything" = "latest" #graph
+# "github:backnotprop/plannotator" = "latest"
+
+# npm
+"npm:pm2" = "latest"
+"npm:defuddle" = "latest"
+"npm:just-scrape" = "latest"
+"npm:nx" = "latest"
+"npm:cf" = "latest"
+"npm:@antfu/ni" = "latest"
+"npm:@brave/brave-search-cli" = "latest"
+"npm:ndrstnd" = "latest"
+"npm:taze" = "latest"                    # version
+"npm:@hono/cli" = "latest"               # hono docs/test
+"npm:executor" = "latest"                # codemode
+"npm:ccxt-cli" = "latest"                # trade
+"npm:mygo-cli" = "latest"                # trade
+"npm:workers-fetch" = "latest"
+"npm:localflare" = "latest"
+"npm:zenn-cli" = "latest"
+"npm:rnsec" = "latest"
+# "npm:rosie-skills" = "latest" # scan skill
+"npm:context-mode" = "latest"                # agent tiny
+"npm:greptile" = "latest"
+"npm:@fission-ai/openspec" = "latest"
+"npm:@jackwener/opencli" = "latest"
+"npm:ctx7" = "latest"
+"npm:npkill" = "latest"
+"npm:@hey-api/openapi-ts" = "latest"
+"npm:react-doctor" = "latest"
+"npm:codeburn" = "latest"                    # code
+"npm:jj-stack" = "latest"
+"npm:duckduckgo-cli" = "latest"              # web
+"npm:@testsprite/testsprite-cli" = "latest"  # test
+"npm:@cyberstrike-io/cyberstrike" = "latest"
+"npm:console-ninja" = "latest"
+# "npm:omp-web" = "latest" 
+# "npm:spynel" = "latest" # agents
+# "npm:specsmd" = "latest" # agents spec
+# "npm:react-scan" = "latest"
+# "npm:jj-ryu" = "latest"
+# "npm:planning-with-files" = "latest"
+# "npm:musubi-ssd" = "latest"
+# "npm:@openhands/agent-canvas" = "latest"
+# "npm:@context-labs/autodoc" = "latest"
+# "npm:@tessl/cli" = "latest" # agents
+# "npm:@keygraph/shannon" = "latest" # agents
+# "npm:iii-sdk" = "latest"
+# "npm:docusaurus" = "latest"
+# "npm:bigpowers" = "latest"
+# "npm:docsify-cli" = "latest"
+# "npm:plash" = "latest"
+
+# "npm:pyright" = "latest" # github:microsoft/pyright below is used
+"npm:vscode-langservers-extracted" = "latest"
+"npm:typescript-language-server" = "latest"
+"npm:yaml-language-server" = "latest"
+
+# "github:spicetify/cli" = "latest" # spotify
+# =============================================================================
+# Go: runtime and Go-built CLIs (infra / git / cloud / TUI)
+# =============================================================================
+go = "latest"
+aqua = "latest" # pm
+act = "latest"  # actions
+ghq = "latest"  # gh
+# mage = "latest" # build
+# jwt = "latest"
+
+# web / proxy / cert / crypto
+caddy = "latest"
+cfssl = "latest"
+cloudflared = "latest"
+mkcert = "latest"
+age = "latest"
+
+# secrets / SaaS CLIs (Go)
+doppler = "latest" # DopplerHQ/cli (Go)
+stripe = "latest"  # stripe/stripe-cli (Go)
+flyctl = "latest"
+
+# dotfiles / tasks / docs
+cmdx = "latest"
+task = "latest"
+oapi-codegen = "latest"
+# swag = "latest"
+
+# cloud / storage / git UX
+# gcloud = "latest"
+lazyssh = "latest"
+rclone = "latest"  # file sync
+pinact = "latest"
+jjui = "latest"    # idursun/jjui (Go)
+
+# security / policy / cost / IaC
+trivy = "latest"     # security scanner
+infracost = "latest"
+# opentofu = "latest" # cloud
+# kubectx = "latest"
+# neonctl = "latest"
+# opensearch = "latest"
+# elasticsearch = "latest"
+# kustomize = "latest"
+# terraform = "latest"
+
+# format / data / HTTP / UX helpers
+yamlfmt = "latest"
+yj = "latest"
+fx = "latest"
+ubi = "latest"
+checkmake = "latest"
+topgrade = "latest"  # tui
+auto-doc = "latest"
+# glow = "latest"
+# sampler = "latest"
+# gum = "latest"
+# direnv = "latest"
+
+# github (Go)
+"go:github.com/cheat/cheat/cmd/cheat" = "latest" # aqua only ships a darwin-amd64 build, so this is built with go
+"github:keploy/keploy" = "latest"
+"github:projectdiscovery/katana" = "latest"      # crawling
+"github:koki-develop/clive" = "latest"           # auto command
+"github:smallstep/cli" = "latest"                # auth
+"github:fatedier/frp" = "latest"                 # ssh
+"github:jonaslu/ain" = "latest"                  # curl 
+"github:reviewdog/reviewdog" = "latest"          # review
+"github:syncthing/syncthing" = "latest"          # file sync
+"github:ankitpokhrel/jira-cli" = "latest"
+"github:wtfutil/wtf" = "latest"                  # tui dashboard
+"github:sheepla/whois-cli" = "latest"            # whois
+"github:librespeed/speedtest-cli" = "latest"     # st
+"github:pranshuparmar/witr" = "latest"
+"github:gcla/termshark" = "latest"               # wireshark TUI
+"github:go-gitea/gitea" = "latest"
+"github:agent0ai/spynel" = "latest"              # plan
+# "github:daichirata/hammer" = "latest" # gcloud
+# "github:gabe565/moreutils-go" = "latest" #moreutils
+# "github:modu-ai/moai-adk" = "latest" # agent
+# "github:plandex-ai/plandex" = "latest" # plan
+"github:dutchcoders/transfer.sh" = "latest" # files
+
+"aqua:tsenart/vegeta" = { version = "latest", os = "linux/x64" }  # bench; aqua has no linux/arm64 build
+"aqua:taskctl/taskctl" = { version = "latest", os = "linux/x64" } # tasks; aqua has no linux/arm64 build
+
+# "go:github.com/d2lang/d2" = "latest" # diagram
+# "go:github.com/GoogleContainerTools/skaffold" = "latest" # kube
+# "go:github.com/wavetermdev/waveterm" = "latest" # agent
+# "go:github.com/goccy/go-llama" = "latest" # llm
+# "go:github.com/xalgorix/xalgorix" = "latest" # agent
+
+# =============================================================================
+# Rust: toolchain and Rust-built CLIs
+# =============================================================================
+rust = "stable"
+cargo-binstall = "latest"
+sentry = "latest"         # getsentry/sentry-cli (Rust)
+wasm-tools = "latest"
+# biome = "latest"
+
+# VCS / shell UX
+atuin = "latest"
+zellij = "latest"
+# navi = "latest"        # denisidoro/navi (Rust)
+
+# search / view / edit
+xh = "latest"
+# ttyd = "latest"
+scooter = "latest"
+hyperfine = "latest"
+
+rtk = "latest" # rtk-ai/rtk (Rust)
+# tokei = "latest"
+# choose = "latest"
+# oxlint = "latest"
+
+# system / disk / perf
+# dua = "latest"
+dust = "latest"
+coreutils = "latest"
+# tlrc = "latest"
+lychee = "latest"
+# ripsecrets = "latest"
+# mdbook = "latest"
+yazi = "latest"
+
+# HTTP / markdown
+hurl = "latest"
+railway = "latest"
+ast-grep = "latest"
+# htmlq = "latest"
+# websocat = "latest"  # github:vi/websocat below is used
+
+# github (Rust)
+# "github:Dicklesworthstone/pi_agent_rust" = "latest"
+# "github:sharkdp/hyperfine" = "latest"
+"github:tsl0922/ttyd" = "latest"
+"github:vercel-labs/opensrc" = "latest"          # context
+"github:vercel-labs/agent-browser" = "latest"    # test
+"github:boborder/lazyxrp" = "latest"
+"github:orhun/ratty" = "latest"                  # tui
+"github:orhun/binsider" = "latest"
+"github:orhun/halp" = "latest"
+"github:jnsahaj/lumen" = "latest"                # diff
+"github:t8y2/dbx" = "latest"                     # mcp db
+"github:pimalaya/himalaya" = "latest"            # mail
+"github:vi/websocat" = "latest"                  # websocket
+"github:DecapodLabs/decapod" = "latest"          # context
+"github:meilisearch/meilisearch" = "latest"      # search
+"github:GyulyVGC/sniffnet" = "latest"            # monitor; a GUI app, but [tools] has no env gating
+"github:EasyTier/EasyTier" = "latest"            # VPN
+"github:fish-shell/fish-shell" = "latest"        # fish 4+ is Rust
+"github:Rigellute/spotify-tui" = "latest"        # spotify
+"github:asciinema/asciinema" = "latest"          # recorder
+"github:pemistahl/grex" = "latest"
+"github:tursodatabase/agentfs" = "latest"        # fs
+"github:nolabs-ai/nono" = "latest"               # scan
+"github:gleam-lang/gleam" = "latest"             # web
+"github:agavra/tuicr" = "latest"                 # code review
+"github:superradcompany/microsandbox" = "latest" # vm
+
+# "cargo:can1357/pon" = "latest"
+
+# "cargo:denisidoro/navi" = "latest" # file 
+# "cargo:denoland/celld" = "latest" # self-host durable objects
+# "cargo:orhun/kmon" = "latest" 
+# "cargo:cloudflare/boringtun" = "latest" # tunnel
+# "cargo:orhun/duckduckgo-cli" = "latest" # web; npm:duckduckgo-cli is used
+# "cargo:choose" = "latest" 
+# "cargo:alacritty" = "latest"
+# "cargo:gitlogue" = "latest"
+# "cargo:gittype" = "latest"
+# "cargo:kameo_console" = "latest"
+
+# "cargo:rustlings" = "latest" 
+# "cargo:cargo-audit" = "latest" 
+# "cargo:cargo-deny" = "latest" 
+# "cargo:cargo-generate" = "latest" 
+# "cargo:cargo-leptos" = "latest" 
+# "cargo:worker-build" = "latest" 
+
+# "cargo:vaultwarden" = "latest" # bitwarden oss
+# "cargo:abenz1267/walker" = "latest"
+# "cargo:memvid" = "latest" 
+# "cargo:tw93/Kaku" = "latest" # AI terminal
+
+# "github:Hmbown/CodeWhale" = "latest" # AI Agent
+# "github:habitat-sh/habitat" = "latest"
+
+# =============================================================================
+# Python: runtime / packaging / linters / agent CLIs
+# =============================================================================
+# ruff is written in Rust but grouped with the Python ecosystem
+ruff = "latest"
+pipx = "latest"
+hatch = "latest"
+conan = "latest"      # pipx:conan (C/C++ package manager)
+pre-commit = "latest"
+yt-dlp = "latest"
+# claude = "latest"        # anthropics/claude-code (primary: Python)
+
+# github (Python)
+"github:microsoft/pyright" = "latest"
+"github:microsoft/apm" = "latest"
+"github:pandas-dev/pandas" = "latest"
+"github:hacs/integration" = "latest"
+
+"pipx:pytest" = "latest"       # test
+"pipx:opendoor" = "latest"
+"pipx:marimo" = "latest"       # note
+"pipx:observal-cli" = "latest"
+"pipx:graphifyy" = "latest"
+"pipx:trafilatura" = "latest"
+# "pipx:thefuck" = "latest" # errors unless installed with: uv tool install --python 3.11 thefuck
+# "pipx:ragas" = "latest" # RAG
+# "pipx:ddgr" = "latest" # web search
+# "pipx:setuptools" = "latest" # dev tools
+# "pipx:halo-engine" = "latest" # agents
+# "pipx:taipy" = "latest" # agents
+# "pipx:semantica" = "latest" # agents
+# "pipx:crow-cli" = "latest" # agents
+# "pipx:pdftotext" = "latest" # pdf
+
+"pipx:sherlock-project/sherlock" = "latest"
+# "pipx:microsoft/agent-governance-toolkit[full]" = "latest"
+# "pipx:NVIDIA/skillspector" = "latest" # skill scan
+# "pipx:headroomlabs-ai/headroom" = "latest" # agents
+# "pipx:teng-lin/notebooklm-py" = "latest"
+
+# "pipx:cea-sec/miasm" = "latest"
+
+"conda:markitdown" = "latest"
+# "pipx:markitdown-ocr" = "latest"
+
+# "conda:pdftotext" = "latest" # pdf
+"conda:openai" = "latest"
+"conda:pypdf" = "latest"
+"conda:lxml" = "latest"
+"conda:defusedxml" = "latest"
+
+# =============================================================================
+# C / C++: build tools / native DBs / systems tools
+# =============================================================================
+# build
+ninja = "latest"
+# cmake = "latest"
+# make = "latest"
+# bpkg = "latest"
+
+# "vfox:version-fox/vfox-cmake" = "latest"
+
+# data / system
+# redis = "latest"
+# postgres = "latest"
+# duckdb = "latest"
+sqlite = "latest"
+fastfetch = "latest"
+solidity = "latest"  # ethereum/solidity (C++)
+# clickhouse = "latest"
+
+# github (C / C++)
+"github:ushironoko/octorus" = "latest"   # gh
+"github:Slackadays/Clipboard" = "latest" # clipboard
+"github:hashcat/hashcat" = "latest"      # crack
+# "github:colbymchenry/codegraph" = "latest" # graph
+# "github:apple/foundationdb" = "latest" # db
+
+# "github:ClickHouse/ClickHouse" = "latest" # db
+# "github:folkertvanheusden/multitail" = "latest" # cli
+
+# =============================================================================
+# Java
+# =============================================================================
+java = "latest"
+maven = "latest"
+# tomcat = "latest"
+# kafka = "latest"
+# spark = "latest"
+
+# =============================================================================
+# Other languages: niche runtimes
+# =============================================================================
+ruby = "latest"
+# dotnet = "latest" # linux: dotnet-install.sh rejects Ubuntu 26.04 ("Refer to: https://aka.ms/dotnet-os-lifecycle")
+# flutter = "latest"
+# php = "latest"
+# cocoapods = "latest"
+# neko = "latest"
+
+# github (Swift / C# and others)
+"github:iofficeai/officecli" = "latest" # C#
+# "github:manaflow-ai/cmux" = "latest"       # Swift
+# "github:basecamp/writebook" = "latest"       # ruby
+# "github:ClusterVR/ClusterCreatorKit" = "latest" 
+
+# =============================================================================
+# Shell / editors / media / misc: grouped by purpose, across languages
+# =============================================================================
+has = "latest"
+hadolint = "latest" # Haskell
+pandoc = "latest"   # Haskell
+neovim = "latest"
+ffmpeg = "latest"   # C
+# ansible = "latest"
+# android-sdk = "latest"
+# vim = "latest"
+# mongosh = "latest"
+# tmux = "latest"
+# zprint = "latest"
+# aws = "latest"
+
+"github:scop/bash-completion" = "latest"
+
+# desktop / GUI (currently disabled)
+# "github:ownself/wewa" = "latest" # rust web-wall-paper
+# "github:webadderallorg/Recordly" = "latest" # TypeScript
+
+# joke tools
+"npm:cowsay" = "latest"
+"npm:figlet" = "latest"
+"npm:cmatrix" = "latest"
+"pipx:fortune" = "latest"
+"pipx:lolcat" = "latest"

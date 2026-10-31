@@ -1,0 +1,103 @@
+# identity and signing live in the per-machine ~/.config/git/user.conf, never in this file
+[include]
+	path = ~/.config/git/user.conf
+
+[alias]
+	t = tag
+	s = status
+	st = status
+	a = add
+	ad = add
+	b = branch
+	br = branch
+	cm = commit -m
+	cv = commit -v
+	co = checkout
+	dc = diff --cached
+	pl = pull
+	ps = push
+	pom = push origin main
+	psf = push --force-with-lease
+	fml = reset --hard HEAD
+	conf = config --global
+	hist = log --pretty=format:\"%C(cyan)%h %C(green)%ad%Creset | %s %C(yellow)%d %C(magenta)[%an]\" --graph --date=short
+	unstage = reset -q --
+
+[blame]
+	coloring = highlightRecent
+
+[color]
+	ui = auto
+
+[color "blame"]
+	highlightRecent = dim white,30 month ago,dim magenta,24 month ago,dim blue,18 month ago,dim cyan,15 month ago,dim green,12 month ago,dim yellow,9 month ago,dim red,6 month ago,bold magenta,3 month ago,bold blue,2 month ago,bold cyan,6 week ago,bold green,4 week ago,bold yellow,2 week ago,bold red
+
+[color "decorate"]
+	HEAD = cyan
+	remoteBranch = red bold
+	stash = yellow
+	tag = blue bold
+
+[color "diff"]
+	frag = white blue
+	meta = black yellow
+
+[color "grep"]
+	filename = magenta
+	lineNumber = green
+
+[core]
+	excludesfile = ~/.config/git/ignore
+	pager = delta
+	# show non-ASCII (Japanese) paths unescaped
+	quotepath = false
+
+[interactive]
+	diffFilter = delta --color-only
+
+[commit]
+	verbose = true
+	template = ~/.config/git/commit.template
+
+[diff]
+	algorithm = histogram
+	indentHeuristic = true
+	renameLimit = 10000
+	renames = copies
+	statGraphWidth = 8
+
+[help]
+	autocorrect = 30
+
+[push]
+	default = simple
+	gpgSign = if-asked
+	followTags = true
+	autoSetupRemote = true
+
+[rebase]
+	missingCommitsCheck = warn
+
+[rerere]
+	enabled = true
+
+[delta]
+	line-numbers = true
+	side-by-side = false
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
+	twohead = ort
+
+[branch]
+	autosetuprebase = always
+
+[credential "https://github.com"]
+	helper = 
+	helper = !$HOME/.local/share/mise/shims/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !$HOME/.local/share/mise/shims/gh auth git-credential

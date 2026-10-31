@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#MISE description="Run CI jobs locally with act, or plan every workflow with --dry-run (the vm job needs LXD)"
+#MISE tools={act="latest"}
+#USAGE arg "[job]..." var=#true help="ci.yaml jobs to run in order; all four by default" {
+#USAGE   choices "lint" "sandbox" "desktop" "agentos"
+#USAGE }
+#USAGE flag "-n --dry-run" help="Plan every job of every workflow, release ones included, without running steps"
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# usage hands variadic args over as one shell-quoted string; its choices limit the words to known jobs
+eval "selected=(${usage_job:-})"
+[ ${#selected[@]} -gt 0 ] || selected=(lint sandbox desktop agentos)
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+# act copies the working directory into its containers; hand it tracked and unignored files only
+tests/tree.sh | tar -xf - -C "$work"
+git -C "$work" init -q
+git -C "$work" add -A
+git -C "$work" -c user.name=act -c user.email=act@localhost commit -qm "act $(git rev-parse --short HEAD)"
+# act derives github.repository from origin; tag.yaml only releases for this repository
+git -C "$work" remote add origin https://github.com/dayjobdoor/dotfiles.git
+
+export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+cd "$work"
+# runner images and options come from .actrc; -s NAME reads the secret from the environment
+if [ "${usage_dry_run:-false}" = true ]; then
+    printf '{"ref": "refs/tags/0.0.1"}\n' >"$work/tag.json"
+    printf '{"workflow_run": {"conclusion": "success", "event": "push", "head_branch": "main",
+        "head_repository": {"full_name": "dayjobdoor/dotfiles"}}}\n' >"$work/run.json"
+    act push -n -W .github/workflows/ci.yaml -s GITHUB_TOKEN
+    act workflow_dispatch -n -W .github/workflows/full-weekly.yaml -s GITHUB_TOKEN
+    act workflow_run -n -W .github/workflows/tag.yaml -e "$work/run.json" -s GITHUB_TOKEN
+    act push -n -W .github/workflows/push.yaml -e "$work/tag.json" -s GITHUB_TOKEN
+    exit
+fi
+for job in "${selected[@]}"; do
+    echo "ci: $job"
+    act push -W .github/workflows/ci.yaml -j "$job" --matrix runner:ubuntu-26.04 -s GITHUB_TOKEN
+done

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Show checkout, modules and bootstrap state"
+#MISE quiet=true
+set -euo pipefail
+DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+
+sha=$(git -C "$DJD_DIR" rev-parse --short HEAD 2>/dev/null || echo "${DJD_REVISION:-no-git}")
+echo "checkout: $(readlink -f "$DJD_DIR") @ $sha"
+echo "modules: ${MISE_ENV:-none}"
+exec mise bootstrap status "$@"

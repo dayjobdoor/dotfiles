@@ -1,0 +1,20 @@
+# Module agent: runtimes and coding-agent CLIs for sandboxes.
+
+[settings]
+npm.package_manager = "bun"
+pypi.uvx = true
+minimum_release_age_excludes = ["pi", "github:can1357/oh-my-pi"]
+
+[tools]
+node = "lts"
+bun = "latest"
+python = "latest"
+uv = "latest"
+pi = "latest"
+"github:can1357/oh-my-pi" = "latest"
+"npm:skills" = "latest"
+
+[bootstrap.packages]
+"apt:build-essential" = "latest"
+"apt:pkg-config" = "latest"
+"apt:libssl-dev" = "latest"

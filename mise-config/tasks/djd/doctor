@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#MISE description="Check this machine against the repo; exit 1 on any failure"
+#MISE quiet=true
+set -euo pipefail
+DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+
+failed=0
+ok() { echo "ok $1"; }
+fail() {
+    echo "FAIL $1: $2"
+    failed=1
+}
+
+if grep -qx 'ID=ubuntu' /etc/os-release; then ok ubuntu; else fail ubuntu "/etc/os-release is not Ubuntu"; fi
+
+have=$(readlink -f "${XDG_CONFIG_HOME:-$HOME/.config}/mise" || true)
+want=$(readlink -f "$DJD_DIR/mise-config")
+if [ "$have" = "$want" ]; then ok mise-config; else fail mise-config "mise config dir is ${have:-missing}, want $want"; fi
+
+shell=$(getent passwd "$(id -un)" | cut -d: -f7)
+case $shell in
+*/zsh) ok login-shell ;;
+*) fail login-shell "$shell is not zsh" ;;
+esac
+
+if out=$(mise bootstrap status --missing 2>&1); then ok bootstrap; else
+    fail bootstrap "not converged; run djd apply"
+    printf '%s\n' "$out"
+fi
+# --json, because the plain output also reports history capture, which this repository does not use
+if out=$(mise dot status --missing --json 2>/dev/null); then ok dotfiles; else
+    fail dotfiles "not deployed; run djd apply, which moves a file that a program rewrote aside as *.djd-backup-<time>"
+    jq -r '.files[] | select(.state != "applied") | "  \(.state): \(.reason // .source)"' <<<"$out" 2>/dev/null ||
+        mise dot status --missing 2>&1 || true
+fi
+
+exit "$failed"

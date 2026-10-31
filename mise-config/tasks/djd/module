@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#MISE description="List, add or remove machine modules"
+#MISE quiet=true
+#USAGE arg "<action>" { choices "list" "add" "remove"; }
+#USAGE arg "[module]..." var=#true help="Modules to add or remove" {
+#USAGE   choices "agent" "server" "desktop" "full" "secrets"
+#USAGE }
+set -euo pipefail
+DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+
+# the canonical order, so later modules win key collisions
+order=(agent server desktop full secrets)
+modules=()
+# usage hands variadic args over as one shell-quoted string; its choices limit the words to known modules
+eval "modules=(${usage_module:-})"
+declare -A on=()
+IFS=, read -r -a current <<<"${MISE_ENV:-}"
+for m in "${current[@]}"; do on[$m]=1; done
+
+write_selection() {
+    local m list=""
+    for m in "${order[@]}"; do
+        if [ -n "${on[$m]:-}" ]; then list="${list:+$list, }\"$m\""; fi
+    done
+    local file="$DJD_DIR/mise-config/miserc.local.toml"
+    if [ -z "$list" ]; then rm -f "$file"; else printf 'env = [%s]\n' "$list" >"$file"; fi
+}
+
+action=${usage_action?}
+if [ "$action" != list ] && [ ${#modules[@]} -eq 0 ]; then
+    echo "djd: name at least one module to $action: ${order[*]}" >&2
+    exit 2
+fi
+case $action in
+list)
+    for m in "${order[@]}"; do
+        if [ -n "${on[$m]:-}" ]; then echo "$m selected"; else echo "$m -"; fi
+    done
+    ;;
+add)
+    for m in "${modules[@]}"; do on[$m]=1; done
+    # npm: tools in full need bun from agent
+    if [ -n "${on[full]:-}" ]; then on[agent]=1; fi
+    # the firewall rules for 3389/tcp live in the server module
+    if [ -n "${on[desktop]:-}" ] && [ -z "${on[server]:-}" ]; then
+        echo "djd: desktop without server leaves RDP (3389/tcp) open on every interface; the server module adds the firewall rules" >&2
+    fi
+    write_selection
+    # MISE_ENV inherited from this task outranks miserc.local.toml
+    unset MISE_ENV
+    exec mise run djd:apply
+    ;;
+remove)
+    removed=()
+    for m in "${modules[@]}"; do
+        # the selection is written before the unapply below, so a run that failed halfway leaves the module
+        # unselected but its files in place; a retry has to unapply them
+        if [ -z "${on[$m]:-}" ]; then echo "djd: $m is not selected; unapplying anything it left behind" >&2; fi
+        unset "on[$m]"
+        removed+=("$m")
+    done
+    if [ -n "${on[full]:-}" ] && [ -z "${on[agent]:-}" ]; then
+        echo "djd: full requires agent; remove full first" >&2
+        exit 2
+    fi
+    write_selection
+    unset MISE_ENV
+    for m in "${removed[@]}"; do
+        mise bootstrap unapply "$m" --yes
+        if [ -d "$DJD_DIR/$m" ]; then
+            # mise reports a group that was never applied as an error
+            if out=$(mise dot unapply --group "$m" --yes 2>&1); then
+                [ -z "$out" ] || printf '%s\n' "$out"
+            elif [[ $out == *"has no recorded files"* ]]; then
+                echo "djd: $m has no deployed dotfiles"
+            else
+                printf '%s\n' "$out" >&2
+                exit 1
+            fi
+        fi
+        echo "djd: packages installed by $m stay; remove them with apt if needed"
+    done
+    # converge what the remaining modules still declare (e.g. the base locale over desktop's)
+    exec mise run djd:apply
+    ;;
+esac

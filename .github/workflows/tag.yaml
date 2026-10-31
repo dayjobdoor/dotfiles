@@ -1,0 +1,130 @@
+name: Tag and Release
+# Tags X.Y.Z and creates a GitHub release when CI passes on a push to main.
+on:
+  # workflow_run is safe here only because the job's `if` accepts push runs from this repository alone
+  workflow_run: # jactionlint ignore=dangerous-triggers
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
+  # never cancel a release mid-push; queued runs wait instead
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # only CI runs from pushes to this repo's main; a fork PR whose branch is also named main must not get tagged and published
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the tag, create the release
+      actions: write # dispatch push.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # persist-credentials stays on, unlike every other checkout: the next step pushes the tag with it
+          fetch-depth: 0
+
+      - name: Create tag and release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags origin
+
+          semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+          semver_latest() {
+            git tag -l '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
+              while IFS= read -r candidate; do
+                if [[ "${candidate}" =~ ${semver_pattern} ]]; then
+                  printf '%s\n' "${candidate}"
+                  break
+                fi
+              done
+          }
+
+          # reuse a strict SemVer tag that already points at this commit
+          existing_tag="$(
+            git tag -l '[0-9]*.[0-9]*.[0-9]*' \
+              --points-at "$HEAD_SHA" \
+              --sort=-v:refname |
+              while IFS= read -r candidate; do
+                if [[ "${candidate}" =~ ${semver_pattern} ]]; then
+                  printf '%s\n' "${candidate}"
+                  break
+                fi
+              done
+          )"
+          if [ -n "$existing_tag" ]; then
+            new_tag="$existing_tag"
+            echo "commit ${HEAD_SHA} already tagged: ${new_tag}"
+          else
+            latest_tag=$(semver_latest)
+            [ -z "$latest_tag" ] && latest_tag="0.0.0"
+            if [[ ! "$latest_tag" =~ ${semver_pattern} ]]; then
+              latest_tag="0.0.0"
+            fi
+            # a re-run of an older CI run must not release old code as the newest version
+            if [ "$latest_tag" != "0.0.0" ] && ! git merge-base --is-ancestor "${latest_tag}^{commit}" "$HEAD_SHA"; then
+              echo "commit ${HEAD_SHA} does not contain ${latest_tag}; not releasing it"
+              exit 0
+            fi
+            IFS='.' read -r major minor patch <<< "$latest_tag"
+            new_patch=$((patch + 1))
+            new_tag="${major}.${minor}.${new_patch}"
+            echo "new tag: ${new_tag}"
+
+            if git ls-remote --tags origin "refs/tags/${new_tag}" | grep -q .; then
+              echo "tag ${new_tag} already exists on the remote; only rerunning the GHCR build"
+            else
+              git config --global user.email "github-actions[bot]@users.noreply.github.com"
+              git config --global user.name "github-actions[bot]"
+              git tag "$new_tag" "$HEAD_SHA"
+              git push origin "$new_tag"
+            fi
+          fi
+
+          # only the newest version is the latest release
+          latest_flag=--latest=false
+          if [ "$new_tag" = "$(semver_latest)" ]; then latest_flag=--latest; fi
+          if ! gh release view "$new_tag" >/dev/null 2>&1; then
+            gh release create "$new_tag" \
+              --title="$new_tag" \
+              --notes="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              "$latest_flag" \
+              --generate-notes
+          else
+            echo "release ${new_tag} already exists"
+          fi
+
+          printf 'tag=%s\n' "$new_tag" >> "$GITHUB_OUTPUT"
+
+      # tags pushed with GITHUB_TOKEN do not trigger other workflows, so start push.yaml explicitly
+      - name: Trigger GHCR build
+        # the previous step leaves no tag when it declined to release an older commit
+        if: steps.release.outputs.tag != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+          if [[ ! "${RELEASE_TAG}" =~ ${semver_pattern} ]]; then
+            echo "Invalid release tag: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+          echo "dispatching push.yaml for ${RELEASE_TAG}"
+          gh workflow run push.yaml --ref "${RELEASE_TAG}"

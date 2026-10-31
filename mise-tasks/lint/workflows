@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="jactionlint over the workflows and dependabot.yml, runner labels against .actrc, hadolint"
+#MISE tools={jactionlint="latest", hadolint="latest", shellcheck="latest"}
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+jactionlint .github/workflows/*.yaml .github/dependabot.yml
+# act stops at an interactive image prompt for any runner label .actrc does not map
+while IFS= read -r label; do
+    grep -q -- "^-P $label=" .actrc || {
+        echo "lint: runner $label is not mapped in .actrc" >&2
+        exit 1
+    }
+done < <(grep -ohE 'ubuntu-[0-9a-z.-]+' .github/workflows/*.yaml | sort -u)
+# DL3066: the base image defines the ubuntu user, so USER by name always resolves
+hadolint --ignore DL3066 .devcontainer/Dockerfile
+echo "ok workflows and Dockerfile"

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#MISE description="Fresh Ubuntu VM (LXD or OrbStack): curl | sh install of server + desktop, hardening, module removal"
+# cloud-init, the README's `curl | sh -s -- server desktop` (cloning this tree instead of GitHub), then
+# tests/vm-checks.sh inside the VM. Uses LXD (`lxc`, CI) or OrbStack (`orb`, macOS), whichever is installed.
+# GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 keeps the VM after the run, to inspect a failure.
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+name="djd-test-$$"
+
+if command -v lxc >/dev/null 2>&1; then
+    vm_create() {
+        # nesting lets docker (server module) run inside the system container
+        lxc launch ubuntu:26.04 "$name" -c security.nesting=true \
+            -c user.user-data="$(cat cloud-init/orbstack.yaml)" >/dev/null
+        lxc exec "$name" -- cloud-init status --wait >/dev/null ||
+            {
+                lxc exec "$name" -- cloud-init status --long >&2
+                exit 1
+            }
+    }
+    vm_sh() { lxc exec "$name" -- sudo -iu ubuntu bash -c "$1"; }
+    vm_delete() { lxc delete -f "$name" >/dev/null 2>&1 || true; }
+elif command -v orb >/dev/null 2>&1; then
+    vm_create() {
+        orb create -c cloud-init/orbstack.yaml ubuntu:resolute "$name" >/dev/null
+        orb -m "$name" -w / sudo cloud-init status --wait >/dev/null ||
+            {
+                orb -m "$name" -w / sudo cloud-init status --long >&2
+                exit 1
+            }
+    }
+    # orb starts commands in the host's cwd, where mise would also read the host's mise.toml files
+    vm_sh() { orb -m "$name" -w / bash -lc "cd && $1"; }
+    vm_delete() { orb delete -f "$name" >/dev/null 2>&1 || true; }
+else
+    echo "vm: needs lxc (LXD) or orb (OrbStack)" >&2
+    exit 2
+fi
+
+trap '[ -n "${DJD_KEEP_VM:-}" ] || vm_delete' EXIT
+vm_create
+echo "vm: $name is up"
+
+# the token travels on stdin into a 0600 file, never through argv
+printf '%s' "${GITHUB_TOKEN:-}" | vm_sh 'umask 077 && cat >~/.djd-github-token'
+# tracked and unignored files only: no .env, age.txt or miserc.local.toml (which would change the VM's modules)
+tests/tree.sh | vm_sh 'mkdir -p ~/djd-src && tar -xf - -C ~/djd-src'
+vm_sh 'git -c init.defaultBranch=main init -q ~/djd-src && cd ~/djd-src && git add -A &&
+    git -c user.name=djd -c user.email=djd@localhost commit -qm test'
+
+# single quotes on purpose: these expand inside the VM. install.sh arrives on stdin as from curl, so it clones.
+# shellcheck disable=SC2016
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_REPO="file://$HOME/djd-src" sh -s -- server desktop <~/djd-src/install.sh'
+# shellcheck disable=SC2016
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) bash ~/.dotfiles/tests/vm-checks.sh'
+echo "vm: ok"

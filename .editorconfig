@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{py,pyi,php,java,rs,go,sh}]
+indent_size = 4
+
+# Shell scripts without an extension (*.sh is covered above); `mise run lint` formats them with 4 spaces (shfmt -i 4)
+[{.githooks/*,home/.profile,home/.bash_profile,home/.bashrc,home/.local/bin/*,desktop/.xsession,mise-tasks/**,mise-config/tasks/**,mise-config/hooks/*}]
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+# spaces: DESIGN.md opens with YAML front matter, which forbids tabs
+[*.{md,mdx,mdc}]
+indent_style = space
+
+[{.env,.env.*}]
+indent_style = tab
+
+[*.{wat,wast,wasm}]
+indent_style = tab
+
+[*ignore]
+indent_style = tab

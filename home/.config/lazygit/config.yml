@@ -1,0 +1,47 @@
+# Only the values that differ from `lazygit --config`. lazygit fills in the rest.
+gui:
+  border: single
+  theme:
+    inactiveViewSelectedLineBgColor:
+      - bold
+    selectedLineBgColor:
+      - blue
+keybinding:
+  universal:
+    confirmInEditor:
+      - <ctrl+enter>
+      - <ctrl+s>
+    diffingMenu:
+      - W
+      - <ctrl+e>
+    gotoBottom:
+      - '>'
+      - <end>
+    gotoTop:
+      - <
+      - <home>
+    nextBlock:
+      - <right>
+      - l
+      - <tab>
+    nextItem:
+      - <down>
+      - j
+    prevBlock:
+      - <left>
+      - h
+      - <backtab>
+    prevItem:
+      - <up>
+      - k
+    quit:
+      - q
+      - <ctrl+c>
+    scrollDownMain:
+      - <pgdown>
+      - J
+      - <ctrl+d>
+    scrollUpMain:
+      - <pgup>
+      - K
+      - <ctrl+u>

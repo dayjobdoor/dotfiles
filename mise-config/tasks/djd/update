@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Pull the checkout, update mise, upgrade packages and tools"
+#MISE quiet=true
+set -euo pipefail
+DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+
+if git -C "$DJD_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # not `git pull --ff-only`: with the repo's own pull.rebase = true that path refuses any dirty tree
+    git -C "$DJD_DIR" fetch --quiet && git -C "$DJD_DIR" merge --ff-only '@{u}'
+else
+    echo "djd: $DJD_DIR is not a git checkout; skipping pull"
+fi
+mise self-update --yes
+exec mise run djd:apply --upgrade "$@"

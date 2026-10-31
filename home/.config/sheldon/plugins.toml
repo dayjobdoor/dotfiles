@@ -1,0 +1,45 @@
+# compinit lives in .zshrc; zoxide and `fzf --zsh` replace the cd/fzf plugins.
+# Every plugin is pinned to a commit, because sheldon would otherwise clone the default branch HEAD into
+# each new machine and run it in shells that may see secrets. To update one: set a newer `rev`, then run
+# `sheldon lock --update`.
+shell = "zsh"
+
+[plugins.zsh-defer]
+github = "romkatv/zsh-defer"
+rev = "53a26e287fbbe2dcebb3aa1801546c6de32416fa"
+apply = ["source"]
+
+[templates]
+defer = "{% for file in files %}zsh-defer source \"{{ file }}\"\n{% endfor %}"
+
+[plugins.zsh-fast-syntax-highlighting]
+github = "zdharma-continuum/fast-syntax-highlighting"
+rev = "4672ad5dd9ad68a7effc1476d65afb7c584ce2b3"
+apply = ["defer"]
+
+[plugins.zsh-completions]
+github = "zsh-users/zsh-completions"
+rev = "989b23277ab33e8d5e82df6aed936e846db9d8b8"
+dir = "src"
+apply = ["fpath"]
+
+[plugins.zsh-autosuggestions]
+github = "zsh-users/zsh-autosuggestions"
+rev = "85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
+use = ["{{ name }}.zsh"]
+apply = ["defer"]
+
+[plugins.zsh-autopair]
+github = "hlissner/zsh-autopair"
+rev = "449a7c3d095bc8f3d78cf37b9549f8bb4c383f3d"
+apply = ["defer"]
+
+[plugins.forgit]
+github = "wfxr/forgit"
+rev = "8b638f4765cabe41bf3e86196cfcce388daa9266"
+apply = ["defer"]
+
+[plugins.git-open]
+github = "paulirish/git-open"
+rev = "63c0e77aaf18b72c839b1113c1e2f9514413643b"
+apply = ["defer"]

@@ -1,0 +1,133 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    # docs-only changes skip CI, except DESIGN.md, which lint checks
+    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md"]
+  pull_request:
+    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md"]
+  # tools track `latest`, so a quiet repository still breaks upstream; this run catches it.
+  # Scheduled runs never tag a release (tag.yaml accepts push runs only).
+  schedule:
+    - cron: "0 18 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # per event, so a scheduled run never cancels the push run that tag.yaml waits for
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Every job runs the same mise task a developer runs locally (`make test` = `mise run test`);
+# `mise run ci <job>` runs the lint, sandbox, desktop and agentos jobs on your machine with act.
+jobs:
+  lint:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      # tools install from the URLs and checksums in mise.lock, so this job calls no GitHub API and needs no token
+      MISE_LOCKED: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks scans the whole history
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install zsh for `zsh -n`
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends zsh
+      # mise itself only; `mise run lint` installs each check's tools, at the versions pinned in mise.lock
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+      - name: Lint (shell, mise configs, workflows, Dockerfile, DESIGN.md, docs links, secrets)
+        run: mise run lint
+
+  sandbox:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-26.04, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      # the task only drives docker; its tools run inside the image
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - name: Build the sandbox image, doctor, tools on PATH, backup, idempotent apply
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise trust mise.toml && mise run test
+
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-26.04, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - name: Build the desktop image, RDP login starts XFCE
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise trust mise.toml && mise run test:desktop
+
+  # a fresh Ubuntu system container with systemd, as a VM user gets it
+  vm:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-26.04, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+        with:
+          channel: latest/stable
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - name: cloud-init, install server + desktop, firewall, services, module removal
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise trust mise.toml && mise run test:vm
+
+  agentos:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - name: Boot agentOS with the exported dotfiles
+        env: # installs from mise.lock, as in the lint job
+          MISE_LOCKED: "true"
+        run: mise trust mise.toml && mise run agentos:boot

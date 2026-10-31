@@ -1,0 +1,72 @@
+# Global mise config for every machine (linked as ~/.config/mise).
+# Modules: config.<module>.toml, selected per machine in miserc.local.toml via `djd module`.
+# [bootstrap], [dotfile_groups] and the hooks below need this release or later; djd update keeps up.
+min_version = "2026.10.23"
+
+[settings]
+# ponytail: no lockfile; image digests pin sandboxes. Add lockfile=true + mise lock --global if machines must match bit-for-bit.
+minimum_release_age = "3d"
+trusted_config_paths = ["~/.dotfiles"]
+activate_aggressive = true
+jobs = 8
+
+[tools]
+usage = "latest"
+starship = "latest"
+sheldon = "latest"
+zoxide = "latest"
+fzf = "latest"
+ripgrep = "latest"
+fd = "latest"
+bat = "latest"
+lsd = "latest"
+sd = "latest"
+jq = "latest"
+yq = "latest"
+delta = "latest"
+gh = "latest"
+lazygit = "latest"
+jj = "latest"
+"github:dmmulroy/jj-starship" = "latest" # the prompt's git and jj segment (starship.toml custom.jj)
+bottom = "latest"
+micro = "latest"
+herdr = "latest"
+shellcheck = "latest"
+shfmt = "latest"
+
+[bootstrap.packages]
+"apt:ca-certificates" = "latest"
+"apt:curl" = "latest"
+"apt:git" = "latest"
+"apt:zsh" = "latest"
+"apt:sudo" = "latest"
+"apt:locales" = "latest"
+"apt:tzdata" = "latest"
+"apt:less" = "latest"
+"apt:vim" = "latest"
+"apt:unzip" = "latest"
+"apt:tree" = "latest"
+"apt:openssh-client" = "latest"
+"apt:gnupg" = "latest"
+"apt:fastfetch" = "latest"
+"apt:make" = "latest"
+
+# English system locale for agents; config.desktop.toml overrides it. Declaring it here also means
+# removing the desktop module restores this content instead of deleting the file.
+# 26.04 `locales` turns /etc/default/locale into a symlink to this file.
+[bootstrap.files."/etc/locale.conf"]
+content = "LANG=C.UTF-8\n"
+mode = "0644"
+owner = "root"
+group = "root"
+
+[bootstrap.user]
+login_shell = "zsh"
+
+# Base owns pre-user. mise runs a plain `chsh`, which asks for a password that cloud and OrbStack users
+# don't have; switching via sudo first leaves the user phase a no-op.
+[bootstrap.hooks]
+pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
+
+[dotfile_groups.home]
+root = "home"

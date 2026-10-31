@@ -1,0 +1,19 @@
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/*.local.toml
+# the local overrides and credential files .gitignore lists; docker build sends untracked files too
+**/*.local
+!home/.local
+**/gh/hosts.yml
+**/rclone/rclone.conf
+**/auth.json
+**/*.pem
+**/*.key
+**/age.txt
+.secrets
+.vars
+dist
+**/node_modules
+**/.DS_Store

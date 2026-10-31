@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#MISE description="Desktop image: an xfreerdp client logs in over RDP and XFCE starts (builds it first)"
+#MISE depends=["build desktop"]
+#USAGE arg "[image]" default="djd:desktop" help="Image to test"
+set -euo pipefail
+
+image=${usage_image:-${1:-djd:desktop}}
+net="djd-rdp-$$"
+server="djd-desktop-$$"
+client="djd-rdp-client-$$"
+
+# shellcheck disable=SC2329 # invoked by the EXIT trap
+cleanup() {
+    docker rm -f "$server" "$client" >/dev/null 2>&1 || true
+    docker network rm "$net" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+fail() {
+    echo "test:desktop: $1" >&2
+    docker logs "$server" >&2 || true
+    docker exec "$server" sh -c 'tail -n 40 /var/log/xrdp.log /var/log/xrdp-sesman.log' >&2 || true
+    docker exec "$client" cat /tmp/xfreerdp.log >&2 || true
+    exit 1
+}
+
+docker network create "$net" >/dev/null
+docker run -d --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
+    "$image" ubuntu djd-test-pass >/dev/null
+
+for _ in $(seq 60); do
+    if docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null; then break; fi
+    sleep 1
+done
+docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null || fail "xrdp is not listening on 3389"
+
+# Install the client before the clock starts; the login itself gets 120s.
+docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
+docker exec -e DEBIAN_FRONTEND=noninteractive "$client" sh -c \
+    'apt-get -o Acquire::Retries=3 update -qq && apt-get -o Acquire::Retries=3 install -y -qq freerdp3-x11 xvfb >/dev/null'
+docker exec -d "$client" sh -c \
+    "xvfb-run -a xfreerdp3 /v:$server /u:ubuntu /p:djd-test-pass /cert:ignore >/tmp/xfreerdp.log 2>&1"
+
+for _ in $(seq 120); do
+    if docker exec "$server" pgrep -u ubuntu -x xfce4-session >/dev/null; then
+        # the fcitx variables that ~/.xsession exports must reach the session. Root cannot read another user's
+        # /proc/PID/environ in a container (permission denied), the session's owner can.
+        pid=$(docker exec "$server" pgrep -o -u ubuntu -x xfce4-session)
+        env=$(docker exec -u ubuntu "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
+        for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
+            grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
+        done
+        echo "test:desktop: xfce4-session started through ~/.xsession"
+        exit 0
+    fi
+    sleep 1
+done
+fail "no xfce4-session for ubuntu after 120s"
