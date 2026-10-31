@@ -101,13 +101,16 @@ async function readBundleFiles() {
   return files;
 }
 
+// Textual, so a typo or a deleted declaration fails but this is no trust boundary: it does not know which table
+// a key sits in, nor os-scoped entries or multi-line strings, and it sees `mode = "absent"` on the same line only.
+// A TOML parser is not worth carrying for that.
 async function checkParity() {
   const toml = (
     await Promise.all(["config.toml", "config.agent.toml"].map((f) => readFile(join(REPO_DIR, "mise-config", f), "utf8")))
   ).join("\n");
   const undeclared = Object.entries(SOFTWARE).filter(([, key]) => {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return !new RegExp(`^"?${escaped}"?\\s*=`, "m").test(toml);
+    return !new RegExp(`^"?${escaped}"?\\s*=(?!.*\\bmode\\s*=\\s*["']absent["'])`, "m").test(toml);
   });
   if (undeclared.length > 0) {
     fail(undeclared.map(([name, key]) => `${name}: ${key} is not declared in mise-config/config.toml or config.agent.toml`));
