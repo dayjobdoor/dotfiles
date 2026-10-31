@@ -138,8 +138,9 @@ if (process.env.AGENTOS_SOFTWARE_REGISTRY_URL) {
 // The guest shell (brush) reads no startup files for exec/execFile: `-l` is ignored and BASH_ENV/ENV make it
 // fail ("not yet implemented"). Checks source ~/.profile explicitly.
 const PROFILE = '. "$HOME/.profile"';
-// Each check runs in its own execFile. stdout is compared without its final newline; stderr must be empty
-// unless the check says otherwise.
+// Each check runs in its own execFile. stdout is compared without its final newline. A check needs exit 0 and an
+// empty stderr unless it says otherwise: `anyStderr` allows any stderr, `expectFailure` (a regex for stderr)
+// needs a non-zero exit instead.
 const CHECKS = [
   { name: "profile sources with exit 0 and no stderr", script: PROFILE, stdout: "" },
   {
@@ -170,6 +171,14 @@ const CHECKS = [
     // git commit prints "fork failed" on stderr in the guest and still succeeds
     anyStderr: true,
   },
+  {
+    // Resolving is the only observable difference: under the default policy curl resolves the name and then fails
+    // with exit 7 (getsockname), so any non-zero exit would also pass without `permissions`.
+    name: "guest network is denied",
+    script: "curl -sS --max-time 15 https://api.anthropic.com",
+    stdout: "",
+    expectFailure: /curl: \(6\) Could not resolve host: api\.anthropic\.com/,
+  },
 ];
 
 const { AgentOs } = await import("@rivet-dev/agentos-core");
@@ -181,8 +190,9 @@ try {
     sidecar: { kind: "explicit", handle: sidecar },
     software: Object.keys(SOFTWARE).map((registry) => ({ registry })),
     environment: BASE_ENV,
-    // The default policy lets the guest reach api.anthropic.com. Registry packages are downloaded by this host
-    // process, which network permissions do not cover, so denying costs nothing.
+    // The default policy lets the guest resolve api.anthropic.com (see the "guest network is denied" check).
+    // Registry packages are downloaded by this host process, which network permissions do not cover, so denying
+    // costs nothing.
     permissions: { network: "deny" },
     // the 30s default fails registry downloads on slow links
     packageResolver: { downloadTimeoutMs: 300_000 },
@@ -198,9 +208,12 @@ try {
     const stdout = (r.stdout ?? "").replace(/\n$/, "");
     const stderr = r.stderr ?? "";
     const stdoutOk = check.stdout instanceof RegExp ? check.stdout.test(stdout) : stdout === check.stdout;
-    if (r.outcome !== "succeeded" || r.exitCode !== 0 || !stdoutOk || (!check.anyStderr && stderr !== "")) {
+    const statusOk = check.expectFailure
+      ? r.outcome === "failed" && r.exitCode !== 0 && check.expectFailure.test(stderr)
+      : r.outcome === "succeeded" && r.exitCode === 0 && (check.anyStderr || stderr === "");
+    if (!statusOk || !stdoutOk) {
       failures.push(
-        `${check.name}: outcome=${r.outcome} exit=${r.exitCode}\n  want stdout: ${check.stdout}\n  stdout: ${JSON.stringify(stdout)}\n  stderr: ${JSON.stringify(stderr)}`,
+        `${check.name}: outcome=${r.outcome} exit=${r.exitCode}\n  want stdout: ${check.stdout}${check.expectFailure ? `\n  want exit != 0 and stderr: ${check.expectFailure}` : ""}\n  stdout: ${JSON.stringify(stdout)}\n  stderr: ${JSON.stringify(stderr)}`,
       );
     }
   }
