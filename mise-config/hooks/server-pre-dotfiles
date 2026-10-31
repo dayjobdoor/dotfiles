@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The server module's pre-dotfiles hook (config.server.toml owns the `pre-dotfiles` key). mise runs it after
+# The server module's pre-dotfiles hook (declared in config.server.toml). mise runs it after
 # the files phase wrote /etc/ssh/sshd_config.d/10-djd.conf, and before every `mise dot apply`. On Ubuntu's stock
 # sshd_config layout a converged machine needs no sudo here.
 set -euo pipefail

@@ -24,7 +24,7 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 `mise run lint` runs six checks in parallel. Each check installs only its own tools. `lint` has no body of its own. It depends on the six `lint:*` tasks.
 
 - `lint:shell` runs shellcheck and shfmt over every script, and `zsh -n`.
-- `lint:config` runs `mise fmt` and `mise tasks validate`. It applies the hook-ownership rule to `[bootstrap.hooks]`. It also requires that `install.sh`, both `min_version` lines, and every `mise-action` pin name the same mise release, because no bot bumps them.
+- `lint:config` runs `mise fmt` and `mise tasks validate`. It also requires that `install.sh`, both `min_version` lines, and every `mise-action` pin name the same mise release, because no bot bumps them.
 - `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, and runs hadolint.
 - `lint:design` lints `DESIGN.md`.
 - `lint:docs` checks the relative Markdown links and anchors. It also checks that every repo path in an inline code span exists, that every `mise run`, `make`, and `djd` command in a span names a real task or command, and that every `DJD_` variable in the docs appears in the code.
@@ -42,7 +42,7 @@ The `test` task builds the sandbox image and then checks that:
 - Interactive zsh and bash start silently on a tty. The first zsh start fetches the pinned sheldon plugins and fills the init caches, so the test drops its output. The second zsh start and a bash start must print nothing.
 - `zsh -lc` output contains no `.zlogin` banner.
 - One container backs up a conflicting file, relinks a moved checkout through `install.sh`, and converges. Converging means that `djd doctor` and `mise bootstrap plan --detailed-exitcode` both pass.
-- A secrets round trip works. The key has mode 600, the ciphertext lands in `config.secrets.toml`, and the secrets module decrypts the value.
+- A secrets round trip works. The key has mode 600, the ciphertext lands in `config.secrets.toml`, and the secrets module decrypts the value. `djd doctor` reports the secrets module as ok, then as failed once the key is gone.
 
 ### desktop, on amd64 and arm64
 

@@ -28,7 +28,6 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 
 - Add a new tool to the lowest module that needs it, as `"latest"`.
 - Everything outside `desktop` must work headless. A GUI package in another module gets `env = "desktop"`.
-- Each `[bootstrap.hooks]` phase key has one owner module (base: `pre-user`, `server`: `post-packages` and `pre-dotfiles`, which runs `mise-config/hooks/server-pre-dotfiles`, `desktop`: `final`, which runs `mise-config/hooks/desktop-final`). Lint fails on duplicates.
 - `home/.profile` is shared by bash, zsh and agentOS: keep it POSIX, exports only.
 - A new eval'd tool init in `.zshrc`/`.bashrc` goes through `_djd_init` (cached), not a bare `eval "$(tool init)"`, unless its output embeds per-shell state such as `PATH` (`mise activate`). `eval "$(sheldon source)"` also stays uncached, because its output follows `plugins.toml` edits.
 

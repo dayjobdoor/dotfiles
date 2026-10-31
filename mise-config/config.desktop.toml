@@ -27,7 +27,7 @@ mode = "0644"
 owner = "root"
 group = "root"
 
-# This module owns the final hook.
+# Purges screen lockers and im-config, then installs HackGen NF (hooks/desktop-final).
 [bootstrap.hooks]
 final = "~/.config/mise/hooks/desktop-final"
 

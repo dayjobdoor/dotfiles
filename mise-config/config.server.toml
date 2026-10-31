@@ -88,7 +88,7 @@ port = 3389
 protocol = "tcp"
 source = "fe80::/10"
 
-# This module owns the post-packages and pre-dotfiles hooks; one owner per phase key across modules.
+# post-packages joins the user to docker; pre-dotfiles fails an apply unless the sshd drop-in is in effect.
 [bootstrap.hooks]
 post-packages = 'u=$(id -un); id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"'
 pre-dotfiles = "~/.config/mise/hooks/server-pre-dotfiles"

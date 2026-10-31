@@ -63,8 +63,8 @@ group = "root"
 [bootstrap.user]
 login_shell = "zsh"
 
-# Base owns pre-user. mise runs a plain `chsh`, which asks for a password that cloud and OrbStack users
-# don't have; switching via sudo first leaves the user phase a no-op.
+# mise runs a plain `chsh` in the user phase, which asks for a password that cloud and OrbStack users
+# don't have; switching via sudo first leaves that phase a no-op.
 [bootstrap.hooks]
 pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
 

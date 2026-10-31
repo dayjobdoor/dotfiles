@@ -89,7 +89,7 @@ The module needs more than 10 GB of free disk. 155 of its tools used 7.5 GB of i
 | `djd apply [flags]` | Moves conflicting real files aside as `*.djd-backup-<time>` and deletes untouched `/etc/skel` copies. Then runs `mise bootstrap --yes --update` and clears the shell init caches. |
 | `djd update` | Runs `git fetch` and `git merge --ff-only @{u}` when the checkout is a git repository, then `mise self-update`, then `djd apply --upgrade`. A dirty file that the update does not touch stays. |
 | `djd status` | Prints the checkout path and commit, the selected modules, and `mise bootstrap status`. |
-| `djd doctor` | Checks Ubuntu, the `~/.config/mise` link, the zsh login shell, `bootstrap status --missing`, and `dot status --missing`. Lists each dotfile that differs from the checkout. Exits with code 1 on any failure. |
+| `djd doctor` | Checks Ubuntu, the `~/.config/mise` link, the zsh login shell, `bootstrap status --missing`, and `dot status --missing`. Lists each dotfile that differs from the checkout. With the `secrets` module selected, it also checks that `~/.config/djd/age.txt` exists, has mode 600, and decrypts every value. Exits with code 1 on any failure. |
 | `djd module list` | Prints each module and whether it is selected. |
 | `djd module add <module>...` | Selects the modules and applies the selection. `full` selects `agent` too. Prints a warning when `desktop` is selected without `server`, because only `server` carries the RDP firewall rules. |
 | `djd module remove <module>...` | Unselects the modules, unapplies their files and dotfile groups, and applies what remains, so base declarations such as the locale come back. A module that was never applied causes no error. |
@@ -107,16 +107,14 @@ Only `djd module` and `djd secret` declare arguments, so only their `--help` lis
 
 ## Bootstrap phases and hooks
 
-`mise bootstrap` applies its phases in this observed order: packages, the `post-packages` hook, system files, services, the firewall, the `pre-dotfiles` hook, dotfiles, the `pre-user` hook, the login shell, tools, and the `final` hook. A standalone `mise dot apply` also runs the `pre-dotfiles` and `post-dotfiles` hooks.
+`mise bootstrap` applies its phases in this observed order: packages, the `post-packages` hook, system files, services, the firewall, the `pre-dotfiles` hook, dotfiles, the `pre-user` hook, the login shell, tools, and the `final` hook. A standalone `mise dot apply` also runs the `pre-dotfiles` and `post-dotfiles` hooks. mise runs the hooks of every selected module in order, base first.
 
-| Hook | Owner | Does |
+| Hook | Declared by | Does |
 | --- | --- | --- |
 | `pre-user` | base | Switches the login shell to zsh through sudo. |
 | `post-packages` | `server` | Adds the user to the `docker` group. |
 | `pre-dotfiles` | `server` | Runs `hooks/server-pre-dotfiles`, which fails the apply unless the sshd drop-in is in effect. |
 | `final` | `desktop` | Runs `hooks/desktop-final`. |
-
-One owner per hook key is a repository convention, because mise runs the hooks of every selected module in order, base first. `mise run lint` fails when two module files declare the same key.
 
 ## Shell startup files
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The desktop module's final hook (config.desktop.toml owns the `final` key).
+# The desktop module's final hook (declared in config.desktop.toml).
 set -euo pipefail
 
 # Screen lockers blank xrdp sessions and im-config breaks xrdp logins.

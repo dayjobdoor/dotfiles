@@ -62,13 +62,13 @@ Everything outside the `desktop` module is CLI and must work headless. GUI conte
 
 A headless `full` machine skips those packages, and adding `desktop` later installs them. `[tools]` has no env gating, so a GUI app that ships as a mise tool, such as sniffnet in `full`, installs everywhere. It is a single binary and does no harm on a headless machine. The sandbox image holds the CLI set, and the desktop image holds the GUI set.
 
-## Each hook phase has one owner by convention
+## Hooks live in the module that needs them
 
-mise runs the hooks of every selected module in order, base first. Two modules could both declare `post-packages`, and both hooks would run. This repository gives each phase key one owner anyway, so that the behavior of a phase lives in one file. AGENTS.md states the rule, and `mise run lint` enforces it.
+mise runs the hooks of every selected module in order, base first, so two modules could declare the same phase and both hooks would run. Each phase key is declared once today.
 
-- Base owns `pre-user`. It switches the login shell through sudo, because the plain `chsh` that mise runs asks for a password that cloud users lack.
-- The `server` module owns `post-packages`, which adds the user to the `docker` group. It also owns `pre-dotfiles`, which runs `hooks/server-pre-dotfiles` after the files phase wrote the sshd drop-in.
-- The `desktop` module owns `final`, which runs `hooks/desktop-final`.
+- Base declares `pre-user`. It switches the login shell through sudo, because the plain `chsh` that mise runs asks for a password that cloud users lack.
+- The `server` module declares `post-packages`, which adds the user to the `docker` group. It also declares `pre-dotfiles`, which runs `hooks/server-pre-dotfiles` after the files phase wrote the sshd drop-in.
+- The `desktop` module declares `final`, which runs `hooks/desktop-final`.
 
 mise has native `[bootstrap.users]` and `[bootstrap.groups]` tables, and a plan with them added the user to the `docker` group. They need a fixed user name, and OrbStack runs as the host user, so the hook stays.
 
@@ -104,7 +104,7 @@ The workflow has five parts.
 - `djd secret keygen` writes an age identity to `~/.config/djd/age.txt` with mode 600, outside the repository. It creates `~/.config/djd` with mode 700 and refuses to overwrite an existing key.
 - `djd secret set NAME` prompts for a value and appends `NAME = { age = "..." }` to `mise-config/config.secrets.toml`. It passes `MISE_EXPERIMENTAL=1`, because mise marks age encryption experimental. Only ciphertext reaches the repository.
 - `djd module add secrets` makes the values visible to interactive shells through `mise activate`, to `mise exec` and `mise run`, and to every tool that starts through a mise shim. A plain `sh -c` does not see them.
-- mise decrypts with the key, or with `~/.ssh/id_ed25519` when that key is a recipient. A machine without the key keeps working with the values unset, because `age.strict = false`.
+- mise decrypts with the key, or with `~/.ssh/id_ed25519` when that key is a recipient. A machine without the key keeps working with the values unset, because `age.strict = false`. That setting also hides a wrong or unreadable key, so `djd doctor` fails when the secrets module is selected and the key is missing, is not mode 600, or cannot decrypt a value.
 - One key serves all your machines. Copy `age.txt` to each one and keep an offline backup, for example in a password manager. If you lose every copy, the values are unrecoverable.
 
 Files such as SSH keys and `rclone.conf` stay out of the repository. You have three options. Put a secret from the file in the secrets module, copy the file by hand, or store the file with `fnox set --file`. For the last option, declare the file with `mode = "fnox"` in a local config.

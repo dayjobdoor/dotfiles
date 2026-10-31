@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="mise TOML formatting, task definitions (djd included) and hook ownership"
+#MISE description="mise TOML formatting, task definitions (djd included) and the pinned mise release"
 #USAGE flag "--fix" help="Rewrite TOML formatting instead of reporting it"
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -19,12 +19,6 @@ done
 mise tasks validate
 # mise-config as the global config, so the djd tasks and their usage specs are validated too
 MISE_CONFIG_DIR="$PWD/mise-config" mise tasks validate
-# mise runs the hooks of every selected module, so this is a convention and not a guard: one owner per phase key keeps a phase in one file
-dup=$(awk '/^\[/{h=($0=="[bootstrap.hooks]")} h&&!/^[[:space:]]*#/&&/=/{k=$1; gsub(/"/,"",k); print k}' mise-config/config*.toml | sort | uniq -d)
-if [ -n "$dup" ]; then
-    echo "lint: [bootstrap.hooks] key in more than one module: $dup" >&2
-    exit 1
-fi
 # the mise release is pinned in several places that no bot bumps; they must name the same one
 pins=$(
     sed -n 's/^MISE_VERSION=.*v\([0-9.]*\)}"$/\1/p' install.sh
