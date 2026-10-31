@@ -153,7 +153,7 @@ Three decisions shape the release chain.
 - `tag.yaml` tags a commit only when that commit contains the newest `X.Y.Z` tag, and only the newest release moves the floating tags. A re-run of an older CI run, or a slower older release, then cannot move `latest` backward.
 - Release builds use no build cache, so a published image cannot reuse a cache entry that another workflow wrote.
 
-GHCR makes a package that a user account publishes private, and the workflow token cannot change that. You set the package public once after the first release. [How to publish the first release](how-to.md#publish-the-first-release) shows where.
+GitHub documents private as the default visibility of a new GHCR package. The first release of this repository came out public, and an anonymous `docker manifest inspect` resolved every tag. After the first release of a fork, check the visibility. [How to publish the first release](how-to.md#publish-the-first-release) shows how.
 
 ## Where the rest lives
 

@@ -108,9 +108,9 @@ In the sandbox image, `mise run lint:shell` from an empty mise data directory in
 
 A floating tag moves only when the release is the newest `X.Y.Z` tag.
 
-- The merge job writes `description`, `source`, `licenses`, and `version` as index annotations, because GHCR reads the description of a multi-arch package from the index. `docker buildx imagetools create` writes no index annotations unless you pass `--annotation`. A test against a local registry with a docker-container builder confirmed both facts.
+- The merge job writes `description`, `source`, `licenses`, and `version` as index annotations, because GHCR reads the description of a multi-arch package from the index. `docker buildx imagetools create` writes no index annotations unless you pass `--annotation`. A test against a local registry with a docker-container builder confirmed both facts, and the first release confirmed them on GHCR for `sandbox` and `desktop`.
 - The images that `push.yaml` builds carry the commit in `DJD_REVISION`, because `.git` is not copied into them.
-- GHCR makes the package private after the first publish.
+- GitHub documents private as the default visibility of a new package. The first release of this repository published it as public.
 
 ## Workflow audit
 

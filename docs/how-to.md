@@ -98,7 +98,7 @@ Nothing in the release chain has run against GHCR before the first release, so w
 4. In the repository settings, enable private vulnerability reporting. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
 5. Push to `main`. CI runs. When it passes, `tag.yaml` creates the tag `0.0.1` and a GitHub release, and `push.yaml` publishes the GHCR images.
 6. Read the logs of the jobs that run only on GitHub: the amd64 runs of `sandbox` and `desktop`, the LXD path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 runs of `sandbox` and `desktop`.
-7. In the GHCR settings of the `dotfiles` package, set the visibility to public.
+7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/dayjobdoor/dotfiles:sandbox`. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.
 8. Inspect the images:
 
    ```sh
@@ -106,5 +106,11 @@ Nothing in the release chain has run against GHCR before the first release, so w
    docker buildx imagetools inspect ghcr.io/dayjobdoor/dotfiles:desktop
    ```
 
-   Both must list `linux/amd64` and `linux/arm64`. Attestation entries, if present, show as `unknown/unknown`.
-9. Open the package page. It must link to this repository and show the description and the MIT license.
+   Both must list `linux/amd64` and `linux/arm64`, and two attestation entries that show as `unknown/unknown`. Then print the index annotations. The classic `docker manifest inspect` hides them:
+
+   ```sh
+   docker buildx imagetools inspect --raw ghcr.io/dayjobdoor/dotfiles:sandbox | jq .annotations
+   ```
+
+   The output must hold the description, the MIT license, the source, and the version.
+9. Open the package page. It must link to this repository.
