@@ -19,8 +19,9 @@ WORKDIR /home/ubuntu
 # hadolint ignore=SC2086,DL3004
 RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--skip dotfiles" \
     ~/.dotfiles/install.sh $DJD_MODULES && sudo rm -rf /var/lib/apt/lists/*
-# A container has no user namespaces, so Brave aborts at startup unless it runs with --no-sandbox. The container
-# is the isolation boundary (SECURITY.md); VMs keep Brave's own sandbox because this override lives only here.
+# Docker's default seccomp policy blocks namespace creation, so Brave aborts at startup unless it runs with
+# --no-sandbox, which also disables its renderer seccomp-bpf sandbox. The container is the isolation boundary
+# (SECURITY.md); VMs keep Brave's own sandbox because this override lives only here.
 RUN if [ -f /usr/share/applications/brave-browser.desktop ]; then \
       mkdir -p ~/.local/share/applications \
       && sed -E 's/^(Exec=[^ ]+)/\1 --no-sandbox/' /usr/share/applications/brave-browser.desktop \
