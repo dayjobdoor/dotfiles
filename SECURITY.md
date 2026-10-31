@@ -66,6 +66,16 @@ All of these are outside the repo or gitignored. The shell and git files are rea
 
 - xrdp keeps the defaults of the Ubuntu 26.04 package (xrdp 0.10.1, read in a container). It listens on 3389/tcp on every interface, `security_layer=negotiate` lets a client fall back from TLS, `AllowRootLogin=true` in `sesman.ini`, and `MaxLoginRetry=4` is the only limit on password guesses. Ubuntu locks the root password by default, so root cannot log in over RDP.
 - The firewall rules for RDP belong to the server module. A machine with `desktop` and without `server` has no firewall rule, so keep it off untrusted networks. `djd module add desktop` prints a warning in that case.
+- Four apps are required: ghostty, Brave, Zed and Zen. None installs through `curl | sh`. ghostty comes from the signed Ubuntu archive. Brave comes from its apt repository, and `config.desktop.toml` pins the three signing-key fingerprints that brave.com/signing-keys lists. mise keeps only those keys, embeds them in the source's `Signed-By`, and fails the apply when one is missing or has changed. Zed comes from a GitHub release, and mise verifies its artifact attestation and digest. Zen publishes neither a signature nor an attestation, so mise can verify only the digest that GitHub reports. A compromised Zen release would pass that check, and the 3-day `minimum_release_age` is the only delay.
+- The desktop Docker image runs Brave with `--no-sandbox`, because a container has no user namespaces and Brave aborts without them (tested on OrbStack in November 2026). The Dockerfile adds the flag to a user-level copy of the menu entry. The module does not, so a VM keeps Brave's sandbox. The container is the isolation boundary there, so treat the browser in that image as a convenience and use a VM for untrusted sites.
+
+## agentOS
+
+- agentOS is in beta, and its security-model page says the review is still going. The boot denies the guest network, because the default policy allows model-provider hosts such as api.anthropic.com. Package downloads run on the host, so the denial costs nothing.
+- The bundle is an allowlist of five files, which `agentos/boot.mjs` enforces: it rejects symlinks and any path outside `/home/agentos`. Nothing from `~`, no key and no token enters it. `lint:secrets` scans the files like every tracked file.
+- A consumer of `bundle.json` must confine every `path` to `/home/agentos` and take `environment` from an allowlist. In agentOS 0.4.6 a host-side `writeFile` ignores guest permissions (it wrote `/etc/probe` and `/opt/agentos/bin/planted` in a test), and setting `BASH_ENV` breaks every guest shell.
+- Registry packages are not pinned in this repository. The digest comes from the server that serves the package, so it detects a corrupt download and not a swapped release.
+- `mise run agentos:boot` starts a native sidecar as the invoking user. Run it in the sandbox image, as AGENTS.md shows.
 
 ## Checks
 

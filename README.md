@@ -51,7 +51,7 @@ docker run --rm -it --init ghcr.io/dayjobdoor/dotfiles:sandbox
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles |
 | `agent` | node, bun, python, uv, pi, omp, skills, build tools |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `desktop` | XFCE over xrdp, Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, system locale ja_JP.UTF-8 |
+| `desktop` | XFCE over xrdp, Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), system locale ja_JP.UTF-8 |
 | `full` | the whole personal toolbox (~180 tools; more than 10 GB of disk); implies `agent`. Its GUI packages install only together with `desktop` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
@@ -118,11 +118,11 @@ The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the des
 
 ## agentOS
 
-The portable subset (`.profile`, git config, WASM registry tools) runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM:
+The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it: `.profile`, the git config with an agentOS override, and WASM registry tools. Every registry tool must also be declared in the Ubuntu `agent` module, so a command an agent finds in a guest exists in the sandbox image too.
 
 ```sh
 mise run agentos:export   # writes dist/agentos/bundle.json
-mise run agentos:boot     # boots a VM with it and checks the shell, git config and tools
+mise run agentos:boot     # boots a VM with the network denied and checks the bundle, shell, git config and tools
 ```
 
 ## Remove
@@ -158,13 +158,13 @@ make                                  # list tasks
 make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
 make lint:fix                         # rewrite shell and mise TOML formatting
 make test                             # sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
-make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession
+make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession, and brave, ghostty, zen and zed run
 make test:vm                          # fresh incus or multipass VM (OrbStack also works): server + desktop install, hardening, module removal
 make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
 make ci ARGS=--dry-run                # plan every job of every workflow, release ones included
 ```
 
-`make <task>` is `mise run <task>`, except `make init` (runs `install.sh`) and `make apply|update|status|doctor|module|secret` (run `djd`). Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Every test that installs or applies anything runs in Docker or a throwaway VM, never on your machine. Only `make lint` and `mise run agentos:boot` run host tools. [docs/ci.md](docs/ci.md) says what each CI job proves, and [AGENTS.md](AGENTS.md) has the rules.
+`make <task>` is `mise run <task>`, except `make init` (runs `install.sh`) and `make apply|update|status|doctor|module|secret` (run `djd`). Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Every test that installs or applies anything runs in Docker or a throwaway VM, never on your machine. Only `make lint` runs host tools. `mise run agentos:boot` starts a native sidecar, so [AGENTS.md](AGENTS.md) runs it in the sandbox image. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules.
 
 ## Issues and questions
 

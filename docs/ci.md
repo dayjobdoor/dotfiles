@@ -46,7 +46,7 @@ The `test` task builds the sandbox image and then checks that:
 
 ### desktop, on amd64 and arm64
 
-The `test:desktop` task builds the desktop image. An xfreerdp client logs in, and XFCE starts through `~/.xsession`. The task reads the environment of `xfce4-session` as its owner and expects the fcitx variables `GTK_IM_MODULE`, `QT_IM_MODULE`, and `XMODIFIERS`, which `~/.xsession` exports.
+The `test:desktop` task builds the desktop image. An xfreerdp client logs in, and XFCE starts through `~/.xsession`. The task reads the environment of `xfce4-session` as its owner and expects the fcitx variables `GTK_IM_MODULE`, `QT_IM_MODULE`, and `XMODIFIERS`, which `~/.xsession` exports. Then `tests/desktop-apps.sh` runs as the desktop user. For each of brave-browser, ghostty, zen, and zed, the command must resolve and print its version, and the menu entry must exist with an `Exec` that resolves. The VM test runs the same script.
 
 ### vm, on amd64 and arm64
 
@@ -68,7 +68,7 @@ The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds.
 
 ### agentos
 
-The `agentos:boot` task builds the same bundle that `agentos:export` writes, but in memory, and boots agentOS with it.
+The `agentos:boot` task builds the same bundle that `agentos:export` writes, but in memory, and boots agentOS with it. Before the VM starts, it checks that the bundle holds exactly the allowed files, that every registry tool is declared in `config.toml` or `config.agent.toml`, and that `AGENTOS_SOFTWARE_REGISTRY_URL` is unset. The VM then runs the `CHECKS` in `boot.mjs`. Sourcing `.profile` must exit 0 with an empty stderr, and the pager, diff filter, and credential helpers of `agentos/gitconfig` must be in effect.
 
 ## Repo tasks
 

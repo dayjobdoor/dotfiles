@@ -16,19 +16,19 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 | apt packages, tools, files every machine needs | `mise-config/config.toml` |
 | agent runtimes and CLIs | `mise-config/config.agent.toml` |
 | ssh, firewall, docker | `mise-config/config.server.toml` |
-| XFCE, xrdp, Japanese input, ghostty | `mise-config/config.desktop.toml`, `desktop/` |
+| XFCE, xrdp, Japanese input, ghostty, brave, zen, zed | `mise-config/config.desktop.toml`, `desktop/` |
 | the opt-in toolbox | `mise-config/config.full.toml` |
 | encrypted env secrets | `mise-config/config.secrets.toml`, only through `djd secret set` (never plaintext) |
 | dotfiles in `~` | `home/` (literal names, e.g. `home/.config/git/config`) |
 | djd commands | `mise-config/tasks/djd/<name>` (bash, `#MISE description=`, `#MISE quiet=true`) |
-| agentOS export | `agentos/boot.mjs` |
+| agentOS export | `agentos/boot.mjs`, `agentos/gitconfig`; every registry tool in `boot.mjs` must be declared in `config.toml` or `config.agent.toml` |
 | repo tasks (lint, build, test, test:desktop, test:vm, ci) | `mise-tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `mise-tasks/lint/` of `lint:*` checks), short ones in `mise.toml`. The `Makefile` runs `make <task>` as `mise run <task>`, except `init` (runs `install.sh`) and apply, update, status, doctor, module and secret (run `djd`) |
 | repo tool versions | each task's `tools` (in `mise.toml`, or a `#MISE tools=` header in `mise-tasks/`), pinned in `mise.lock` plus `.mise/locks/` for npm tools (`mise lock --bump` advances them, and `lockfile_platforms` in `mise.toml` names the platforms; commit both) |
 | colors, fonts, theme names | `DESIGN.md` first, then the files its Colors table names |
 
 - Add a new tool to the lowest module that needs it, as `"latest"`.
 - Everything outside `desktop` must work headless. A GUI package in another module gets `env = "desktop"`.
-- `home/.profile` is shared by bash, zsh and agentOS: keep it POSIX, exports only.
+- `home/.profile` is shared by bash, zsh and agentOS: keep it POSIX, exports only. Test files with `-f`, never `-r`, because the agentOS shell says `[ -r <missing file> ]` is true.
 - A new eval'd tool init in `.zshrc`/`.bashrc` goes through `_djd_init` (cached), not a bare `eval "$(tool init)"`, unless its output embeds per-shell state such as `PATH` (`mise activate`). `eval "$(sheldon source)"` also stays uncached, because its output follows `plugins.toml` edits.
 
 ## Verify

@@ -131,9 +131,30 @@ The repository assumes the default locations. The dotfile deployment, the age ke
 
 Some programs still write into `~` or into their config directory, and the repository accepts that. Two reasons decide. A variable that `.profile` exports reaches login shells and not `docker exec`, so a tool would keep its state in two places. Some tools have no setting at all. npm and bun are the exception, because mise shims apply the `[env]` table of the `agent` module to every shell type, so those two follow XDG everywhere. gpg is not a mise tool, so it stays. [reference.md](reference.md#xdg-locations) lists what lands where.
 
+## The desktop apps each carry a trust anchor
+
+The `desktop` module requires four apps. A failed install fails `mise bootstrap`, and `tests/desktop-apps.sh` runs each app in the desktop image and in the VM test. No app installs through `curl | sh`, which is how budybye/dotfiles installs Zen and Zed.
+
+| App | Source | What proves the download |
+| --- | --- | --- |
+| ghostty | `apt:ghostty`, Ubuntu universe | The signed Ubuntu archive. |
+| brave | `apt:brave-browser` from Brave's apt repository | The three signing-key fingerprints in `[bootstrap.apt.sources.brave-browser]`. mise keeps only those keys, and a changed key fails the apply. They match brave.com/signing-keys. |
+| zed | mise `github:` tool | The GitHub artifact attestation and the asset digest, both verified by mise. |
+| zen | mise `github:` tool | The asset digest that GitHub reports. Upstream publishes no signature and no attestation, so this shows that the download matches the release listing, not who built it. |
+
+Brave's repository has no `resolute` suite, so the source sets `suites = "stable"`. Both `github:` tools track `latest` under the 3-day `minimum_release_age`, so mise skips the newest Zen release for three days. mise has no registry entry for either app, and a templated `asset_pattern` made `mise lock` record the aarch64 asset for linux-x64, so each tool names its asset per platform. Zed and Zen ship no menu entry that survives an upgrade. Each `postinstall` writes one with `Exec` on the mise shim and regenerates it on every install.
+
+Brave aborts inside a container, which has no user namespaces, unless it runs with `--no-sandbox` (tested on OrbStack in November 2026). The Dockerfile adds that flag to a user-level copy of the menu entry, and the module does not, so a VM keeps Brave's sandbox. [SECURITY.md](../SECURITY.md#desktop-module) states the trade.
+
 ## agentOS runs a subset
 
-agentOS guests are WASM processes with a virtual filesystem and the brush shell. They run no Linux ELF binaries, no mise, no zsh, and no system services. The export therefore carries only the portable subset: `.profile`, the git config, and the registry WASM tools.
+agentOS guests are WASM processes with a virtual filesystem and the brush shell. They run no Linux ELF binaries, no mise, no zsh, and no system services. The export therefore carries only the portable subset, and `agentos/boot.mjs` is the one place that declares it.
+
+- **Files.** `FILES` maps guest paths to repository files: `.profile`, the three git files, and `agentos/gitconfig`. A second list, `ALLOWED_GUEST_PATHS`, must equal the first, so a new entry fails the export until someone also changes the allowlist. The reader rejects symlinks, because a symlink would copy its target into every VM.
+- **Tools.** `SOFTWARE` maps each registry package to its declaration on the Ubuntu side, such as `ripgrep` or `apt:zip`. The export and the boot both fail when `config.toml` and `config.agent.toml` lack the declaration. The rule is that the Ubuntu agent toolset is a superset of the agentOS one, so a command an agent finds in a guest also exists in the sandbox image. The same name does not mean the same program. The registry `jq` is jaq.
+- **Git.** The shared git config names delta, gh, and less, and the guest has none of them. `agentos/gitconfig` becomes `~/.gitconfig`, which git reads after `~/.config/git/config`. It sets the pager to `cat`, empties the diff filter, and resets the credential helpers. The shared file stays unchanged, because Ubuntu machines have those tools.
+- **Shell.** brush says `[ -r <missing file> ]` is true, so `.profile` tests `profile.local` with `-f`. One boot check sources `.profile` alone and requires exit 0 and an empty stderr. The earlier check compared only stdout, so a `.profile` that printed an error and returned 1 in every guest still passed.
+- **Permissions.** The boot denies the guest network. The default policy allows model-provider hosts. Package downloads run on the host, so the denial costs nothing.
 
 `mise run agentos:export` writes the bundle. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6, and asserts the result. [reference.md](reference.md#agentos) lists what works and what does not.
 

@@ -21,7 +21,7 @@ mise-config/            linked as ~/.config/mise, the global config
 home/                   dotfile group home, symlinked file by file into ~
 desktop/                dotfile group desktop: .xsession, fcitx5, and ghostty
 agentos/                agentOS export and boot check
-tests/                  tree.sh and vm-checks.sh
+tests/                  tree.sh, vm-checks.sh, and desktop-apps.sh
 cloud-init/             cloud-init files for incus, multipass, and OrbStack
 .devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
 .githooks/              pre-commit hook that runs gitleaks
@@ -36,10 +36,10 @@ A module is the file `mise-config/config.<module>.toml`. `djd module add` and `d
 
 | Module | apt packages | mise tools | Runs in |
 | --- | --- | --- | --- |
-| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree openssh-client gnupg fastfetch make` | `usage starship sheldon zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
+| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip zip tree sqlite3 openssh-client gnupg fastfetch make` | `usage starship sheldon zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
 | `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | sandbox image, desktop image, VMs |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
-| `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty xsel xdotool` | none | desktop image, VMs |
+| `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool` | `zed` and `zen`, both from GitHub releases | desktop image, VMs |
 | `full`, which requires `agent` | 34 packages, counted in the section below | 183 tools | opt-in, and the weekly CI |
 | `secrets` | none | none | machines you own, never sandboxes |
 
@@ -62,6 +62,10 @@ Base:
 
 - `/etc/locale.conf` is set to `ja_JP.UTF-8`, which overrides base. `/etc/default/locale` links to it.
 - The dotfile group `desktop`.
+- The four required apps. `ghostty` comes from the Ubuntu archive. `brave-browser` comes from Brave's apt repository, declared in `[bootstrap.apt.sources.brave-browser]` with `suites = "stable"` and three pinned key fingerprints. `zed` and `zen` are `github:` tools at `latest`, with a per-platform `asset_pattern`. [architecture.md](architecture.md#the-desktop-apps-each-carry-a-trust-anchor) explains what verifies each one.
+- Each app has an XFCE menu entry. Brave and ghostty use the entries of their packages. The `postinstall` of `zed` and `zen` writes `~/.local/share/applications/dev.zed.Zed.desktop` and `zen.desktop` with `Exec` on the mise shim, and installs the icon. `filter_bins = "zen"` keeps `zen-bin`, `updater`, `pingsender`, and `gfxtest` off `PATH`.
+- The Docker image, not the module, writes a user-level `~/.local/share/applications/brave-browser.desktop` that adds `--no-sandbox` to every `Exec` line.
+- `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image, and `tests/vm-checks.sh` runs it in the VM.
 - The `final` hook purges light-locker, xscreensaver, and im-config. It then installs HackGen NF with curl, from a pinned version and SHA-256.
 
 `secrets`: `[env]` values stored as age ciphertext.
@@ -120,7 +124,7 @@ Only `djd module` and `djd secret` declare arguments, so only their `--help` lis
 
 | File | Read by | Does |
 | --- | --- | --- |
-| `~/.profile` | bash login shells, zsh through `.zshenv`, and agentOS when sourced explicitly | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `LESSHISTFILE`, `PYTHON_HISTORY`, and `NODE_REPL_HISTORY`. Then reads `~/.config/djd/profile.local`. It is POSIX and has no side effects. |
+| `~/.profile` | bash login shells, zsh through `.zshenv`, and agentOS when sourced explicitly | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `LESSHISTFILE`, `PYTHON_HISTORY`, and `NODE_REPL_HISTORY`. Then reads `~/.config/djd/profile.local`, which it tests with `-f` because the agentOS shell says `[ -r <missing file> ]` is true. It is POSIX and has no side effects. |
 | `~/.zshenv` | every zsh | Sets `skip_global_compinit=1`, so that the `compinit` of `/etc/zsh/zshrc` does not drop `.zcompdump` into `ZDOTDIR`. Sets `ZDOTDIR=~/.config/zsh` and sources `.profile`. |
 | `~/.config/zsh/.zshenv` | every zsh that starts with `ZDOTDIR` already exported, which is a nested shell | Sources `~/.zshenv`, so nested shells load `.profile` too. |
 | `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal. |
@@ -172,19 +176,21 @@ These files stay outside the XDG directories. A session in the sandbox image in 
 
 ## agentOS
 
-`mise run agentos:export` writes `dist/agentos/bundle.json` with the files, the registry packages, and the environment. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6, and asserts the result.
+`mise run agentos:export` writes `dist/agentos/bundle.json` with the files, the registry packages, and the environment. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6 with the guest network denied, and runs the `CHECKS` in `agentos/boot.mjs`. Every check needs exit 0 and the expected stdout. It also needs an empty stderr, except `git commit`, which prints `fork failed` in the guest and succeeds.
 
 | Works in agentOS | Does not work |
 | --- | --- |
 | `~/.profile` when sourced with `sh -c '. "$HOME/.profile"; ...'`: the XDG directories, `DJD_DIR`, `LANG`, and `TZ` | mise and its shims, zsh, sheldon, starship |
-| `~/.config/git/config`, `ignore`, and `commit.template` | apt, systemd, ufw, docker |
+| `~/.config/git/config`, `ignore`, and `commit.template`, plus `agentos/gitconfig` as `~/.gitconfig`, which sets the pager to `cat`, empties the diff filter, and resets the GitHub credential helpers, because the guest has no delta, gh, or less | apt, systemd, ufw, docker |
 | the registry WASM tools git, curl, jq, ripgrep, fd, yq, tree, sqlite3, unzip, and zip | any Linux ELF binary, and `vim`, because its 0.4.6 package installs no commands |
 
 Verified guest shell behavior on 0.4.6:
 
 - `exec` and `execFile` shells read no startup files. `sh -l`, `bash --login`, and `bash -l -i` all skip `/etc/profile` and `~/.profile`, so callers source `~/.profile` themselves.
-- Setting `BASH_ENV` or `ENV` in `environment` breaks every shell with the error `not yet implemented: load config from $ENV/BASH_ENV`. The export keeps the base environment unchanged.
-- Registry packages download on the host from `releases.rivet.dev`, so the guest needs no network for them. The default download timeout of 30 s fails on slow links, so the boot raises it to 5 minutes.
+- Setting `BASH_ENV` or `ENV` in `environment` breaks every shell with the error `not yet implemented: load config from $ENV/BASH_ENV`. The export keeps the base environment of agentos-core, except `PAGER`, which is `cat` because the guest has no `less`.
+- `[ -r <missing file> ]`, `[ -x ... ]`, and `[ -w ... ]` return true in the guest, while `-f` and `-e` return false. Before `.profile` used `-f`, sourcing it printed `failed to source file` and returned 1 in every guest.
+- Registry packages download on the host from `releases.rivet.dev`, so the guest needs no network for them. The default download timeout of 30 s fails on slow links, so the boot raises it to 5 minutes. A separate 60 s wait for package acquisition has no option in JavaScript, so a slow link can still fail the boot with `acquisition waiter exceeded 60000ms`. Run it again.
+- The registry `jq` is jaq, and the registry `yq` is its own build. `yq --version` hangs for about 15 s, so the boot pipes a document through `yq '.a'` instead.
 
 ## Docker images
 
