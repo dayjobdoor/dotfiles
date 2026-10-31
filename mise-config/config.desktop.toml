@@ -16,9 +16,69 @@
 "apt:manpages-ja" = "latest"
 "apt:fonts-noto-cjk" = "latest"
 "apt:fonts-noto-color-emoji" = "latest"
-"apt:ghostty" = "latest"
+"apt:ghostty" = "latest"                # Ubuntu universe, signed archive
+"apt:brave-browser" = "latest"          # Brave's signed apt repo below
+"apt:libasound2t64" = "latest"          # zed and zen link libasound.so.2
+"apt:mesa-vulkan-drivers" = "latest"    # zed needs a Vulkan ICD (lavapipe in a VM or container) to create a surface
 "apt:xsel" = "latest"
 "apt:xdotool" = "latest"
+
+# The release channel has no resolute suite, only "stable". The three fingerprints are the ones Brave lists at
+# https://brave.com/signing-keys; mise keeps only these keys from the keyring it downloads.
+[bootstrap.apt.sources.brave-browser]
+uris = "https://brave-browser-apt-release.s3.brave.com"
+suites = "stable"
+components = "main"
+architectures = "amd64 arm64"
+key = "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg"
+fingerprint = [
+  "DBF1 A116 C220 B8C7 164F 9823 0686 B784 2003 8257",
+  "47D3 2A74 E9A9 E013 A4B4 926C 68D5 13D3 6A73 CD96",
+  "B2A3 DCA3 50E6 7256 740D F904 DE4E C67B E4B0 DCA0",
+]
+
+# Zed and Zen ship tarballs with no .desktop file that survives an upgrade, so each postinstall writes the menu
+# entry and icon with Exec on the mise shim (a versioned install dir is gone after the next upgrade).
+# Zed's releases carry GitHub artifact attestations, which mise verifies on install.
+[tools."github:zed-industries/zed"]
+version = "latest"
+postinstall = '''
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i"
+install -m644 "$MISE_TOOL_INSTALL_PATH/share/icons/hicolor/512x512/apps/zed.png" "$i/zed.png"
+sed -e "s|^TryExec=zed|TryExec=$HOME/.local/share/mise/shims/zed|" -e "s|^Exec=zed|Exec=$HOME/.local/share/mise/shims/zed|" \
+  "$MISE_TOOL_INSTALL_PATH/share/applications/dev.zed.Zed.desktop" > "$d/dev.zed.Zed.desktop"
+'''
+[tools."github:zed-industries/zed".platforms.linux-x64]
+asset_pattern = "zed-linux-x86_64.tar.gz"
+[tools."github:zed-industries/zed".platforms.linux-arm64]
+asset_pattern = "zed-linux-aarch64.tar.gz"
+
+# Zen publishes no signature and no attestation, so the only check is the sha256 digest GitHub reports for the
+# asset, which mise verifies. That proves the download matches what the release lists, not who built it.
+# filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH.
+[tools."github:zen-browser/desktop"]
+version = "latest"
+filter_bins = "zen"
+postinstall = '''
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/128x128/apps"; mkdir -p "$d" "$i"
+install -m644 "$MISE_TOOL_INSTALL_PATH/browser/chrome/icons/default/default128.png" "$i/zen.png"
+cat > "$d/zen.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Zen Browser
+GenericName=Web Browser
+Exec=$HOME/.local/share/mise/shims/zen %u
+Icon=zen
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=zen
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+EOF
+'''
+[tools."github:zen-browser/desktop".platforms.linux-x64]
+asset_pattern = "zen.linux-x86_64.tar.xz"
+[tools."github:zen-browser/desktop".platforms.linux-arm64]
+asset_pattern = "zen.linux-aarch64.tar.xz"
 
 # overrides the base C.UTF-8 locale
 [bootstrap.files."/etc/locale.conf"]
