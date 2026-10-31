@@ -1,7 +1,8 @@
 // Export the agentOS-portable subset of these dotfiles, or boot a VM with it and assert it works.
 //   node agentos/boot.mjs --export <path>   write the bundle JSON (no agentOS needed)
 //   node agentos/boot.mjs                   boot a VM, run checks in its shell, exit 0/1
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,15 +66,32 @@ const fail = (lines) => {
   process.exit(1);
 };
 
+// A tracked symlink (the file, or a directory above it) or a hard link would copy a file from outside the repo
+// into every VM. The checks are not atomic: someone who can rewrite the checkout while this runs can also
+// edit the allowed files directly, so the opened handle is only compared with the lstat result to catch a swap.
+async function readRepoFile(source) {
+  const file = join(REPO_DIR, source);
+  const linked = await lstat(file);
+  if (!linked.isFile()) fail([`${source}: not a regular file (symlinks would leak their target)`]);
+  if (linked.nlink !== 1) fail([`${source}: ${linked.nlink} hard links (a link could point outside the repo)`]);
+  const [resolved, repo] = await Promise.all([realpath(file), realpath(REPO_DIR)]);
+  if (resolved !== join(repo, source)) fail([`${source}: resolves to ${resolved}; a symlinked directory would leak its target`]);
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const opened = await handle.stat();
+    if (opened.dev !== linked.dev || opened.ino !== linked.ino) fail([`${source}: changed while being read`]);
+    return await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
 async function readBundleFiles() {
   const files = await Promise.all(
     Object.entries(FILES).map(async ([rel, source]) => {
       const path = `${GUEST_HOME}/${rel}`;
       if (rel.includes("..") || !path.startsWith(`${GUEST_HOME}/`)) fail([`${path}: outside ${GUEST_HOME}`]);
-      const file = join(REPO_DIR, source);
-      const stat = await lstat(file);
-      if (!stat.isFile()) fail([`${source}: not a regular file (symlinks would leak their target)`]);
-      return { path, content: await readFile(file, "utf8") };
+      return { path, content: await readRepoFile(source) };
     }),
   );
   const got = files.map((f) => f.path).sort();
@@ -83,13 +101,16 @@ async function readBundleFiles() {
   return files;
 }
 
+// Textual, so a typo or a deleted declaration fails but this is no trust boundary: it does not know which table
+// a key sits in, nor os-scoped entries or multi-line strings, and it sees `mode = "absent"` on the same line only.
+// A TOML parser is not worth carrying for that.
 async function checkParity() {
   const toml = (
     await Promise.all(["config.toml", "config.agent.toml"].map((f) => readFile(join(REPO_DIR, "mise-config", f), "utf8")))
   ).join("\n");
   const undeclared = Object.entries(SOFTWARE).filter(([, key]) => {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return !new RegExp(`^"?${escaped}"?\\s*=`, "m").test(toml);
+    return !new RegExp(`^"?${escaped}"?\\s*=(?!.*\\bmode\\s*=\\s*["']absent["'])`, "m").test(toml);
   });
   if (undeclared.length > 0) {
     fail(undeclared.map(([name, key]) => `${name}: ${key} is not declared in mise-config/config.toml or config.agent.toml`));
@@ -117,8 +138,9 @@ if (process.env.AGENTOS_SOFTWARE_REGISTRY_URL) {
 // The guest shell (brush) reads no startup files for exec/execFile: `-l` is ignored and BASH_ENV/ENV make it
 // fail ("not yet implemented"). Checks source ~/.profile explicitly.
 const PROFILE = '. "$HOME/.profile"';
-// Each check runs in its own execFile. stdout is compared without its final newline; stderr must be empty
-// unless the check says otherwise.
+// Each check runs in its own execFile. stdout is compared without its final newline. A check needs exit 0 and an
+// empty stderr unless it says otherwise: `anyStderr` allows any stderr, `expectFailure` (a regex for stderr)
+// needs a non-zero exit instead.
 const CHECKS = [
   { name: "profile sources with exit 0 and no stderr", script: PROFILE, stdout: "" },
   {
@@ -149,6 +171,14 @@ const CHECKS = [
     // git commit prints "fork failed" on stderr in the guest and still succeeds
     anyStderr: true,
   },
+  {
+    // Resolving is the only observable difference: under the default policy curl resolves the name and then fails
+    // with exit 7 (getsockname), so any non-zero exit would also pass without `permissions`.
+    name: "guest network is denied",
+    script: "curl -sS --max-time 15 https://api.anthropic.com",
+    stdout: "",
+    expectFailure: /curl: \(6\) Could not resolve host: api\.anthropic\.com/,
+  },
 ];
 
 const { AgentOs } = await import("@rivet-dev/agentos-core");
@@ -160,8 +190,9 @@ try {
     sidecar: { kind: "explicit", handle: sidecar },
     software: Object.keys(SOFTWARE).map((registry) => ({ registry })),
     environment: BASE_ENV,
-    // The default policy lets the guest reach api.anthropic.com. Registry packages are downloaded by this host
-    // process, which network permissions do not cover, so denying costs nothing.
+    // The default policy lets the guest resolve api.anthropic.com (see the "guest network is denied" check).
+    // Registry packages are downloaded by this host process, which network permissions do not cover, so denying
+    // costs nothing.
     permissions: { network: "deny" },
     // the 30s default fails registry downloads on slow links
     packageResolver: { downloadTimeoutMs: 300_000 },
@@ -177,9 +208,12 @@ try {
     const stdout = (r.stdout ?? "").replace(/\n$/, "");
     const stderr = r.stderr ?? "";
     const stdoutOk = check.stdout instanceof RegExp ? check.stdout.test(stdout) : stdout === check.stdout;
-    if (r.outcome !== "succeeded" || r.exitCode !== 0 || !stdoutOk || (!check.anyStderr && stderr !== "")) {
+    const statusOk = check.expectFailure
+      ? r.outcome === "failed" && r.exitCode !== 0 && check.expectFailure.test(stderr)
+      : r.outcome === "succeeded" && r.exitCode === 0 && (check.anyStderr || stderr === "");
+    if (!statusOk || !stdoutOk) {
       failures.push(
-        `${check.name}: outcome=${r.outcome} exit=${r.exitCode}\n  want stdout: ${check.stdout}\n  stdout: ${JSON.stringify(stdout)}\n  stderr: ${JSON.stringify(stderr)}`,
+        `${check.name}: outcome=${r.outcome} exit=${r.exitCode}\n  want stdout: ${check.stdout}${check.expectFailure ? `\n  want exit != 0 and stderr: ${check.expectFailure}` : ""}\n  stdout: ${JSON.stringify(stdout)}\n  stderr: ${JSON.stringify(stderr)}`,
       );
     }
   }
