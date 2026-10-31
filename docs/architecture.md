@@ -129,7 +129,7 @@ Aliases stay in `.functions`, not in the `[shell_alias]` table of mise. `[shell_
 
 The repository assumes the default locations. The dotfile deployment, the age key, the git include path, and the `PATH` of the Dockerfile name `~/.config` directly. Setting other XDG directories changes only what shells and tools resolve themselves.
 
-Some programs still write into `~` or into their config directory, and the repository accepts that. Two reasons decide. A variable that `.profile` exports reaches login shells and not `docker exec`, so a tool would keep its state in two places. Some tools have no setting at all. [reference.md](reference.md#xdg-locations) lists what lands where.
+Some programs still write into `~` or into their config directory, and the repository accepts that. Two reasons decide. A variable that `.profile` exports reaches login shells and not `docker exec`, so a tool would keep its state in two places. Some tools have no setting at all. npm and bun are the exception, because mise shims apply the `[env]` table of the `agent` module to every shell type, so those two follow XDG everywhere. gpg is not a mise tool, so it stays. [reference.md](reference.md#xdg-locations) lists what lands where.
 
 ## agentOS runs a subset
 

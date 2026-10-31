@@ -151,13 +151,15 @@ The shell files and tools put their files in these places. [architecture.md](arc
 
 | Kind | Location | Written by |
 | --- | --- | --- |
-| Configuration | `~/.config`, with `~/.config/zsh` as `ZDOTDIR` and `~/.config/djd` for `profile.local`, `bashrc.local`, and `age.txt` | the dotfile deployment, `djd secret` |
+| Configuration | `~/.config`, with `~/.config/zsh` as `ZDOTDIR`, `~/.config/npm/npmrc` for npm, and `~/.config/djd` for `profile.local`, `bashrc.local`, and `age.txt` | the dotfile deployment, `djd secret`, npm |
 | History | `$XDG_STATE_HOME`: `zsh/history`, `bash/history`, `lesshst`, `python_history`, `node_repl_history` | `.zshrc`, `.bashrc`, `.profile` |
-| Cache | `$XDG_CACHE_HOME`: `zsh/zcompdump-<version>`, `zsh/zcompcache`, `zsh/init/`, `bash/init/` | `.zshrc`, `.bashrc` |
+| Cache | `$XDG_CACHE_HOME`: `zsh/zcompdump-<version>`, `zsh/zcompcache`, `zsh/init/`, `bash/init/`, `npm/`, `bun/` | `.zshrc`, `.bashrc`, npm, bun |
 | Data | `$XDG_DATA_HOME`: `mise/` with the shims, the sheldon plugin clones, and `fonts/` | mise, sheldon, `hooks/desktop-final` |
 | Executables | `~/.local/bin`, which holds `djd` | the dotfile deployment |
 
-These files stay outside the XDG directories. A session in the sandbox image in October 2026 that ran bash, zsh, npm, bun, gpg, omp, pi, python, node, and vim created every entry from `~/.npm` down. The first four rows are files that the repository or the system places there on purpose.
+The `agent` module sets `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, and `BUN_INSTALL_CACHE_DIR` in the `[env]` table of `config.agent.toml`. mise shims apply them to every shell type, including `docker exec` and `sh -c`, and the image build applies them too.
+
+These files stay outside the XDG directories. A session in the sandbox image in October 2026 that ran bash, zsh, npm, bun, gpg, omp, pi, python, node, and vim created every entry from `~/.gnupg` down. The first four rows are files that the repository or the system places there on purpose.
 
 | Path | Reason |
 | --- | --- |
@@ -165,7 +167,6 @@ These files stay outside the XDG directories. A session in the sandbox image in 
 | `~/.zshenv` | zsh reads it before `ZDOTDIR` is set. |
 | `~/.xsession` | `/etc/X11/Xsession` hard-codes it. |
 | `~/.dotfiles` | It is the default `dotfiles.root` of mise, and `install.sh` clones there. |
-| `~/.npm`, `~/.bun` | npm and bun use these cache defaults. |
 | `~/.gnupg` | A `GNUPGHOME` export in `.profile` would reach login shells and not `docker exec`, which would then use another keyring. |
 | `~/.omp`, `~/.pi` | omp and pi keep their state there. |
 | `~/.viminfo` | A `~/.config/vim/vimrc` with `viminfofile` can move it. The repository does not ship one. |

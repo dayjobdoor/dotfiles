@@ -5,6 +5,13 @@ npm.package_manager = "bun"
 pypi.uvx = true
 minimum_release_age_excludes = ["pi", "github:can1357/oh-my-pi"]
 
+# Shims apply [env] to every shell type, so docker exec and sh -c share the locations of login shells.
+# A variable in .profile would reach only login shells, and bun would split its cache between the two.
+[env]
+NPM_CONFIG_CACHE = "{{xdg_cache_home}}/npm"
+NPM_CONFIG_USERCONFIG = "{{xdg_config_home}}/npm/npmrc"
+BUN_INSTALL_CACHE_DIR = "{{xdg_cache_home}}/bun"
+
 [tools]
 node = "lts"
 bun = "latest"

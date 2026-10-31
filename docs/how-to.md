@@ -74,6 +74,18 @@ git config --file ~/.config/git/user.conf user.email "you@example.com"
 
 Do not use `git config --global`. It appends to `~/.config/git/config`, which links to a tracked file in the checkout, and it leaves the checkout dirty.
 
+## Move an existing npm config
+
+After the `agent` module sets `NPM_CONFIG_USERCONFIG`, npm no longer reads `~/.npmrc`, and its cache moves to `~/.cache/npm`. On a machine that already has an `~/.npmrc`, move it:
+
+```sh
+mkdir -p ~/.config/npm
+mv ~/.npmrc ~/.config/npm/npmrc
+rm -rf ~/.npm
+```
+
+The last command deletes the old cache. bun leaves its old cache in `~/.bun`, and you can delete that directory too.
+
 ## Keep an edit that a program made
 
 A program that saves a managed file through a rename replaces its link with a regular file. `djd doctor` then reports `differs` for that file. To keep the edit, follow these steps.
