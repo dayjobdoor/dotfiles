@@ -51,7 +51,7 @@ for _ in $(seq 120); do
             grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
         done
         echo "test:desktop: xfce4-session started through ~/.xsession"
-        docker exec -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing"
+        docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
         exit 0
     fi
     sleep 1
