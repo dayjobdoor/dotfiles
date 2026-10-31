@@ -90,7 +90,7 @@ Connect an RDP client (e.g. Windows App) to `localhost:33389` as `ubuntu`. The p
 incus (Linux; a system container with systemd; `security.nesting` lets the server module run Docker in it):
 
 ```sh
-incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c user.user-data="$(cat cloud-init/vm.yaml)"
+incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c cloud-init.user-data="$(cat cloud-init/vm.yaml)"
 incus exec djd -- cloud-init status --wait
 incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
 incus exec djd -- passwd ubuntu   # RDP login needs a password
