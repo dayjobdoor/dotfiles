@@ -69,5 +69,8 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
     ! grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml
     printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     [ "$(mise exec -- printenv DJD_CHECK)" = s3cret ]
+    djd doctor 2>&1 | grep -q "^ok secrets"
+    mv ~/.config/djd/age.txt ~/age.bak
+    djd doctor 2>&1 | grep -q "^FAIL secrets"
 '
-ok secrets round trip
+ok secrets round trip, and doctor notices a missing key

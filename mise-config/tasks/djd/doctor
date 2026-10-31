@@ -34,4 +34,18 @@ if out=$(mise dot status --missing --json 2>/dev/null); then ok dotfiles; else
         mise dot status --missing 2>&1 || true
 fi
 
+# age.strict is off in the secrets module, so a missing or wrong key would leave its variables unset without a word
+if [[ ,${MISE_ENV:-}, == *,secrets,* ]]; then
+    key="$HOME/.config/djd/age.txt"
+    if [ ! -r "$key" ]; then
+        fail secrets "no age key at $key; copy it from another machine"
+    elif [ "$(stat -c %a "$key")" != 600 ]; then
+        fail secrets "$key is mode $(stat -c %a "$key"), want 600"
+    elif MISE_AGE_STRICT=true mise env >/dev/null 2>&1; then
+        ok secrets
+    else
+        fail secrets "a value does not decrypt with $key"
+    fi
+fi
+
 exit "$failed"

@@ -39,6 +39,7 @@ All of these are outside the repo or gitignored. The shell and git files are rea
 - Ciphertext in a public repo is safe only while the key is. Keep the key off machines that run untrusted code. Back it up offline; losing every copy loses the values.
 - Select the `secrets` module only on machines you own. Every process there sees the decrypted values, agents included. The Docker images never select it.
 - Rotating a key means re-running `djd secret set` for each value on a machine that holds the new key.
+- `age.strict` is off, so a missing, wrong or unreadable key leaves the variables unset without a message. `djd doctor` fails in that case, and also when the key is not mode 600.
 
 ## GitHub tokens
 
