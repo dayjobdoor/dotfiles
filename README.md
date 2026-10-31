@@ -87,6 +87,8 @@ Connect an RDP client (e.g. Windows App) to `localhost:33389` as `ubuntu`. The p
 
 ## VMs and system containers
 
+Both recipes read files from `cloud-init/`, so run them from a clone of this repository.
+
 incus runs a system container with systemd on Linux. `security.nesting` lets the server module run Docker in it. The first three commands set incus up once on Ubuntu 26.04, and the group change needs a new login:
 
 ```sh
@@ -101,6 +103,8 @@ incus list djd                    # connect an RDP client to this address, port 
 ```
 
 The server module opens RDP only to loopback and private networks, and the incus bridge is private.
+
+If the host runs ufw or Docker, which the `server` module sets up, the container gets no network until the host allows the bridge. The [Incus firewall guide](https://linuxcontainers.org/incus/docs/main/howto/network_bridge_firewalld/) lists the rules. For ufw they are `sudo ufw allow in on incusbr0`, `sudo ufw route allow in on incusbr0`, and `sudo ufw route allow out on incusbr0`. For Docker they are two `iptables -I DOCKER-USER` rules, the ones in `.github/workflows/ci.yaml`, which you have to make persistent across reboots yourself.
 
 multipass ([install it](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/) on macOS, Windows or Linux) installs `server desktop` at first boot and imports the `gh:dayjobdoor` SSH keys. In a fork, see [Fork](#fork) first:
 
