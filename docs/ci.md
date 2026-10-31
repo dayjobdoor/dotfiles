@@ -42,7 +42,7 @@ The `test` task builds the sandbox image and then checks that:
 - Interactive zsh and bash start silently on a tty. The first zsh start fetches the pinned sheldon plugins and fills the init caches, so the test drops its output. The second zsh start and a bash start must print nothing.
 - `zsh -lc` output contains no `.zlogin` banner.
 - One container backs up a conflicting file, relinks a moved checkout through `install.sh`, and converges. Converging means that `djd doctor` and `mise bootstrap plan --detailed-exitcode` both pass.
-- A secrets round trip works. The key has mode 600, the ciphertext lands in `config.secrets.toml`, and the secrets module decrypts the value. `djd doctor` reports the secrets module as ok, then as failed once the key is gone.
+- A secrets round trip works. The key has mode 600, `djd secret keygen` refuses to overwrite it, the ciphertext lands in `config.secrets.toml` without the plaintext, and the secrets module decrypts the value. `djd doctor` reports the secrets module as ok, then as failed for a missing key, for a different key, and for a key that is not mode 600.
 
 ### desktop, on amd64 and arm64
 

@@ -63,14 +63,19 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
     set -e
     djd secret keygen >/dev/null
     [ "$(stat -c %a ~/.config/djd/age.txt)" = 600 ]
-    ! djd secret keygen >/dev/null 2>&1
+    # a pipeline that starts with ! is exempt from set -e, so the refusals are spelled out
+    if djd secret keygen >/dev/null 2>&1; then exit 1; fi
     printf "s3cret\n" | djd secret set DJD_CHECK >/dev/null
     grep -q DJD_CHECK ~/.dotfiles/mise-config/config.secrets.toml
-    ! grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml
+    if grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
     printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     [ "$(mise exec -- printenv DJD_CHECK)" = s3cret ]
     djd doctor 2>&1 | grep -q "^ok secrets"
     mv ~/.config/djd/age.txt ~/age.bak
-    djd doctor 2>&1 | grep -q "^FAIL secrets"
+    djd doctor 2>&1 | grep -q "^FAIL secrets: no age key"
+    djd secret keygen >/dev/null
+    djd doctor 2>&1 | grep -q "^FAIL secrets: a value does not decrypt"
+    chmod 644 ~/.config/djd/age.txt
+    djd doctor 2>&1 | grep -q "^FAIL secrets: .* mode 644"
 '
-ok secrets round trip, and doctor notices a missing key
+ok secrets round trip, and doctor rejects a missing key, a different key and a world-readable key
