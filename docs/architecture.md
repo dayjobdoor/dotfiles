@@ -133,7 +133,7 @@ Some programs still write into `~` or into their config directory, and the repos
 
 ## The desktop apps each carry a trust anchor
 
-The `desktop` module requires four apps. A failed install fails `mise bootstrap`, and `tests/desktop-apps.sh` runs each app in the desktop image and in the VM test. No app installs through `curl | sh`, which is how budybye/dotfiles installs Zen and Zed.
+The `desktop` module requires four apps. A failed install fails `mise bootstrap`, and `tests/desktop-apps.sh` checks each app in the desktop image and in the VM test. The image test also starts Brave and Zen headless. No app installs through `curl | sh`, which is how budybye/dotfiles installs Zen and Zed.
 
 | App | Source | What proves the download |
 | --- | --- | --- |
@@ -144,7 +144,7 @@ The `desktop` module requires four apps. A failed install fails `mise bootstrap`
 
 Brave's repository has no `resolute` suite, so the source sets `suites = "stable"`. Both `github:` tools track `latest` under the 3-day `minimum_release_age`, so mise skips the newest Zen release for three days. mise has no registry entry for either app, and a templated `asset_pattern` made `mise lock` record the aarch64 asset for linux-x64, so each tool names its asset per platform. Zed and Zen ship no menu entry that survives an upgrade. Each `postinstall` writes one with `Exec` on the mise shim and regenerates it on every install.
 
-Brave aborts inside a container unless it runs with `--no-sandbox`, because Docker's default seccomp policy blocks namespace creation (tested on OrbStack in November 2026). The flag also switches off Brave's renderer seccomp-bpf sandbox. The Dockerfile adds it to a user-level copy of the menu entry, and the module does not, so a VM keeps Brave's sandbox. [SECURITY.md](../SECURITY.md#desktop-module) states the trade.
+Brave aborts inside a container unless it runs with `--no-sandbox`, because Docker's default seccomp policy blocks namespace creation (tested on OrbStack in November 2026). The flag also switches off Brave's renderer seccomp-bpf sandbox. The Dockerfile adds it to a user-level copy of the menu entry, and the module does not, so a VM keeps Brave's sandbox. The image test starts Brave through that entry, and with the system entry instead Brave aborts with `Failed to move to new namespace`. A seccomp profile that allows user namespaces would keep Brave's sandbox on without `SYS_ADMIN`, but it applies only to containers started with it, so `docker run` of the published image would still abort. The repository ships none, and no one has run Brave under one. [SECURITY.md](../SECURITY.md#desktop-module) states the trade.
 
 Zed and Zen each carry an in-app updater that would replace files in the mise install directory without mise's digest check and without the release age. `ZED_UPDATE_EXPLANATION` in the module's `[env]` makes Zed skip its update poll, and the Zen `postinstall` writes `distribution/policies.json` with `DisableAppUpdate` and `DisableTelemetry`. A headless screenshot of Zen's `about:policies` listed both as active (November 2026). Updates go through `mise upgrade`. mise also puts a tool's own bin directories ahead of `PATH` while a `postinstall` runs, so both scripts reset `PATH` to `/usr/bin:/bin`, and `filter_bins` limits what each tool puts on `PATH`.
 
