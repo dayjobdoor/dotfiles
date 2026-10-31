@@ -176,7 +176,7 @@ These files stay outside the XDG directories. A session in the sandbox image in 
 
 ## agentOS
 
-`mise run agentos:export` writes `dist/agentos/bundle.json` with the files, the registry packages, and the environment. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6 with the guest network denied, and runs the `CHECKS` in `agentos/boot.mjs`. Every check needs exit 0 and the expected stdout. It also needs an empty stderr, except `git commit`, which prints `fork failed` in the guest and succeeds.
+`mise run agentos:export` writes `dist/agentos/bundle.json` with the files, the registry packages, and the environment. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6 with the guest network denied, and runs the `CHECKS` in `agentos/boot.mjs`. Every check needs exit 0, the expected stdout, and an empty stderr. Two checks differ. `git commit` prints `fork failed` in the guest and succeeds, and the network check needs a non-zero exit with `Could not resolve host`.
 
 | Works in agentOS | Does not work |
 | --- | --- |

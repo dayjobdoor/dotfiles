@@ -68,7 +68,7 @@ The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds.
 
 ### agentos
 
-The `agentos:boot` task builds the same bundle that `agentos:export` writes, but in memory, and boots agentOS with it. Before the VM starts, it checks that the bundle holds exactly the allowed files, that every registry tool is declared in `config.toml` or `config.agent.toml`, and that `AGENTOS_SOFTWARE_REGISTRY_URL` is unset. The VM then runs the `CHECKS` in `boot.mjs`. Sourcing `.profile` must exit 0 with an empty stderr, and the pager, diff filter, and credential helpers of `agentos/gitconfig` must be in effect.
+The `agentos:boot` task builds the same bundle that `agentos:export` writes, but in memory, and boots agentOS with it. Before the VM starts, it checks that the bundle holds exactly the allowed files, that none of them is a symlink, a hard link, or a path that resolves outside the repository, that every registry tool is declared in `config.toml` or `config.agent.toml`, and that `AGENTOS_SOFTWARE_REGISTRY_URL` is unset. The VM then runs the `CHECKS` in `boot.mjs`. Sourcing `.profile` must exit 0 with an empty stderr, and the pager, diff filter, and credential helpers of `agentos/gitconfig` must be in effect. The last check fetches api.anthropic.com and must fail with `Could not resolve host`, which shows that the guest network is denied.
 
 ## Repo tasks
 

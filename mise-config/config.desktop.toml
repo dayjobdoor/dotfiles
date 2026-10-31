@@ -45,7 +45,8 @@ ZED_UPDATE_EXPLANATION = "Updates come from mise: run `mise upgrade github:zed-i
 
 # Zed and Zen ship tarballs with no .desktop file that survives an upgrade, so each postinstall writes the menu
 # entry and icon with Exec on the mise shim (a versioned install dir is gone after the next upgrade).
-# Zed's releases carry GitHub artifact attestations, which mise verifies on install.
+# mise checks the digest of every Zed download and checks the GitHub artifact attestation when the release has
+# one. It does not require one, so the attestation only helps while upstream keeps publishing it.
 [tools."github:zed-industries/zed"]
 version = "latest"
 filter_bins = "zed"
