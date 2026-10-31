@@ -1,7 +1,8 @@
 // Export the agentOS-portable subset of these dotfiles, or boot a VM with it and assert it works.
 //   node agentos/boot.mjs --export <path>   write the bundle JSON (no agentOS needed)
 //   node agentos/boot.mjs                   boot a VM, run checks in its shell, exit 0/1
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,15 +66,32 @@ const fail = (lines) => {
   process.exit(1);
 };
 
+// A tracked symlink (the file, or a directory above it) or a hard link would copy a file from outside the repo
+// into every VM. The checks are not atomic: someone who can rewrite the checkout while this runs can also
+// edit the allowed files directly, so the opened handle is only compared with the lstat result to catch a swap.
+async function readRepoFile(source) {
+  const file = join(REPO_DIR, source);
+  const linked = await lstat(file);
+  if (!linked.isFile()) fail([`${source}: not a regular file (symlinks would leak their target)`]);
+  if (linked.nlink !== 1) fail([`${source}: ${linked.nlink} hard links (a link could point outside the repo)`]);
+  const [resolved, repo] = await Promise.all([realpath(file), realpath(REPO_DIR)]);
+  if (resolved !== join(repo, source)) fail([`${source}: resolves to ${resolved}; a symlinked directory would leak its target`]);
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const opened = await handle.stat();
+    if (opened.dev !== linked.dev || opened.ino !== linked.ino) fail([`${source}: changed while being read`]);
+    return await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
 async function readBundleFiles() {
   const files = await Promise.all(
     Object.entries(FILES).map(async ([rel, source]) => {
       const path = `${GUEST_HOME}/${rel}`;
       if (rel.includes("..") || !path.startsWith(`${GUEST_HOME}/`)) fail([`${path}: outside ${GUEST_HOME}`]);
-      const file = join(REPO_DIR, source);
-      const stat = await lstat(file);
-      if (!stat.isFile()) fail([`${source}: not a regular file (symlinks would leak their target)`]);
-      return { path, content: await readFile(file, "utf8") };
+      return { path, content: await readRepoFile(source) };
     }),
   );
   const got = files.map((f) => f.path).sort();
