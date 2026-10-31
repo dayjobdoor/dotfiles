@@ -101,11 +101,18 @@ jobs:
           latest_flag=--latest=false
           if [ "$new_tag" = "$(semver_latest)" ]; then latest_flag=--latest; fi
           if ! gh release view "$new_tag" >/dev/null 2>&1; then
+            # --generate-notes lists pull requests, and a direct push to main has none
+            tags=$(git tag -l '[0-9]*.[0-9]*.[0-9]*' --sort=v:refname)
+            prev=$(awk -v t="$new_tag" '!/^[0-9]+\.[0-9]+\.[0-9]+$/ {next} $0 == t {print p; exit} {p = $0}' <<<"$tags")
+            {
+              git log --no-merges --format='- %s (%h)' "${prev:+$prev..}$new_tag"
+              printf '\nImages, once the Push to ghcr run finishes:\n\n'
+              printf '    docker pull ghcr.io/%s:%s\n' "${GITHUB_REPOSITORY,,}" "$new_tag" "${GITHUB_REPOSITORY,,}" "${new_tag}-desktop"
+            } >"$RUNNER_TEMP/notes.md"
             gh release create "$new_tag" \
               --title="$new_tag" \
-              --notes="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              "$latest_flag" \
-              --generate-notes
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              "$latest_flag"
           else
             echo "release ${new_tag} already exists"
           fi

@@ -97,6 +97,7 @@ In the sandbox image, `mise run lint:shell` from an empty mise data directory in
 - It releases a commit only when the commit contains the newest `X.Y.Z` tag.
 - It bumps the patch number only. A minor or major bump is a manually pushed `X.Y.0` tag. `push.yaml` builds images for that tag and creates no GitHub release.
 - It marks a GitHub release `latest` only when its tag is the newest.
+- It writes the release notes itself. They list the commits since the previous `X.Y.Z` tag and the `docker pull` commands for both images, because `--generate-notes` lists only pull requests and the pushes to `main` have none.
 - It dispatches `push.yaml`, because tags that `GITHUB_TOKEN` pushes start no workflow.
 
 `push.yaml` builds each flavor for each platform with no build cache and pushes by digest. The merge job then creates the multi-arch tags.
