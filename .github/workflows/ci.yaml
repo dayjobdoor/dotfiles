@@ -104,9 +104,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
-        with:
-          channel: latest/stable
+      - name: Install incus
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y incus-base incus-client
+          sudo incus admin init --minimal
+          sudo chmod 666 /var/lib/incus/unix.socket
+          # the runner's docker sets the FORWARD policy to DROP, which would cut the containers off
+          sudo iptables -I DOCKER-USER -i incusbr0 -j ACCEPT
+          sudo iptables -I DOCKER-USER -o incusbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           version: 2026.10.23

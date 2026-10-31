@@ -1,29 +1,37 @@
 #!/usr/bin/env bash
-#MISE description="Fresh Ubuntu VM (LXD or OrbStack): curl | sh install of server + desktop, hardening, module removal"
+#MISE description="Fresh Ubuntu VM (incus, multipass or OrbStack): curl | sh install of server + desktop, hardening, module removal"
 # cloud-init, the README's `curl | sh -s -- server desktop` (cloning this tree instead of GitHub), then
-# tests/vm-checks.sh inside the VM. Uses LXD (`lxc`, CI) or OrbStack (`orb`, macOS), whichever is installed.
+# tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux), multipass and OrbStack (`orb`) found.
 # GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 keeps the VM after the run, to inspect a failure.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 name="djd-test-$$"
 
-if command -v lxc >/dev/null 2>&1; then
+if command -v incus >/dev/null 2>&1; then
     vm_create() {
         # nesting lets docker (server module) run inside the system container
-        lxc launch ubuntu:26.04 "$name" -c security.nesting=true \
-            -c user.user-data="$(cat cloud-init/orbstack.yaml)" >/dev/null
-        lxc exec "$name" -- cloud-init status --wait >/dev/null ||
+        incus launch images:ubuntu/26.04/cloud "$name" -c security.nesting=true \
+            -c user.user-data="$(cat cloud-init/vm.yaml)" >/dev/null
+        incus exec "$name" -- cloud-init status --wait >/dev/null ||
             {
-                lxc exec "$name" -- cloud-init status --long >&2
+                incus exec "$name" -- cloud-init status --long >&2
                 exit 1
             }
     }
-    vm_sh() { lxc exec "$name" -- sudo -iu ubuntu bash -c "$1"; }
-    vm_delete() { lxc delete -f "$name" >/dev/null 2>&1 || true; }
+    vm_sh() { incus exec "$name" -- sudo -iu ubuntu bash -c "$1"; }
+    vm_delete() { incus delete -f "$name" >/dev/null 2>&1 || true; }
+elif command -v multipass >/dev/null 2>&1; then
+    vm_create() {
+        # the defaults (1 CPU, 1 GB RAM, 5 GB disk) cannot hold the desktop module; launch waits for cloud-init
+        multipass launch 26.04 --name "$name" --cpus 4 --memory 8G --disk 40G --timeout 900 \
+            --cloud-init cloud-init/vm.yaml >/dev/null
+    }
+    vm_sh() { multipass exec "$name" -- bash -lc "$1"; }
+    vm_delete() { multipass delete --purge "$name" >/dev/null 2>&1 || true; }
 elif command -v orb >/dev/null 2>&1; then
     vm_create() {
-        orb create -c cloud-init/orbstack.yaml ubuntu:resolute "$name" >/dev/null
+        orb create -c cloud-init/vm.yaml ubuntu:resolute "$name" >/dev/null
         orb -m "$name" -w / sudo cloud-init status --wait >/dev/null ||
             {
                 orb -m "$name" -w / sudo cloud-init status --long >&2
@@ -34,7 +42,7 @@ elif command -v orb >/dev/null 2>&1; then
     vm_sh() { orb -m "$name" -w / bash -lc "cd && $1"; }
     vm_delete() { orb delete -f "$name" >/dev/null 2>&1 || true; }
 else
-    echo "vm: needs lxc (LXD) or orb (OrbStack)" >&2
+    echo "vm: needs incus, multipass or orb (OrbStack)" >&2
     exit 2
 fi
 

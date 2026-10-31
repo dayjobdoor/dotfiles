@@ -1,0 +1,16 @@
+#cloud-config
+# Neutral setup for trying these dotfiles in an incus container, a multipass VM or an OrbStack
+# machine; test:vm uses it for all three. README.md has the launch and install commands.
+
+hostname: djd-vm
+timezone: Asia/Tokyo
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+# No ssh_pwauth: on an image without openssh-server, cloud-init would write a one-line
+# /etc/ssh/sshd_config that the package then keeps, without its sshd_config.d Include. The server
+# module turns password SSH off.

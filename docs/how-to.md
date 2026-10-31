@@ -22,7 +22,7 @@ To plan every job of every workflow without running any step, add `--dry-run`:
 mise run ci --dry-run
 ```
 
-The `vm` job does not run under act. To run it, use `make test:vm` on a machine with LXD or OrbStack.
+The `vm` job does not run under act. To run it, use `make test:vm` on a machine with incus, multipass, or OrbStack.
 
 ## Keep a VM after a failed test
 
@@ -32,7 +32,18 @@ If `make test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM`:
 DJD_KEEP_VM=1 make test:vm
 ```
 
-The VM is named `djd-test-<number>`, and the task prints the name. When you finish, delete it with `orb delete -f <name>` on a Mac, or with `lxc delete -f <name>` on LXD.
+The VM is named `djd-test-<number>`, and the task prints the name. When you finish, delete it with `incus delete -f <name>`, `multipass delete --purge <name>`, or `orb delete -f <name>`, depending on the tool that ran.
+
+## Try it in an OrbStack machine
+
+```sh
+orb create -c cloud-init/vm.yaml ubuntu:resolute djd-vm
+orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
+```
+
+`orb` starts commands in the Mac's current directory, mounted under `/Users`, where mise would also load any Mac `mise.toml` up the tree. The `cd` keeps the install inside the VM home.
+
+For RDP, set a password with `orb -m djd-vm sudo passwd "$USER"` and connect to `localhost:3389`. OrbStack forwards the port from loopback, which ufw admits.
 
 ## Update the pinned tools
 
@@ -109,7 +120,7 @@ Nothing in the release chain has run against GHCR before the first release, so w
 3. Run `git config core.hooksPath .githooks`, so that gitleaks runs on each commit.
 4. In the repository settings, enable private vulnerability reporting. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
 5. Push to `main`. CI runs. When it passes, `tag.yaml` creates the tag `0.0.1` and a GitHub release, and `push.yaml` publishes the GHCR images.
-6. Read the logs of the jobs that run only on GitHub: the amd64 runs of `sandbox` and `desktop`, the LXD path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 runs of `sandbox` and `desktop`.
+6. Read the logs of the jobs that run only on GitHub: the amd64 runs of `sandbox` and `desktop`, the incus path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 runs of `sandbox` and `desktop`.
 7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/dayjobdoor/dotfiles:sandbox`. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.
 8. Inspect the images:
 

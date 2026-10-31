@@ -50,7 +50,7 @@ The `test:desktop` task builds the desktop image. An xfreerdp client logs in, an
 
 ### vm, on amd64 and arm64
 
-The `test:vm` task starts a fresh Ubuntu 26.04 LXD system container from `cloud-init/orbstack.yaml`. It pipes `install.sh` into `sh -s -- server desktop`, as the README does, with the tree under test as the clone source. Then it checks that:
+The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`. In CI that is an incus system container (`images:ubuntu/26.04/cloud`). It pipes `install.sh` into `sh -s -- server desktop`, as the README does, with the tree under test as the clone source. Then it checks that:
 
 - Both cloud-init files pass the cloud-init schema check.
 - `djd doctor` passes, also under a Japanese locale.
@@ -64,7 +64,7 @@ The `test:vm` task starts a fresh Ubuntu 26.04 LXD system container from `cloud-
 - `mise bootstrap plan --detailed-exitcode` reports no changes.
 - `djd module remove desktop` and `djd module remove server` succeed. The sshd drop-in and `daemon.json` disappear, and the ufw SSH rule stays.
 
-The task uses LXD when `lxc` exists, which is the case in CI through canonical/setup-lxd. It uses OrbStack when `orb` exists, which is the case on macOS. `make test:vm` therefore runs the same checks on a Mac. Both get the checkout through `tests/tree.sh`. `DJD_KEEP_VM=1` keeps the VM after a run.
+The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to the runner user. It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `make test:vm` runs the same checks with multipass or OrbStack. All three get the checkout through `tests/tree.sh`. `DJD_KEEP_VM=1` keeps the VM after a run.
 
 ### agentos
 
@@ -88,7 +88,7 @@ In the sandbox image, `mise run lint:shell` from an empty mise data directory in
 - `mise run ci --dry-run` plans every job of all four workflows without running steps. It includes the release workflows and feeds them a sample tag push and a sample CI `workflow_run` event.
 - act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
 - Lint fails on any `ubuntu-*` runner label that `.actrc` does not map, because act stops at an interactive image prompt for an unmapped label.
-- The `vm` job needs LXD. It runs only on GitHub or through `make test:vm`.
+- The `vm` job needs incus. It runs only on GitHub or through `make test:vm`.
 
 ## Release chain
 

@@ -34,7 +34,7 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 
 ## Verify
 
-CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`, `agentos:boot`). On a machine where the repo is trusted by mise, run them directly (`make lint test`), or run a whole CI job with act (`mise run ci sandbox`). Everything runs in Docker or a throwaway LXD/OrbStack VM, never on the host itself.
+CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`, `agentos:boot`). On a machine where the repo is trusted by mise, run them directly (`make lint test`), or run a whole CI job with act (`mise run ci sandbox`). Everything runs in Docker or a throwaway incus or multipass VM, never on the host itself.
 
 Without trusting the repo on the host, the task files run directly, and lint and agentOS run inside the sandbox image. `tests/tree.sh` streams only tracked and unignored files as a tar archive (nothing is mounted), so ignored files such as `age.txt` stay on the host:
 
@@ -42,6 +42,6 @@ Without trusting the repo on the host, the task files run directly, and lint and
 export GITHUB_TOKEN="$(gh auth token)"   # any token works, and one without scopes is enough: see SECURITY.md#github-tokens
 mise-tasks/build sandbox && mise-tasks/test/_default
 mise-tasks/build desktop && mise-tasks/test/desktop
-mise-tasks/test/vm   # LXD or OrbStack
+mise-tasks/test/vm   # incus, multipass or OrbStack
 tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:sandbox zsh -lc 'mkdir /tmp/w && tar -xf - -C /tmp/w && cd /tmp/w && mise trust mise.toml && mise run lint && mise run agentos:boot'
 ```

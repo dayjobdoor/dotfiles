@@ -4,7 +4,7 @@ This page tells where the repository came from and why it differs from its sourc
 
 ## Compared with budybye/dotfiles
 
-The table comes from the workflows and the run history of budybye/dotfiles, read with `gh run list -R budybye/dotfiles` in October 2026. Every CI job here also runs locally. `mise run ci <job>` runs it with act, and `make test:vm` runs the VM test with LXD or OrbStack.
+The table comes from the workflows and the run history of budybye/dotfiles, read with `gh run list -R budybye/dotfiles` in October 2026. Every CI job here also runs locally. `mise run ci <job>` runs it with act, and `make test:vm` runs the VM test with incus, multipass, or OrbStack.
 
 | budybye/dotfiles | This repository | Why |
 | --- | --- | --- |

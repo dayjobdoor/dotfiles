@@ -9,7 +9,7 @@ Ubuntu 26.04 dotfiles for coding-agent sandboxes, servers and an XFCE desktop ov
 
 - **One tool.** No chezmoi, Ansible or Stow. The repo is the global mise config, and every machine role is a mise config environment.
 - **Modules, not forks.** `agent`, `server`, `desktop`, `full` and `secrets` add up per machine and come off again with `djd module remove`.
-- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, installs the server and desktop modules into a fresh LXD system container, and boots the portable subset in [Rivet agentOS](https://rivet.dev/docs/agent-os).
+- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, installs the server and desktop modules into a fresh incus system container, and boots the portable subset in [Rivet agentOS](https://rivet.dev/docs/agent-os).
 - **Public by design.** Secrets are committed only as age ciphertext, workflows are audited by jactionlint and pinned to commits, and gitleaks scans the history in CI and the staged changes in an opt-in pre-commit hook.
 
 ## Install
@@ -85,25 +85,29 @@ mise run up
 
 Connect an RDP client (e.g. Windows App) to `localhost:33389` as `ubuntu`. The port is bound to `127.0.0.1` only.
 
-## VMs
+## VMs and system containers
 
-OrbStack:
+incus (Linux; a system container with systemd; `security.nesting` lets the server module run Docker in it):
 
 ```sh
-orb create -c cloud-init/orbstack.yaml ubuntu:resolute djd-vm
-orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
+incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c user.user-data="$(cat cloud-init/vm.yaml)"
+incus exec djd -- cloud-init status --wait
+incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
+incus exec djd -- passwd ubuntu   # RDP login needs a password
+incus list djd                    # connect an RDP client to this address, port 3389
 ```
 
-`orb` starts commands in the Mac's current directory (mounted under `/Users`), where mise would also load any Mac `mise.toml` up the tree; the `cd` keeps the install inside the VM home.
+The server module opens RDP only to loopback and private networks, and the incus bridge is private.
 
-For RDP, set a password (`orb -m djd-vm sudo passwd "$USER"`) and connect to `localhost:3389`. OrbStack forwards it from loopback, which ufw admits; the server module opens RDP only to loopback and private networks.
-
-multipass (installs `server desktop` and imports the `gh:dayjobdoor` SSH keys; in a fork, see [Fork](#fork) first):
+multipass (macOS, Windows, Linux; installs `server desktop` at first boot and imports the `gh:dayjobdoor` SSH keys; in a fork, see [Fork](#fork) first):
 
 ```sh
-multipass launch 26.04 --name djd --cloud-init cloud-init/multipass.yaml
+multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml   # waits for the install
 multipass exec djd -- sudo passwd ubuntu   # RDP login needs a password
+multipass info djd                         # connect an RDP client to this address, port 3389
 ```
+
+The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack.
 
 ## agentOS
 
@@ -148,7 +152,7 @@ make lint                             # shell, mise configs, workflows + Dockerf
 make lint:fix                         # rewrite shell and mise TOML formatting
 make test                             # sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession
-make test:vm                          # fresh LXD or OrbStack VM: server + desktop install, hardening, module removal
+make test:vm                          # fresh incus or multipass VM (OrbStack also works): server + desktop install, hardening, module removal
 make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
 make ci ARGS=--dry-run                # plan every job of every workflow, release ones included
 ```

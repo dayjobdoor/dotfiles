@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run CI jobs locally with act, or plan every workflow with --dry-run (the vm job needs LXD)"
+#MISE description="Run CI jobs locally with act, or plan every workflow with --dry-run (the vm job needs incus)"
 #MISE tools={act="latest"}
 #USAGE arg "[job]..." var=#true help="ci.yaml jobs to run in order; all four by default" {
 #USAGE   choices "lint" "sandbox" "desktop" "agentos"

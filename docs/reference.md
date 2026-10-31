@@ -22,7 +22,7 @@ home/                   dotfile group home, symlinked file by file into ~
 desktop/                dotfile group desktop: .xsession, fcitx5, and ghostty
 agentos/                agentOS export and boot check
 tests/                  tree.sh and vm-checks.sh
-cloud-init/             cloud-init files for OrbStack and multipass
+cloud-init/             cloud-init files for incus, multipass, and OrbStack
 .devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
 .githooks/              pre-commit hook that runs gitleaks
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml
