@@ -26,6 +26,7 @@ export LESSHISTFILE="$XDG_STATE_HOME/lesshst"
 export PYTHON_HISTORY="$XDG_STATE_HOME/python_history"
 export NODE_REPL_HISTORY="$XDG_STATE_HOME/node_repl_history"
 
-if [ -r "$XDG_CONFIG_HOME/djd/profile.local" ]; then
+# -f, not -r: the agentOS guest shell (brush) reports `[ -r <missing file> ]` as true
+if [ -f "$XDG_CONFIG_HOME/djd/profile.local" ]; then
     . "$XDG_CONFIG_HOME/djd/profile.local"
 fi
