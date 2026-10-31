@@ -87,9 +87,12 @@ Connect an RDP client (e.g. Windows App) to `localhost:33389` as `ubuntu`. The p
 
 ## VMs and system containers
 
-incus (Linux; a system container with systemd; `security.nesting` lets the server module run Docker in it):
+incus runs a system container with systemd on Linux. `security.nesting` lets the server module run Docker in it. The first three commands set incus up once on Ubuntu 26.04, and the group change needs a new login:
 
 ```sh
+sudo apt install incus-base incus-client   # once
+sudo incus admin init --minimal            # once
+sudo adduser "$USER" incus-admin           # once, then log in again
 incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c cloud-init.user-data="$(cat cloud-init/vm.yaml)"
 incus exec djd -- cloud-init status --wait
 incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
@@ -99,7 +102,7 @@ incus list djd                    # connect an RDP client to this address, port 
 
 The server module opens RDP only to loopback and private networks, and the incus bridge is private.
 
-multipass (macOS, Windows, Linux; installs `server desktop` at first boot and imports the `gh:dayjobdoor` SSH keys; in a fork, see [Fork](#fork) first):
+multipass ([install it](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/) on macOS, Windows or Linux) installs `server desktop` at first boot and imports the `gh:dayjobdoor` SSH keys. In a fork, see [Fork](#fork) first:
 
 ```sh
 multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml   # waits for the install
