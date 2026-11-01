@@ -6,7 +6,8 @@
 #USAGE   choices "agent" "server" "desktop" "full" "secrets"
 #USAGE }
 set -euo pipefail
-DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+# fixed: mise reads miserc.local.toml from ~/.config/mise, a link into this checkout
+DJD_DIR="$HOME/.dotfiles"
 
 # the canonical order, so later modules win key collisions
 order=(agent server desktop full secrets)
@@ -52,6 +53,7 @@ add)
     ;;
 remove)
     removed=()
+    brave=/etc/apt/sources.list.d/mise-brave-browser.sources
     for m in "${modules[@]}"; do
         # the selection is written before the unapply below, so a run that failed halfway leaves the module
         # unselected but its files in place; a retry has to unapply them
@@ -77,6 +79,11 @@ remove)
                 printf '%s\n' "$out" >&2
                 exit 1
             fi
+        fi
+        # mise never removes an apt source it added; left behind, the repository would stay trusted and feed apt upgrade
+        if [ "$m" = desktop ] && [ -e "$brave" ]; then
+            sudo rm -f "$brave"
+            echo "djd: removed Brave's apt source"
         fi
         echo "djd: packages installed by $m stay; remove them with apt if needed"
     done

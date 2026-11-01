@@ -2,10 +2,13 @@
 
 [settings]
 npm.package_manager = "bun"
+# pypi: tools install through uv (below) instead of pipx
 pypi.uvx = true
+# pi and omp are deliberately exempt from the 3-day minimum_release_age in config.toml: they release often and
+# each new release is wanted at once.
 minimum_release_age_excludes = ["pi", "github:can1357/oh-my-pi"]
 
-# Shims apply [env] to every shell type, so docker exec and sh -c share the locations of login shells.
+# Tools started through a shim see [env] in any shell type, so docker exec and sh -c share the locations of login shells.
 # A variable in .profile would reach only login shells, and bun would split its cache between the two.
 # PI_TELEMETRY is read by pi; DO_NOT_TRACK by skills and bun.
 [env]
@@ -32,3 +35,6 @@ pi = "latest"
 # The global AGENTS.md of pi and omp. Each reads its own agent directory and nothing else, so the file exists twice.
 [dotfile_groups.agent]
 root = "agent"
+
+[bootstrap.hooks]
+pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts agent"

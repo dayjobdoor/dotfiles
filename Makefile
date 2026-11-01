@@ -5,6 +5,8 @@ MAKEFLAGS += --no-builtin-rules --no-print-directory
 .SUFFIXES:
 .DEFAULT_GOAL := help
 MISE ?= $(shell command -v mise 2>/dev/null || echo $(HOME)/.local/bin/mise)
+# make init puts djd in ~/.local/bin, which the shell that ran it may not have on PATH yet
+DJD ?= $(shell command -v djd 2>/dev/null || echo $(HOME)/.local/bin/djd)
 DJD_COMMANDS := apply update status doctor module secret
 
 .PHONY: help init FORCE $(DJD_COMMANDS)
@@ -15,7 +17,7 @@ init:
 	./install.sh $(ARGS)
 
 $(DJD_COMMANDS):
-	@djd $@ $(ARGS)
+	@$(DJD) $@ $(ARGS)
 
 Makefile: ;
 

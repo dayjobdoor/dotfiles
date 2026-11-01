@@ -1,10 +1,16 @@
 #!/bin/sh
 set -eu
+# a shell started before `make init` lacks ~/.local/bin, where mise lives
+export PATH="$HOME/.local/bin:$PATH"
 # djd tasks are plain bash; installing tools belongs to `djd apply`, not to every task run
 export MISE_TASK_RUN_AUTO_INSTALL=false
 # mise 2026.10.23 detects an active ufw by matching the English "Status: active"; under a Japanese
-# locale (desktop module, or LC_ALL forwarded by orb/ssh) the firewall reports drift forever
+# locale (desktop module, or LC_ALL forwarded by orb/ssh) the firewall reports drift forever.
+# Updated machines run a newer mise: re-check on a version bump.
 export LC_ALL=C.UTF-8
+# a MISE_ENV of the user's own would replace the module selection in miserc.local.toml, so `djd module add`
+# would write a selection without the machine's modules
+unset MISE_ENV
 # from $HOME, so a project's mise.toml in the current directory never joins `mise bootstrap`
 cd "$HOME"
 case "${1:-help}" in

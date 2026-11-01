@@ -22,7 +22,8 @@ main() {
         die "Ubuntu 26.04 only (found ${ID:-unknown} ${VERSION_ID:-})"
 
     if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-        sudo apt-get update && sudo apt-get install -y ca-certificates git curl
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates git curl
     fi
 
     # from curl | sh, $0 is the shell, not this file
@@ -47,6 +48,8 @@ main() {
         [ "$(cd "$cfg" 2>/dev/null && pwd -P)" = "$want" ] || die "$cfg links elsewhere; move it aside first"
     elif [ -d "$cfg" ]; then
         rmdir "$cfg" 2>/dev/null || die "move $cfg aside first"
+    elif [ -e "$cfg" ]; then
+        die "$cfg is not a directory; move it aside first"
     fi
     if [ ! -e "$cfg" ]; then
         mkdir -p "$(dirname "$cfg")"
@@ -59,9 +62,10 @@ main() {
         [ -x "$HOME/.local/bin/mise" ] || die "installing mise failed"
     fi
 
-    # LC_ALL: see home/.local/bin/djd (mise parses English ufw output). $HOME, so mise loads no project
-    # mise.toml from the current directory (a checkout's own dev config included).
+    # LC_ALL: see home/.local/bin/djd (mise parses English ufw output). MISE_ENV: see there too. $HOME, so mise loads
+    # no project mise.toml from the current directory (a checkout's own dev config included).
     cd "$HOME"
+    unset MISE_ENV
     export PATH="$HOME/.local/bin:$PATH" MISE_TASK_RUN_AUTO_INSTALL=false LC_ALL=C.UTF-8
     if [ $# -gt 0 ]; then
         exec mise run djd:module add "$@"

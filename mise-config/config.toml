@@ -4,10 +4,13 @@
 min_version = "2026.10.23"
 
 [settings]
-# ponytail: no lockfile; image digests pin sandboxes. Add lockfile=true + mise lock --global if machines must match bit-for-bit.
+# No lockfile on purpose: image digests pin the sandboxes. Add lockfile = true and run mise lock --global if
+# machines must match bit for bit.
 minimum_release_age = "3d"
 trusted_config_paths = ["~/.dotfiles"]
+# mise's tool directories stay ahead of PATH entries that a shell adds after `mise activate`
 activate_aggressive = true
+# parallel tool installs; the full module declares about 180 tools
 jobs = 8
 
 [tools]
@@ -65,10 +68,12 @@ group = "root"
 [bootstrap.user]
 login_shell = "zsh"
 
+[bootstrap.hooks]
 # mise runs a plain `chsh` in the user phase, which asks for a password that cloud and OrbStack users
 # don't have; switching via sudo first leaves that phase a no-op.
-[bootstrap.hooks]
 pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
+# Symlink entries refuse real files, so this moves them aside. Only the dotfiles part runs it: not --dry-run, not --skip dotfiles.
+pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts home"
 
 [dotfile_groups.home]
 root = "home"

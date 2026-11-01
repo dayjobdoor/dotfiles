@@ -1,33 +1,14 @@
 #!/usr/bin/env bash
-#MISE description="Apply packages, dotfiles and tools for the selected modules"
+#MISE description="Converge this machine to the selected modules (packages, files, services, firewall, dotfiles, tools)"
 #MISE quiet=true
 set -euo pipefail
-DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
 
-# Symlink entries refuse real files: drop untouched /etc/skel copies, move anything else aside.
-modules=${MISE_ENV:-}
-for g in home ${modules//,/ }; do
-    # modules without a dotfile tree, and the Docker build's first pass (trees not copied yet)
-    [ -d "$DJD_DIR/$g" ] || continue
-    while IFS= read -r -d '' src; do
-        rel=${src#"$DJD_DIR/$g/"}
-        target="$HOME/$rel"
-        if [ ! -e "$target" ] || [ -L "$target" ]; then
-            continue
-        fi
-        if [ -f "/etc/skel/$rel" ] && cmp -s "/etc/skel/$rel" "$target"; then
-            rm "$target"
-        else
-            mv "$target" "$target.djd-backup-$(date +%s)"
-            echo "djd: moved $target aside" >&2
-        fi
-    done < <(find "$DJD_DIR/$g" -type f -print0)
-done
-
+# Real files that a dotfile would replace are moved aside by the pre-dotfiles hook (hooks/dotfile-conflicts), so that
+# they stay put on --dry-run, --skip dotfiles and a bootstrap that fails before the dotfiles part.
 # DJD_BOOTSTRAP_FLAGS: extra mise bootstrap flags for non-interactive callers (the Docker build's passes)
 status=0
 # shellcheck disable=SC2086
 mise bootstrap --yes --update ${DJD_BOOTSTRAP_FLAGS:-} "$@" || status=$?
-# after bootstrap, so no shell started mid-run can cache the pre-upgrade init scripts (home/.config/zsh/.zshrc, home/.bashrc)
+# after bootstrap, so a cache that a shell started mid-run wrote is removed too (home/.config/zsh/.zshrc, home/.bashrc)
 rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}"/zsh/init "${XDG_CACHE_HOME:-$HOME/.cache}"/bash/init
 exit "$status"

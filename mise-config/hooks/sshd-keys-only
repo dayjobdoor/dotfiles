@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Exits 1 unless sshd is keys-only with root login denied. Shared by hooks/server-pre-dotfiles and djd doctor.
+# On Ubuntu's stock sshd_config layout a converged machine needs no sudo here.
+set -euo pipefail
+
+# sshd keeps the first value it reads. Ubuntu's sshd_config includes sshd_config.d before any setting of its
+# own, so the drop-in wins unless another drop-in sorts first. Any other layout, such as the one-line
+# sshd_config cloud-init writes when openssh-server is missing, is checked against sshd -T.
+first=$(grep -m1 -vE '^[[:space:]]*(#|$)' /etc/ssh/sshd_config || true)
+earlier=$(cd /etc/ssh/sshd_config.d && printf '%s\n' *.conf | LC_ALL=C sort | sed '/^10-djd\.conf$/,$d')
+if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ -n "$earlier" ]; then
+    # sshd -T needs the privilege separation directory, which only a started ssh.service creates
+    sudo install -d -m 0755 /run/sshd
+    effective=$(sudo sshd -T)
+    for want in 'passwordauthentication no' 'kbdinteractiveauthentication no' 'permitrootlogin no'; do
+        if ! grep -qx "$want" <<<"$effective"; then
+            echo "djd server: sshd is not keys-only: '$want' is overridden. Check /etc/ssh/sshd_config;" \
+                "Ubuntu's default is /usr/share/openssh/sshd_config." >&2
+            exit 1
+        fi
+    done
+fi

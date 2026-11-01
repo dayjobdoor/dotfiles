@@ -2,7 +2,8 @@
 #MISE description="Check this machine against the repo; exit 1 on any failure"
 #MISE quiet=true
 set -euo pipefail
-DJD_DIR="${DJD_DIR:-$HOME/.dotfiles}"
+# fixed: mise reads ~/.config/mise (a link into this checkout) and dotfiles.root, which defaults to ~/.dotfiles
+DJD_DIR="$HOME/.dotfiles"
 
 failed=0
 ok() { echo "ok $1"; }
@@ -10,8 +11,10 @@ fail() {
     echo "FAIL $1: $2"
     failed=1
 }
+selected() { [[ ,${MISE_ENV:-}, == *,"$1",* ]]; }
 
-if grep -qx 'ID=ubuntu' /etc/os-release; then ok ubuntu; else fail ubuntu "/etc/os-release is not Ubuntu"; fi
+# the same test as install.sh
+if (. /etc/os-release && [ "${ID:-}" = ubuntu ] && [ "${VERSION_ID:-}" = 26.04 ]); then ok ubuntu; else fail ubuntu "/etc/os-release is not Ubuntu 26.04"; fi
 
 have=$(readlink -f "${XDG_CONFIG_HOME:-$HOME/.config}/mise" || true)
 want=$(readlink -f "$DJD_DIR/mise-config")
@@ -34,13 +37,22 @@ if out=$(mise dot status --missing --json 2>/dev/null); then ok dotfiles; else
         mise dot status --missing 2>&1 || true
 fi
 
+# bootstrap status cannot see what the hooks enforce: they run on every apply and are imperative
+if selected server; then
+    if out=$("$DJD_DIR/mise-config/hooks/sshd-keys-only" 2>&1); then ok sshd; else fail sshd "${out#djd server: }"; fi
+fi
+if selected desktop; then
+    if grep -qx security_layer=tls /etc/xrdp/xrdp.ini; then ok xrdp-tls; else fail xrdp-tls "/etc/xrdp/xrdp.ini lacks security_layer=tls; run djd apply"; fi
+    if grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini; then ok xrdp-root-login; else fail xrdp-root-login "/etc/xrdp/sesman.ini lacks AllowRootLogin=false; run djd apply"; fi
+fi
+
 # age.strict is off in the secrets module, so a missing or wrong key would leave its variables unset without a word
-if [[ ,${MISE_ENV:-}, == *,secrets,* ]]; then
+if selected secrets; then
     key="$HOME/.config/djd/age.txt"
     if [ ! -r "$key" ]; then
         fail secrets "no age key at $key; copy it from another machine"
-    elif [ "$(stat -c %a "$key")" != 600 ]; then
-        fail secrets "$key is mode $(stat -c %a "$key"), want 600"
+    elif ((8#$(stat -c %a "$key") & 8#077)); then
+        fail secrets "$key is mode $(stat -c %a "$key"); it must not be accessible to group or others (chmod 600)"
     elif MISE_AGE_STRICT=true mise env >/dev/null 2>&1; then
         ok secrets
     else

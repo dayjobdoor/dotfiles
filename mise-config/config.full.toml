@@ -1,7 +1,9 @@
-# Module full: the whole personal toolbox (ported from budybye/dotfiles). Requires agent (npm: tools use bun).
+# Module full: the whole personal toolbox. Requires agent (npm: tools use bun).
 
 [settings]
+# cargo: tools install from cargo-binstall's prebuilt binaries instead of compiling
 cargo.binstall = true
+# the Rust toolchains and cargo's home live under XDG data, not ~/.cargo and ~/.rustup
 rust.cargo_home = "~/.local/share/cargo"
 rust.rustup_home = "~/.local/share/rustup"
 
@@ -14,6 +16,7 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:moreutils" = "latest"
 "apt:autoconf" = "latest"
 "apt:lsb-release" = "latest"
+# libraries that building ruby and its native gems links against (ruby itself comes from mise below, not apt)
 "apt:libdb-dev" = "latest"
 "apt:libgdbm-dev" = "latest"
 "apt:libgmp-dev" = "latest"
@@ -25,7 +28,6 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:net-tools" = "latest"
 "apt:nmap" = "latest"
 "apt:rsyslog" = "latest"
-"apt:ruby" = "latest"
 "apt:rsync" = "latest"
 "apt:command-not-found" = "latest"
 # GUI: only when the desktop module is selected too (env gating keeps headless full machines CLI-only)
@@ -83,7 +85,7 @@ orval = "latest"
 just = "latest"
 watchexec = "latest" # auto runner
 # hunk = "latest"          # modem-dev/hunk (TypeScript)
-# marp-cli = "latest"  # → github:marp-team/marp-cli
+# marp-cli = "latest"  # -> github:marp-team/marp-cli
 
 # github (TypeScript / JavaScript)
 "github:marp-team/marp-cli" = "latest"
@@ -404,9 +406,7 @@ ninja = "latest"
 # redis = "latest"
 # postgres = "latest"
 # duckdb = "latest"
-sqlite = "latest"
-fastfetch = "latest"
-solidity = "latest"  # ethereum/solidity (C++)
+solidity = "latest" # ethereum/solidity (C++)
 # clickhouse = "latest"
 
 # github (C / C++)

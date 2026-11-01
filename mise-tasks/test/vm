@@ -13,6 +13,7 @@ if command -v incus >/dev/null 2>&1; then
         # nesting lets docker (server module) run inside the system container
         incus launch images:ubuntu/26.04/cloud "$name" -c security.nesting=true \
             -c cloud-init.user-data="$(cat cloud-init/vm.yaml)" >/dev/null
+        # all three backends stop here: `status --wait` exits non-zero when cloud-init failed, and its long status says why
         incus exec "$name" -- cloud-init status --wait >/dev/null ||
             {
                 incus exec "$name" -- cloud-init status --long >&2
@@ -26,7 +27,6 @@ elif command -v multipass >/dev/null 2>&1; then
         # the defaults (1 CPU, 1 GB RAM, 5 GB disk) cannot hold the desktop module
         multipass launch 26.04 --name "$name" --cpus 4 --memory 8G --disk 40G --timeout 900 \
             --cloud-init cloud-init/vm.yaml >/dev/null
-        # same cloud-init guard as the other backends
         multipass exec "$name" -- sudo cloud-init status --wait >/dev/null ||
             {
                 multipass exec "$name" -- sudo cloud-init status --long >&2
@@ -37,6 +37,7 @@ elif command -v multipass >/dev/null 2>&1; then
     vm_delete() { multipass delete --purge "$name" >/dev/null 2>&1 || true; }
 elif command -v orb >/dev/null 2>&1; then
     vm_create() {
+        # resolute is the codename of 26.04
         orb create -c cloud-init/vm.yaml ubuntu:resolute "$name" >/dev/null
         orb -m "$name" -w / sudo cloud-init status --wait >/dev/null ||
             {

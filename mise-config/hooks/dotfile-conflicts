@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# pre-dotfiles hook of the base, agent and desktop modules; $1 is the dotfile group. A module declares it only
+# when it has a dotfile tree, so it runs for the selected groups and only when mise runs the dotfiles part:
+# --dry-run, --skip dotfiles and a bootstrap that stopped earlier leave the files alone.
+# Symlink entries refuse real files: drop untouched /etc/skel copies, move anything else aside.
+set -euo pipefail
+root="$HOME/.dotfiles/${1:?dotfile group}"
+
+while IFS= read -r -d '' src; do
+    rel=${src#"$root/"}
+    target="$HOME/$rel"
+    if [ ! -e "$target" ] || [ -L "$target" ]; then
+        continue
+    fi
+    if [ -f "/etc/skel/$rel" ] && cmp -s "/etc/skel/$rel" "$target"; then
+        rm "$target"
+    else
+        mv "$target" "$target.djd-backup-$(date +%s)"
+        echo "djd: moved $target aside" >&2
+    fi
+done < <(find "$root" -type f -print0)

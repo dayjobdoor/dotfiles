@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip (builds it first)"
+#MISE description="Sandbox image: offline tests, doctor (green and red), PATH, shell startup, backup and checkout re-apply, secrets round trip (builds it first)"
 #MISE depends=["build sandbox"]
 #USAGE arg "[image]" default="djd:sandbox" help="Image to test"
 set -euo pipefail
@@ -8,8 +8,48 @@ trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
 
 image=${usage_image:-${1:-djd:sandbox}}
 ok() { echo "ok $*"; }
-# -e NAME forwards the token from the environment instead of putting it on the command line
+# exported so that the `docker run -e MISE_GITHUB_TOKEN` flags below forward it from the environment instead of
+# putting it on the command line
 export MISE_GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+
+# The tests/ scripts that need no network and no token, run on the copy of the repo inside the image. They are
+# fast, and a failure here says more than the same fault found by the long steps below. The apt source that
+# `djd module remove desktop` deletes is created first, because tests/djd-module.sh checks that only when it exists.
+for t in xsession-audio tree-check agentos-bundle djd-module; do
+    docker run --rm --init "$image" bash -c \
+        'sudo install -D /dev/null /etc/apt/sources.list.d/mise-brave-browser.sources && bash "$HOME/.dotfiles/tests/$0.sh"' "$t"
+done
+ok offline tests
+
+# `docker run IMAGE djd doctor` is the green path. The red paths run in a zsh -lc script, so every check goes
+# through doctor_says: zsh has no pipefail, and a `djd doctor | grep -q` would pass whatever doctor exits with.
+# Doctor's other checks fail in these containers (a missing sshd, no xrdp), which is why `ok` lines are matched
+# by name and only a FAIL line also requires the non-zero exit.
+doctor_lib=$(
+    cat <<'EOF'
+set -e
+step() { echo "== $*" >&2; }
+# doctor_says <ok|FAIL> <check> [pattern that must also appear in the output]
+doctor_says() {
+    rc=0
+    out=$(djd doctor 2>&1) || rc=$?
+    if ! grep -q "^$1 $2" <<<"$out"; then
+        echo "doctor printed no '$1 $2' line:" >&2
+        echo "$out" >&2
+        exit 1
+    fi
+    if [ "$1" = FAIL ] && [ "$rc" = 0 ]; then
+        echo "doctor exited 0 with $2 failing" >&2
+        exit 1
+    fi
+    if [ -n "${3:-}" ] && ! grep -q -- "$3" <<<"$out"; then
+        echo "doctor output lacks '$3':" >&2
+        echo "$out" >&2
+        exit 1
+    fi
+}
+EOF
+)
 
 docker run --rm "$image" djd doctor
 # `docker run IMAGE tool` and `docker exec` get no login shell; the image PATH must carry the shims
@@ -24,8 +64,9 @@ docker run --rm "$image" sh -c 'node -p "process.env.PI_TELEMETRY + process.env.
 docker run --rm "$image" zsh -lc 'test -L ~/.pi/agent/AGENTS.md && cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md'
 ok agent env without a login shell, global AGENTS.md for pi and omp
 
-# Every start is interactive, on a tty. The first one fetches the pinned sheldon plugins and fills the init
-# cache, so its output is dropped; the second reads the cache. Anything printed is a broken init script.
+# Every start is interactive, on a tty. Two caches are involved: the first zsh start fetches the pinned sheldon
+# plugins and fills the zsh init cache, so its output is dropped. The second zsh start reads that cache. The bash
+# start fills its own, separate cache and is cold too, yet must be silent. Anything printed is a broken init script.
 out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic true; bash -ic true' | tr -d '\r')
 [ -z "$out" ] || {
     printf 'interactive shell startup printed:\n%s\n' "$out" >&2
@@ -33,54 +74,200 @@ out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic 
 }
 ok interactive shells start silently
 
-# stub banner tools: a login shell that runs a command (agents, `zsh -lc`) must not mix .zlogin's banner into
-# the command's output, and an interactive one must still show it (or the stubs would prove nothing)
+# Stub banner tools, each with its own output, so that a branch of .zlogin that is gone or wired to the wrong
+# tool changes the expected text: fortune | cowsay prints COW, figlet | lolcat prints LOL. fastfetch stands in for
+# the goodbye that .zlogout prints when an interactive login shell exits. A login shell that runs a command
+# (agents, `zsh -lc`) must not mix the banner into the command's output, and an interactive one must still show
+# it (or the stubs would prove nothing). Each banner branch needs both of its tools.
 docker run --rm "$image" bash -c '
     set -e
-    mkdir /tmp/stub
-    for c in fortune cowsay figlet lolcat; do printf "#!/bin/sh\necho BANNER\n" >/tmp/stub/$c && chmod +x /tmp/stub/$c; done
+    mkdir /tmp/stub /tmp/stub-cow
+    printf "#!/bin/sh\n:\n" >/tmp/stub/fortune
+    printf "#!/bin/sh\n:\n" >/tmp/stub/figlet
+    printf "#!/bin/sh\necho COW\n" >/tmp/stub/cowsay
+    printf "#!/bin/sh\necho LOL\n" >/tmp/stub/lolcat
+    printf "#!/bin/sh\necho BYE\n" >/tmp/stub/fastfetch
+    chmod +x /tmp/stub/*
+    cp /tmp/stub/cowsay /tmp/stub/lolcat /tmp/stub/fastfetch /tmp/stub-cow/
+    want="COW
+LOL
+BYE"
     export PATH=/tmp/stub:$PATH
     [ -z "$(zsh -lc true)" ]
-    [ -n "$(zsh -lic true 2>/dev/null)" ]
+    got=$(zsh -lic true 2>/dev/null)
+    [ "$got" = "$want" ] || { echo "== zsh -lic printed: $got" >&2; exit 1; }
+    # cowsay without fortune and lolcat without figlet: no banner, only the goodbye
+    PATH=/tmp/stub-cow:${PATH#/tmp/stub:}
+    got=$(zsh -lic true 2>/dev/null)
+    [ "$got" = BYE ] || { echo "== banner without its tools: $got" >&2; exit 1; }
 '
 ok login banner stays out of command output
 
-# One container: djd apply moves a real file aside instead of failing on it, a checkout that moved (the
-# `make init` path) is linked back by install.sh, and the machine converges afterwards. plan covers packages,
-# files, services and the firewall; doctor adds dotfiles, the login shell and the mise link.
-docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
-    set -e
+# doctor's Ubuntu check, login shell and (for a selected module) the checks that its hooks cannot make: each
+# broken on purpose, and mended again, in one container
+docker run --rm "$image" zsh -lc "$doctor_lib"'
+    # /etc/os-release is a link to this file
+    os=/usr/lib/os-release
+    sudo cp $os /tmp/os-release.orig
+    step VERSION_ID is not 26.04
+    sudo sed -i "s/^VERSION_ID=.*/VERSION_ID=\"24.04\"/" $os
+    doctor_says FAIL ubuntu
+    sudo cp /tmp/os-release.orig $os
+    step ID is not ubuntu
+    sudo sed -i "s/^ID=.*/ID=debian/" $os
+    doctor_says FAIL ubuntu
+    sudo cp /tmp/os-release.orig $os
+    doctor_says ok ubuntu
+
+    step login shell is not zsh
+    sudo usermod -s /bin/bash "$(id -un)"
+    doctor_says FAIL login-shell
+    sudo usermod -s /usr/bin/zsh "$(id -un)"
+    doctor_says ok login-shell
+'
+ok doctor rejects another Ubuntu release and another login shell
+
+# server: the hook doctor shares with `djd apply`, on the stock sshd_config layout and on the layouts that need
+# sshd -T. Ubuntu runs sshd -T through sudo, whose secure_path holds /usr/local/sbin, so a stub there stands in.
+docker run --rm "$image" zsh -lc "$doctor_lib"'
+    printf "env = [\"agent\", \"server\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
+    sshd_t() { printf "#!/bin/sh\necho passwordauthentication %s\necho kbdinteractiveauthentication no\necho permitrootlogin no\n" "$1" | sudo tee /usr/local/sbin/sshd >/dev/null; sudo chmod +x /usr/local/sbin/sshd; }
+    sudo install -d /etc/ssh/sshd_config.d
+    sudo touch /etc/ssh/sshd_config.d/10-djd.conf
+    printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
+    step stock layout
+    doctor_says ok sshd
+
+    step an earlier drop-in that turns passwords on
+    sudo touch /etc/ssh/sshd_config.d/00-x.conf
+    sshd_t yes
+    doctor_says FAIL sshd
+    step an earlier drop-in that changes nothing
+    sshd_t no
+    doctor_says ok sshd
+
+    step an sshd_config that does not start with the Include
+    sudo rm /etc/ssh/sshd_config.d/00-x.conf
+    printf "PasswordAuthentication yes\n" | sudo tee /etc/ssh/sshd_config >/dev/null
+    sshd_t yes
+    doctor_says FAIL sshd
+    sshd_t no
+    doctor_says ok sshd
+'
+ok doctor checks sshd only through the hook it shares with apply
+
+# desktop: each xrdp setting has its own line, and a commented-out default is not the setting
+docker run --rm "$image" zsh -lc "$doctor_lib"'
+    printf "env = [\"agent\", \"desktop\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
+    sudo install -d /etc/xrdp
+    xrdp() { printf "%s\n" "[Globals]" "$1" | sudo tee /etc/xrdp/xrdp.ini >/dev/null; }
+    sesman() { printf "%s\n" "[Security]" "$1" | sudo tee /etc/xrdp/sesman.ini >/dev/null; }
+    xrdp security_layer=tls
+    sesman AllowRootLogin=false
+    doctor_says ok xrdp-tls
+    doctor_says ok xrdp-root-login
+
+    step security_layer=negotiate
+    xrdp security_layer=negotiate
+    doctor_says FAIL xrdp-tls
+    doctor_says ok xrdp-root-login
+    step security_layer only as a comment
+    xrdp "#security_layer=tls"
+    doctor_says FAIL xrdp-tls
+    xrdp security_layer=tls
+    step AllowRootLogin=true
+    sesman AllowRootLogin=true
+    doctor_says FAIL xrdp-root-login
+    doctor_says ok xrdp-tls
+'
+ok doctor checks xrdp TLS and root login separately
+
+# One container: a conflicting real file shows up in doctor, stays put on `djd apply --dry-run`, and is moved
+# aside by a real apply; a checkout that moved (the `make init` path) is linked back by install.sh, the init
+# caches are gone after the apply, and the machine converges afterwards. plan covers packages, files, services
+# and the firewall; doctor adds the Ubuntu release, the mise link, the login shell and the dotfiles.
+docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
+    # before ~/.bashrc is replaced, because bash fills its cache from that file
+    step warm the init caches
+    zsh -ic true >/dev/null 2>&1
+    bash -ic true >/dev/null 2>&1
+    [ -n "$(ls -A ~/.cache/zsh/init)" ]
+    [ -n "$(ls -A ~/.cache/bash/init)" ]
     rm ~/.bashrc && echo custom >~/.bashrc
     [ -z "$(find ~ -maxdepth 1 -name "*.djd-backup-*")" ]
+    # the indent, because the table that a failed bootstrap check prints also names ~/.bashrc
+    step doctor lists the drifted dotfile
+    doctor_says FAIL dotfiles "^  .*\.bashrc"
+
+    # the exit status is not the contract: mise itself reports the refusal to overwrite the file on a dry run
+    step a dry run moves nothing
+    djd apply --dry-run >/dev/null 2>&1 || true
+    [ -f ~/.bashrc ] && [ ! -L ~/.bashrc ]
+    grep -qx custom ~/.bashrc
+    [ -z "$(find ~ -maxdepth 1 -name "*.djd-backup-*")" ]
+
     mv ~/.dotfiles ~/src
+    step install.sh on the moved checkout
     ~/src/install.sh
     [ "$(readlink ~/.dotfiles)" = "$HOME/src" ]
     test -L ~/.bashrc
     grep -q custom ~/.bashrc.djd-backup-*
+    step apply clears the init caches
+    [ -z "$(ls -A ~/.cache/zsh/init ~/.cache/bash/init 2>/dev/null)" ]
+    step converged
     djd doctor
     mise bootstrap plan --detailed-exitcode
 '
 ok conflicting file backed up, moved checkout relinked, re-apply converges
 
+# the revision comes from the image, which has no .git
+docker run --rm "$image" zsh -lc '
+    set -e
+    out=$(djd status)
+    grep -qF "@ $DJD_REVISION" <<<"$out"
+'
+ok djd status prints the revision
+
 # the age key, an encrypted value, and the value coming back through the secrets module. age.strict is off, so
 # a broken decrypt would otherwise just leave the variable unset
-docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc '
-    set -e
+docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
+    step keygen
     djd secret keygen >/dev/null
     [ "$(stat -c %a ~/.config/djd/age.txt)" = 600 ]
+    [ "$(stat -c %a ~/.config/djd)" = 700 ]
     # a pipeline that starts with ! is exempt from set -e, so the refusals are spelled out
     if djd secret keygen >/dev/null 2>&1; then exit 1; fi
+    step secret set
     printf "s3cret\n" | djd secret set DJD_CHECK >/dev/null
     grep -q DJD_CHECK ~/.dotfiles/mise-config/config.secrets.toml
     if grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
+    # NAME=value would put the plaintext in argv; exit 2 is the usage error
+    rc=0
+    printf "x\n" | djd secret set DJD_BAD=plain >/dev/null 2>&1 || rc=$?
+    [ "$rc" = 2 ]
+    if grep -q DJD_BAD ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
     printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     [ "$(mise exec -- printenv DJD_CHECK)" = s3cret ]
-    djd doctor 2>&1 | grep -q "^ok secrets"
+    doctor_says ok secrets
+
+    step missing key
     mv ~/.config/djd/age.txt ~/age.bak
-    djd doctor 2>&1 | grep -q "^FAIL secrets: no age key"
+    doctor_says FAIL secrets
+    step a different key
     djd secret keygen >/dev/null
-    djd doctor 2>&1 | grep -q "^FAIL secrets: a value does not decrypt"
-    chmod 644 ~/.config/djd/age.txt
-    djd doctor 2>&1 | grep -q "^FAIL secrets: .* mode 644"
+    doctor_says FAIL secrets
+    # the right key again, so that only its mode can make doctor fail from here on
+    mv ~/age.bak ~/.config/djd/age.txt
+    doctor_says ok secrets
+    for mode in 640 604 644; do
+        step key mode $mode
+        chmod $mode ~/.config/djd/age.txt
+        doctor_says FAIL secrets
+    done
+    for mode in 400 600; do
+        step key mode $mode
+        chmod $mode ~/.config/djd/age.txt
+        doctor_says ok secrets
+    done
 '
-ok secrets round trip, and doctor rejects a missing key, a different key and a world-readable key
+ok secrets round trip, and doctor rejects a missing key, a different key and a key open to group or others

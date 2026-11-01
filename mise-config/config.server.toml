@@ -39,7 +39,7 @@ group = "root"
 notify = ["docker"]
 
 [bootstrap.services.docker]
-# dockerd reads both only at start
+# dockerd reads daemon.json's `ip` and `default-network-opts` only at start
 on_change = "restart"
 
 [bootstrap.linux.firewall]

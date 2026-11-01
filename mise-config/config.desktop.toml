@@ -10,10 +10,10 @@
 "apt:xrdp" = "latest"
 "apt:xorgxrdp" = "latest"
 # Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
-# a PipeWire server in the session (desktop/.xsession starts one where systemd does not). That script calls
-# pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card keeps playing
-# locally. pipewire-pulse gives PulseAudio clients such as browsers a way in. desktop-final purges the pulseaudio
-# daemon that older installs got through xfce4-pulseaudio-plugin.
+# a PipeWire server in the session (desktop/.xsession starts one where systemd does not). That package's autostart
+# script calls pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card
+# keeps playing locally. pipewire-pulse gives PulseAudio clients such as browsers a way in. desktop-final purges
+# the pulseaudio daemon, because it and pipewire-pulse would both claim the pulse socket.
 "apt:pipewire" = "latest"
 "apt:pipewire-pulse" = "latest"
 "apt:wireplumber" = "latest"
@@ -47,14 +47,16 @@ fingerprint = [
   "B2A3 DCA3 50E6 7256 740D F904 DE4E C67B E4B0 DCA0",
 ]
 
-# mise puts the tool's own bin dirs ahead of PATH during a postinstall, so each script resets PATH: a poisoned
-# tarball must not shadow sed or install. Zed's updater would bypass mise's digest and release age check, so
-# the env var below turns it off (zed's auto_update.rs skips polling and shows this text when it is set).
+# Zed's updater would bypass mise's digest and release age check, so the env var below turns it off (zed's
+# auto_update.rs skips polling and shows this text when it is set). desktop/.config/zed/settings.json sets
+# auto_update to false as well.
 [env]
 ZED_UPDATE_EXPLANATION = "Updates come from mise: run `mise upgrade github:zed-industries/zed`."
 
 # Zed and Zen ship tarballs with no .desktop file that survives an upgrade, so each postinstall writes the menu
 # entry and icon with Exec on the mise shim (a versioned install dir is gone after the next upgrade).
+# mise puts the tool's own bin dirs ahead of PATH during a postinstall, so each script resets PATH: a poisoned
+# tarball must not shadow sed or install.
 # mise checks the digest of every Zed download and checks the GitHub artifact attestation when the release has
 # one. It does not require one, so the attestation only helps while upstream keeps publishing it.
 [tools."github:zed-industries/zed"]
@@ -68,6 +70,7 @@ sed -e "s|^TryExec=zed|TryExec=$HOME/.local/share/mise/shims/zed|" -e "s|^Exec=z
   "$MISE_TOOL_INSTALL_PATH/share/applications/dev.zed.Zed.desktop" > "$d/dev.zed.Zed.desktop"
 '''
 [tools."github:zed-industries/zed".platforms.linux-x64]
+# one asset_pattern per platform: a templated pattern made mise lock record the aarch64 asset for linux-x64
 asset_pattern = "zed-linux-x86_64.tar.gz"
 [tools."github:zed-industries/zed".platforms.linux-arm64]
 asset_pattern = "zed-linux-aarch64.tar.gz"
@@ -75,7 +78,8 @@ asset_pattern = "zed-linux-aarch64.tar.gz"
 # Zen publishes no signature and no attestation, so the only check is the sha256 digest GitHub reports for the
 # asset, which mise verifies. That proves the download matches what the release lists, not who built it.
 # filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH. Its MAR updater would bypass that digest
-# and the release age, so the postinstall writes a policy that turns it off (about:policies lists it as active).
+# and the release age, so the postinstall writes a policy that disables app updates and telemetry (about:policies
+# lists the updater policy as active).
 [tools."github:zen-browser/desktop"]
 version = "latest"
 filter_bins = "zen"
@@ -110,9 +114,26 @@ mode = "0644"
 owner = "root"
 group = "root"
 
+# desktop-final edits two xrdp conffiles (xrdp.ini, sesman.ini), so dpkg stops at its conffile prompt when an xrdp
+# update ships a new version of either, and `djd update` fails without a tty. mise only sets DEBIAN_FRONTEND, which
+# does not cover that prompt. These options keep the local file without asking; they apply to every apt run on the
+# machine. pre-packages, so the file exists before the package step of the apply that upgrades.
+[bootstrap.files."/etc/apt/apt.conf.d/90djd-conffiles"]
+content = """
+Dpkg::Options {
+  "--force-confdef";
+  "--force-confold";
+};
+"""
+mode = "0644"
+owner = "root"
+group = "root"
+phase = "pre-packages"
+
 # Purges screen lockers, im-config and the pulseaudio daemon, makes xrdp TLS-only without root logins, then installs
 # HackGen NF (hooks/desktop-final).
 [bootstrap.hooks]
+pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts desktop"
 final = "~/.config/mise/hooks/desktop-final"
 
 [dotfile_groups.desktop]
