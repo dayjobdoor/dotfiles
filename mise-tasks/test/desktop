@@ -8,10 +8,11 @@ image=${usage_image:-${1:-djd:desktop}}
 net="djd-rdp-$$"
 server="djd-desktop-$$"
 client="djd-rdp-client-$$"
+control="djd-desktop-negotiate-$$"
 
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
-    docker rm -f "$server" "$client" >/dev/null 2>&1 || true
+    docker rm -f "$server" "$client" "$control" >/dev/null 2>&1 || true
     docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -20,16 +21,17 @@ fail() {
     echo "test:desktop: $1" >&2
     docker logs "$server" >&2 || true
     docker exec "$server" sh -c 'tail -n 40 /var/log/xrdp.log /var/log/xrdp-sesman.log' >&2 || true
-    docker exec "$client" cat /tmp/xfreerdp.log >&2 || true
+    docker exec "$client" sh -c 'cat /tmp/xfreerdp.log /tmp/legacy.log 2>&1' >&2 || true
     exit 1
 }
 
 wait_xrdp() {
+    local s=${1:-$server}
     for _ in $(seq 60); do
-        if docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null; then break; fi
+        if docker exec "$s" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null; then break; fi
         sleep 1
     done
-    docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null || fail "xrdp is not listening on 3389"
+    docker exec "$s" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null || fail "xrdp in $s is not listening on 3389"
 }
 
 wait_session() {
@@ -70,20 +72,34 @@ check_xrdp_settings() {
     echo "test:desktop: xrdp is TLS-only and refuses root logins"
 }
 
-# A client that insists on the legacy RDP security layer is turned away before any login. It tries a second account,
-# so a wrongly accepted one would start its own session and leave the first client's alone. An accepted client stays
-# connected until the timeout (124); a refused one gives up within seconds.
-check_legacy_refused() {
-    local rc=0
-    docker exec "$server" sh -c 'useradd -m probe && echo probe:djd-test-pass | chpasswd'
+mkprobe() {
+    docker exec "$1" sh -c 'useradd -m probe && echo probe:djd-test-pass | chpasswd'
+}
+
+# Exit code of an xfreerdp3 login to $1 as the throwaway account that insists on the legacy RDP security layer. A
+# client that stays connected until the timeout gives 124.
+legacy_rc() {
     docker exec "$client" sh -c \
-        "timeout 20 xvfb-run -a xfreerdp3 /v:$server /u:probe /p:djd-test-pass /cert:ignore /sec:rdp >/tmp/legacy.log 2>&1" || rc=$?
+        "timeout 20 xvfb-run -a xfreerdp3 /v:$1 /u:probe /p:djd-test-pass /cert:ignore /sec:rdp >/tmp/legacy.log 2>&1" && echo 0 || echo $?
+}
+
+# $control is the same image with security_layer=negotiate. It must accept that client, or a client that cannot speak
+# the legacy layer would make the refusal below pass for any server. The legacy client then tries a second account
+# on $server, so a wrongly accepted one would start its own session and leave the first client's alone.
+check_legacy_refused() {
+    local rc
+    wait_xrdp "$control"
+    mkprobe "$control"
+    mkprobe "$server"
+    rc=$(legacy_rc "$control")
+    [ "$rc" = 124 ] || fail "the control (security_layer=negotiate) did not keep a legacy-layer client connected (exit $rc): the refusal check proves nothing"
+    rc=$(legacy_rc "$server")
     [ "$rc" != 124 ] || fail "a client forcing the legacy RDP security layer stayed connected"
     [ "$rc" != 0 ] || fail "a client forcing the legacy RDP security layer logged in"
     if docker exec "$server" pgrep -u probe >/dev/null; then fail "the legacy-layer client got a session"; fi
     docker exec "$server" test -d "/proc/$1" || fail "the first client's xfce4-session ($1) is gone"
     docker exec "$client" pgrep -x xfreerdp3 >/dev/null || fail "the first client lost its connection"
-    echo "test:desktop: a client forcing the legacy RDP security layer is refused (exit $rc)"
+    echo "test:desktop: a legacy-layer client is refused (exit $rc) where security_layer=negotiate accepts it"
 }
 
 docker network create "$net" >/dev/null
@@ -91,6 +107,8 @@ docker run -d --name "$server" --network "$net" --user root --entrypoint djd-des
     "$image" ubuntu djd-test-pass >/dev/null
 wait_xrdp
 check_xrdp_settings
+docker run -d --name "$control" --network "$net" --user root --entrypoint sh "$image" \
+    -c "sed -i 's/^security_layer=.*/security_layer=negotiate/' /etc/xrdp/xrdp.ini && exec djd-desktop-entrypoint ubuntu djd-test-pass" >/dev/null
 
 # Install the client before the clock starts; the login itself gets 120s.
 docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
