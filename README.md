@@ -38,6 +38,18 @@ curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh
 
 From a checkout, run `./install.sh agent server`. `make init ARGS="agent server"` does the same but needs make, which a fresh Ubuntu cloud image may not include (`sudo apt-get install make` first). Without module arguments it re-applies the current selection, which on a fresh machine is the base config. To install your own fork, see [Fork](#fork).
 
+After the install, log in again, because the login shell changes to zsh (and the `server` module adds you to the `docker` group). Then run `djd doctor`. On a machine with the base config and `agent`, a healthy result is:
+
+```text
+ok ubuntu
+ok mise-config
+ok login-shell
+ok bootstrap
+ok dotfiles
+```
+
+Doctor exits 1 and prints a `FAIL <check>: <reason>` line for each failed check. A machine with the `server` module also gets `ok sshd`, one with `desktop` gets `ok xrdp-tls` and `ok xrdp-root-login`, and one with `secrets` gets `ok secrets`. The five lines above are the output of `djd doctor` in the sandbox image.
+
 Or skip installing and use an image:
 
 ```sh
@@ -72,7 +84,16 @@ djd secret set NAME       # prompt, encrypt into the secrets module
 
 Machine-local settings (extra environment, shell additions, git identity) live in files outside the repo; [SECURITY.md](SECURITY.md#local-overrides) lists them.
 
-`djd secret set` writes into the checkout (`mise-config/config.secrets.toml`), so storing secrets needs a checkout of your own fork. Run `djd secret keygen` once and `djd secret set GITHUB_TOKEN` for each value. Commit and push `mise-config/config.secrets.toml` (ciphertext only), run `djd update` on every other machine, copy `~/.config/djd/age.txt` to every machine you own, then `djd module add secrets` there. [docs/architecture.md](docs/architecture.md#secrets-use-the-age-support-of-mise) explains the design.
+`djd secret set` writes into the checkout (`mise-config/config.secrets.toml`), and `djd` always acts on `~/.dotfiles`, so storing secrets needs `~/.dotfiles` to be a checkout of your own fork. To share secrets between machines:
+
+1. Run `djd secret keygen` once. It writes the age key to `~/.config/djd/age.txt`.
+2. Run `djd secret set NAME` for each value, for example `djd secret set GITHUB_TOKEN`. It prompts for the value.
+3. Commit and push `mise-config/config.secrets.toml`. It holds ciphertext only.
+4. Run `djd update` on every other machine.
+5. Copy `~/.config/djd/age.txt` to every machine you own, by a channel that is not the repository.
+6. Run `djd module add secrets` on those machines.
+
+A stored value goes through `$VAR` and `{{ }}` expansion when it is read, so do not store one that contains `$` or `{{`. [SECURITY.md](SECURITY.md#age-encrypted-secrets) lists the limits of this design, and [docs/architecture.md](docs/architecture.md#secrets-use-the-age-support-of-mise) explains it.
 
 ## Desktop over RDP
 
@@ -81,9 +102,17 @@ cp .devcontainer/.env.example .devcontainer/.env   # set PASSWORD
 mise run up
 ```
 
-`make up` and `mise run up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). Without mise, run `docker compose -f .devcontainer/compose.yaml up -d --build desktop`. `mise run down` removes the container and everything saved in it (files, browser profiles, settings); `docker compose -f .devcontainer/compose.yaml stop desktop` keeps them. A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens.
+`make up` and `mise run up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). Without mise, run `docker compose -f .devcontainer/compose.yaml up -d --build desktop`.
 
-Connect an RDP client to `localhost:33389` as `ubuntu`. The port is bound to `127.0.0.1` only. The tests use xfreerdp3; Windows App and mstsc were not tried against the TLS-only setting.
+| Command | Effect | Files, browser profiles and settings in the container |
+| --- | --- | --- |
+| `mise run up` | builds the image and starts the container | kept while the container stays. A rebuilt image makes compose replace the container, which drops them (compose behavior, not tested here) |
+| `docker compose -f .devcontainer/compose.yaml stop desktop` | stops the container | kept |
+| `mise run down` | removes the container | deleted |
+
+A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens. A `PASSWORD` or `RDP_PORT` exported in your shell wins over that file.
+
+Connect an RDP client to `localhost:33389` as `ubuntu`. The port is bound to `127.0.0.1` only. The tests use xfreerdp3; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
 
 ## VMs and system containers
 
@@ -105,7 +134,15 @@ incus list djd                    # connect an RDP client to this address, port 
 
 The server module opens RDP only to loopback and private networks, and the incus bridge is private.
 
-If the host runs ufw or Docker, which the `server` module sets up, the container gets no network until the host allows the bridge. The [Incus firewall guide](https://linuxcontainers.org/incus/docs/main/howto/network_bridge_firewalld/) lists the rules. For ufw they are `sudo ufw allow in on incusbr0`, `sudo ufw route allow in on incusbr0`, and `sudo ufw route allow out on incusbr0`. For Docker they are two `iptables -I DOCKER-USER` rules, the ones in `.github/workflows/ci.yaml`, which you have to make persistent across reboots yourself.
+If the host runs ufw or Docker, which the `server` module sets up, the container gets no network until the host allows the bridge. The [Incus firewall guide](https://linuxcontainers.org/incus/docs/main/howto/network_bridge_firewalld/) lists the rules. For ufw, run:
+
+```sh
+sudo ufw allow in on incusbr0
+sudo ufw route allow in on incusbr0
+sudo ufw route allow out on incusbr0
+```
+
+For Docker, add two `iptables -I DOCKER-USER` rules, the ones in `.github/workflows/ci.yaml`, and make them persistent across reboots yourself.
 
 multipass ([install it](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/) on macOS, Windows or Linux) installs `server desktop` at first boot and imports the `gh:dayjobdoor` SSH keys. In a fork, see [Fork](#fork) first:
 
@@ -116,14 +153,14 @@ multipass exec djd -- sudo systemctl restart xrdp xrdp-sesman   # xrdp reads its
 multipass info djd                         # connect an RDP client to this address, port 3389
 ```
 
-The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack.
+The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack. `mise run test:vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01, with the server and desktop modules installed from `cloud-init/vm.yaml` on `ubuntu:resolute`. That run used an earlier tree, so the recipe and the test are verified on OrbStack but not on this exact commit.
 
 ## agentOS
 
-The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it: `.profile`, the git config with an agentOS override, and WASM registry tools. Every registry tool must also be declared in `mise-config/config.toml` or `config.agent.toml`, so a command an agent finds in a guest exists in the sandbox image too. `agentos:boot` starts a native sidecar as your user: run it in the sandbox image, as [Development](#development) shows, not on a machine you care about.
+The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it, with `.profile`, the git config with an agentOS override, and WASM registry tools. The registry packages are pinned in `agentos/software.lock.json`, and the boot installs exactly those bytes. `tests/agentos-bundle.sh` checks that the command of every registry package exists in the sandbox image, so a command an agent finds in a guest exists there too. `agentos:boot` starts a native sidecar as your user. Run it in the sandbox image, as [Development](#development) shows, not on a machine you care about.
 
 ```sh
-mise run agentos:export   # writes dist/agentos/bundle.json
+mise run agentos:export   # writes dist/agentos/bundle.json: the five files and the locked package URLs and digests
 mise run agentos:boot     # boots a VM with the network denied and checks the bundle, shell, git config and tools
 mise run agentos:lock     # re-pins the registry packages after a bump of agentos-core
 ```
@@ -160,14 +197,29 @@ mise trust                            # once per clone, by you on a machine you 
 make                                  # list tasks
 make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
 make lint:fix                         # rewrite shell and mise TOML formatting
-make test                             # sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
+mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:sandbox, about 40 s and no build (also: make test:offline)
+make test                             # builds the sandbox image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
-make test:vm                          # fresh incus or multipass VM (OrbStack also works): server + desktop install, hardening, module removal
+make test:vm                          # fresh incus, multipass or OrbStack VM: server + desktop install, hardening, module removal
 make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
 make ci ARGS=--dry-run                # plan every job of every workflow, release ones included
 ```
 
-`make <task>` is `mise run <task>`, except `make init` (runs `install.sh`) and `make apply|update|status|doctor|module|secret` (run `djd`). Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Every test that installs or applies anything runs in Docker or a throwaway VM, never on your machine. Only `make lint` runs host tools. `mise run agentos:boot` starts a native sidecar, so [AGENTS.md](AGENTS.md) runs it in the sandbox image. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules.
+`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Tests that install or apply anything run in Docker or a throwaway VM, never on your machine. `make lint` runs on the host and installs its user-level tools there. `mise run agentos:boot` starts a native sidecar, so [AGENTS.md](AGENTS.md) runs it in the sandbox image. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `lint:docs` in `docs.yaml` instead.
+
+## Documentation
+
+| Doc | Kind | Read when |
+| --- | --- | --- |
+| [docs/reference.md](docs/reference.md) | reference | you need a fact such as a file, command, variable, hook or image |
+| [docs/how-to.md](docs/how-to.md) | how-to | you work on the repository, for example run CI, raise the mise release or publish a release |
+| [docs/architecture.md](docs/architecture.md) | explanation | you want to know why the design is what it is |
+| [docs/ci.md](docs/ci.md) | reference | you change a workflow or a test, or need to know what a CI job proves |
+| [docs/history.md](docs/history.md) | explanation | you compare this repository with budybye/dotfiles or look for planned work |
+| [SECURITY.md](SECURITY.md) | reference | you report a vulnerability, store a secret or judge a hardening claim |
+| [AGENTS.md](AGENTS.md) | reference | you are a coding agent that changes this repository |
+| [DESIGN.md](DESIGN.md) | reference | you change colors, fonts or theme names |
+| [llms.txt](llms.txt) | reference | a tool needs an index of the docs |
 
 ## Issues and questions
 

@@ -1,0 +1,34 @@
+name: Docs
+# ci.yaml skips Markdown-only pushes, so docs-only changes get this check instead. It never releases:
+# tag.yaml listens to CI alone.
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", "**/*.md", "llms.txt", "!agent/**"]
+  pull_request:
+    paths: ["docs/**", "**/*.md", "llms.txt", "!agent/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-docs:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # lint:docs accepts the top-level names of every commit, so a renamed path is reported
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - run: mise run lint:docs

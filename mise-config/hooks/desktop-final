@@ -22,20 +22,3 @@ set_ini() {
 set_ini /etc/xrdp/xrdp.ini security_layer tls
 set_ini /etc/xrdp/sesman.ini AllowRootLogin false
 if [ -n "$restart" ]; then echo "desktop-final: xrdp needs a restart to pick up security_layer=tls and AllowRootLogin=false"; fi
-
-# HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. Bump both values together.
-version=v2.10.0
-sha256=f8abd483d5edfad88a78ed511978f43c83b43c48e364aa29ebe4a68217474428
-dir="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/HackGen"
-if [ "$(cat "$dir/.version" 2>/dev/null)" != "$version" ]; then
-    tmp=$(mktemp -d)
-    trap 'rm -rf "$tmp"' EXIT
-    curl -fsSL -o "$tmp/hackgen.zip" "https://github.com/yuru7/HackGen/releases/download/$version/HackGen_NF_$version.zip"
-    echo "$sha256  $tmp/hackgen.zip" | sha256sum -c --quiet -
-    unzip -q -j "$tmp/hackgen.zip" '*.ttf' -d "$tmp/ttf"
-    rm -rf "$dir"
-    mkdir -p "$dir"
-    mv "$tmp"/ttf/*.ttf "$dir"/
-    echo "$version" >"$dir/.version"
-    fc-cache -f "$dir" >/dev/null
-fi

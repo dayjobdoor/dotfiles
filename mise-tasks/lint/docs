@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Markdown links and anchors, and the repo paths, commands and DJD_ variables that the docs name, resolve"
+#MISE description="Markdown links and anchors, and the repo paths, commands and DJD_ variables that the docs name, resolve; every DJD_ variable and tests/ script is documented"
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -112,5 +112,34 @@ for f in $docs; do
     done < <(grep -noE 'DJD_[A-Z_]+' "$f" || true)
 done
 
+# the other way round: a variable in code that no doc names. DJD_BAD and DJD_CHECK are secret names that `mise run test`
+# makes up, and DJD_COMMANDS is a Makefile variable.
+allow_vars=" DJD_BAD DJD_CHECK DJD_COMMANDS "
+# shellcheck disable=SC2086
+documented=$(grep -hoE 'DJD_[A-Z_]+' $docs | sort -u)
+# shellcheck disable=SC2086
+while IFS= read -r var; do
+    case $allow_vars in *" $var "*) continue ;; esac
+    grep -qxF -- "$var" <<<"$documented" || {
+        echo "lint: variable in code but in no doc: $var" >&2
+        broken=1
+    }
+done < <(grep -rhoE 'DJD_[A-Z][A-Z_]*' $code | sort -u)
+
+# 4. test scripts: each is listed in reference.md and run by a task. A task names a test by its path, or by the
+# bare name in the loops of test and test:offline. ponytail: a bare name that occurs in any task file passes; tighten
+# the pattern if a test gets a common word for a name.
+for t in tests/*.sh; do
+    name=${t##*/}
+    grep -qF -- "$name" docs/reference.md || {
+        echo "lint: docs/reference.md does not name $t" >&2
+        broken=1
+    }
+    grep -rqE -- "[ \"/]${name%.sh}(\.sh|[ \"])" mise-tasks || {
+        echo "lint: no task in mise-tasks/ runs $t" >&2
+        broken=1
+    }
+done
+
 [ "$broken" -eq 0 ] || exit 1
-echo "ok docs links, paths, commands and variables"
+echo "ok docs links, paths, commands, variables and tests"

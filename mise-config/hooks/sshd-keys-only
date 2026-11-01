@@ -6,12 +6,16 @@ set -euo pipefail
 # sshd keeps the first value it reads. Ubuntu's sshd_config includes sshd_config.d before any setting of its
 # own, so the drop-in wins unless another drop-in sorts first. Any other layout, such as the one-line
 # sshd_config cloud-init writes when openssh-server is missing, is checked against sshd -T.
+# A Match block defeats "first value wins" for the users it matches, so any Match line also forces sshd -T,
+# evaluated for the current user from a documentation address (TEST-NET-3). That still cannot see a Match for
+# another user or another address, nor a Match in a file outside these two paths.
 first=$(grep -m1 -vE '^[[:space:]]*(#|$)' /etc/ssh/sshd_config || true)
 earlier=$(cd /etc/ssh/sshd_config.d && printf '%s\n' *.conf | LC_ALL=C sort | sed '/^10-djd\.conf$/,$d')
-if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ -n "$earlier" ]; then
+match=$(grep -rhiE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config /etc/ssh/sshd_config.d || true)
+if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ -n "$earlier" ] || [ -n "$match" ]; then
     # sshd -T needs the privilege separation directory, which only a started ssh.service creates
     sudo install -d -m 0755 /run/sshd
-    effective=$(sudo sshd -T)
+    effective=$(sudo sshd -T -C "user=$(id -un),host=localhost,addr=203.0.113.1")
     for want in 'passwordauthentication no' 'kbdinteractiveauthentication no' 'permitrootlogin no'; do
         if ! grep -qx "$want" <<<"$effective"; then
             echo "djd server: sshd is not keys-only: '$want' is overridden. Check /etc/ssh/sshd_config;" \

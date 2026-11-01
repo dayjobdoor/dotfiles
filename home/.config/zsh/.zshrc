@@ -30,11 +30,20 @@ setopt extended_glob
 
 autoload -Uz colors && colors
 
-# sheldon puts zsh-completions on fpath, and compinit only indexes what is on fpath when it runs, so
-# plugins load first. Not cached: its output follows plugins.toml edits (~40ms).
-if (( $+commands[sheldon] )); then
-    eval "$(sheldon source)"
+# Plugins come from [bootstrap.repos] in config.toml, pinned to commits; a checkout that is not there yet
+# (before the first `mise bootstrap`) is skipped. zsh-completions goes on fpath before compinit, which only
+# indexes what is on fpath when it runs. Sourced here, not cached like the tool inits: a cache would outlive
+# a bumped pin.
+_djd_plugins=$XDG_DATA_HOME/zsh/plugins
+fpath=($_djd_plugins/zsh-completions/src $fpath)
+if [[ -r $_djd_plugins/zsh-defer/zsh-defer.plugin.zsh ]]; then
+    source $_djd_plugins/zsh-defer/zsh-defer.plugin.zsh
+    for _djd_p in fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh zsh-autosuggestions/zsh-autosuggestions.zsh \
+        zsh-autopair/zsh-autopair.plugin.zsh forgit/forgit.plugin.zsh git-open/git-open.plugin.zsh; do
+        zsh-defer source $_djd_plugins/$_djd_p
+    done
 fi
+unset _djd_plugins _djd_p
 
 mkdir -p $XDG_CACHE_HOME/zsh
 zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"

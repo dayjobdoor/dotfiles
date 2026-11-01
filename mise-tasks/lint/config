@@ -19,8 +19,9 @@ done
 mise tasks validate
 # mise-config as the global config, so the djd tasks and their usage specs are validated too
 MISE_CONFIG_DIR="$PWD/mise-config" mise tasks validate
-# The mise release is pinned in several places that no bot bumps; they must name the same one. A pin whose
-# line stops matching its sed would silently drop out of the comparison, so every source must yield its count.
+# The mise release is pinned in several places that no bot bumps; they must name the same one (install.sh pins
+# none: it reads min_version). A pin whose line stops matching its sed would silently drop out of the comparison,
+# so every source must yield its count.
 pins=
 collect() { # source, expected number of pins, then the pins that the source's sed found
     local from=$1 want=$2
@@ -34,7 +35,6 @@ collect() { # source, expected number of pins, then the pins that the source's s
 # unquoted: the words are the pins, and none contains a space
 # shellcheck disable=SC2046
 {
-    collect install.sh 1 $(sed -n 's/^MISE_VERSION=.*v\([0-9.]*\)}"$/\1/p' install.sh)
     for f in mise.toml mise-config/config.toml; do
         collect "$f" 1 $(sed -n 's/^min_version = "\(.*\)"$/\1/p' "$f")
     done
@@ -43,7 +43,7 @@ collect() { # source, expected number of pins, then the pins that the source's s
     done
 }
 if [ "$(sort -u <<<"$pins" | grep -c .)" -ne 1 ]; then
-    echo "lint: the mise versions in install.sh, mise.toml, mise-config/config.toml and the mise-action pins differ:" >&2
+    echo "lint: the mise versions in mise.toml, mise-config/config.toml and the mise-action pins differ:" >&2
     sort <<<"$pins" | grep . | uniq -c >&2
     exit 1
 fi

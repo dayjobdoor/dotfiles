@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # The agentOS export against a throwaway copy of the files boot.mjs reads: the bundle it writes, and each way it
 # must refuse to write one. Offline: --export needs neither the network nor node_modules.
-# Needs bash, coreutils and node. usage: tests/agentos-bundle.sh
+# Needs bash, coreutils and node, and the Ubuntu toolset on PATH (the sandbox image has it). usage: tests/agentos-bundle.sh
 #
 # Contract
-#   - The bundle holds exactly the five allowlisted files under /home/agentos, with the repo's content, one
-#     package per locked registry package, and the base environment.
+#   - The bundle holds exactly the five allowlisted files under /home/agentos, with the repo's content, and the
+#     locked { url, digest } of each of the ten registry packages, so it is pinned by itself.
+#   - Each command a registry package must put on the guest's PATH exists in the environment this runs in.
 #   - Nothing is written, and the exit status is non-zero with the cause named, when an allowed file is a symlink or
-#     has a second hard link, when it resolves outside the repo through a linked directory, when FILES and
-#     ALLOWED_GUEST_PATHS disagree, when a package has no declaration in the Ubuntu configs, or when the lock's
-#     core differs from package.json. A set AGENTOS_SOFTWARE_REGISTRY_URL stops a boot.
+#     resolves outside the repo through a linked directory, or when the lock's core differs from package.json.
+#     A set AGENTOS_SOFTWARE_REGISTRY_URL stops --lock before it reads any registry.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -26,11 +26,10 @@ fail() {
 }
 
 fresh_copy() {
-    rm -rf "$repo" "$work/out" "$work/outside" "$work/hardlink"
-    mkdir -p "$repo/mise-config"
+    rm -rf "$repo" "$work/out" "$work/outside"
+    mkdir -p "$repo"
     cp -R "$root/agentos" "$root/home" "$repo/"
     rm -rf "$repo/agentos/node_modules"
-    cp "$root"/mise-config/config*.toml "$repo/mise-config/"
 }
 
 # runs the real export in the copy; sets status and log
@@ -63,7 +62,7 @@ const [bundle, repo] = process.argv.slice(1);
 const b = JSON.parse(readFileSync(bundle, "utf8"));
 const bad = (m) => { console.error(`agentos-bundle: ${m}`); process.exit(1); };
 const keys = Object.keys(b).sort().join(" ");
-if (keys !== "environment files software") bad(`bundle keys are: ${keys}`);
+if (keys !== "files software") bad(`bundle keys are: ${keys}`);
 const want = {
   "/home/agentos/.profile": "home/.profile",
   "/home/agentos/.config/git/config": "home/.config/git/config",
@@ -77,20 +76,32 @@ for (const [path, source] of Object.entries(want)) {
   if (!f) bad(`no ${path} in the bundle`);
   if (f.content !== readFileSync(`${repo}/${source}`, "utf8")) bad(`${path} differs from ${source}`);
 }
-const locked = Object.keys(JSON.parse(readFileSync(`${repo}/agentos/software.lock.json`, "utf8")).packages).sort();
-if (JSON.stringify([...b.software].sort()) !== JSON.stringify(locked)) bad(`software ${b.software} differs from the lock ${locked}`);
-if (b.environment.HOME !== "/home/agentos") bad(`environment HOME is ${b.environment.HOME}`);
+const entry = (p) => JSON.stringify({ url: p.url, digest: p.digest });
+const locked = Object.values(JSON.parse(readFileSync(`${repo}/agentos/software.lock.json`, "utf8")).packages).map(entry).sort();
+if (JSON.stringify(b.software.map(entry).sort()) !== JSON.stringify(locked)) bad(`software ${JSON.stringify(b.software)} differs from the lock`);
+if (b.software.some((p) => Object.keys(p).length !== 2)) bad("a software entry has more than url and digest");
 ' "$out" "$repo" || fail "the baseline bundle is wrong"
 echo "ok baseline bundle"
+
+# The VM check looks up the same commands in the guest; here they must exist in the Ubuntu toolset. Read from the
+# source because the list is the only thing that says which command each package provides.
+# shellcheck disable=SC2016
+cmds=$(node -e '
+const m = require("node:fs").readFileSync(process.argv[1], "utf8").match(/^const SOFTWARE = (\{[^}]*\});/m);
+if (!m) { console.error("agentos-bundle: no SOFTWARE in boot.mjs"); process.exit(1); }
+const cmds = Object.values(new Function(`return ${m[1]}`)());
+if (cmds.length !== 10) { console.error(`agentos-bundle: ${cmds.length} locked packages, want 10`); process.exit(1); }
+console.log(cmds.join("\n"));
+' "$repo/agentos/boot.mjs") || fail "cannot read the ten commands from SOFTWARE"
+for c in $cmds; do
+    command -v "$c" >/dev/null || fail "$c: a registry package provides it, but the Ubuntu toolset here does not"
+done
+echo "ok every registry command exists here"
 
 fresh_copy
 rm "$repo/home/.profile"
 ln -s /etc/hostname "$repo/home/.profile"
-expect_rejected "symlinked allowed file" "home/.profile" "not a regular file"
-
-fresh_copy
-ln "$repo/home/.profile" "$work/hardlink"
-expect_rejected "hard-linked allowed file" "home/.profile" "hard links"
+expect_rejected "symlinked allowed file" "home/.profile" "resolves to"
 
 fresh_copy
 mv "$repo/home/.config/git" "$work/outside"
@@ -98,25 +109,15 @@ ln -s "$work/outside" "$repo/home/.config/git"
 expect_rejected "file resolved outside the repo through a linked directory" "home/.config/git/" "resolves to"
 
 fresh_copy
-sed -i.bak 's|^  ".profile": "home/.profile",|&\n  ".bashrc": "home/.bashrc",|' "$repo/agentos/boot.mjs"
-rm "$repo/agentos/boot.mjs.bak"
-grep -qF '".bashrc": "home/.bashrc"' "$repo/agentos/boot.mjs" || fail "setup: FILES entry was not added to the copy"
-expect_rejected "FILES entry missing from ALLOWED_GUEST_PATHS" "ALLOWED_GUEST_PATHS" "/home/agentos/.bashrc"
-
-fresh_copy
-sed -i.bak '/^ripgrep = /d' "$repo/mise-config/config.toml"
-rm "$repo/mise-config/config.toml.bak"
-expect_rejected "package without a declaration" "ripgrep" "not declared"
-
-fresh_copy
 sed -i.bak 's|"@rivet-dev/agentos-core": "[^"]*"|"@rivet-dev/agentos-core": "0.0.1"|' "$repo/agentos/package.json"
 rm "$repo/agentos/package.json.bak"
 expect_rejected "lock core differs from package.json" "core is" "0.0.1"
 
-# the registry override is checked on the boot and lock paths, before agentos-core is imported
+# no node_modules in the copy: without the guard, --lock would stop at the import instead of naming the variable
 fresh_copy
 status=0
-log=$(cd "$repo" && AGENTOS_SOFTWARE_REGISTRY_URL=http://127.0.0.1:1 node agentos/boot.mjs 2>&1) || status=$?
-[ "$status" -ne 0 ] || fail "boot ran with AGENTOS_SOFTWARE_REGISTRY_URL set"
+log=$(cd "$repo" && AGENTOS_SOFTWARE_REGISTRY_URL=http://127.0.0.1:1 node agentos/boot.mjs --lock 2>&1) || status=$?
+[ "$status" -ne 0 ] || fail "--lock ran with AGENTOS_SOFTWARE_REGISTRY_URL set"
 grep -qF AGENTOS_SOFTWARE_REGISTRY_URL <<<"$log" || fail "message does not name AGENTOS_SOFTWARE_REGISTRY_URL: $log"
-echo "ok AGENTOS_SOFTWARE_REGISTRY_URL refused"
+cmp -s "$repo/agentos/software.lock.json" "$root/agentos/software.lock.json" || fail "--lock rewrote the lock with AGENTOS_SOFTWARE_REGISTRY_URL set"
+echo "ok AGENTOS_SOFTWARE_REGISTRY_URL refused by --lock"

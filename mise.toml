@@ -25,7 +25,7 @@ tools.gitleaks = "latest"
 run = "gitleaks git --pre-commit --staged --redact --no-banner"
 
 [tasks."agentos:export"]
-description = "Write the agentOS bundle (dotfiles + registry packages + env)"
+description = "Write the agentOS bundle (dotfiles + locked registry packages)"
 tools.node = "lts"
 sources = [
   "home/.config/git/*",
@@ -34,8 +34,6 @@ sources = [
   "agentos/package.json",
   "agentos/software.lock.json",
   "home/.profile",
-  "mise-config/config.agent.toml",
-  "mise-config/config.toml",
 ]
 outputs = ["dist/agentos/bundle.json"]
 run = "node agentos/boot.mjs --export dist/agentos/bundle.json"

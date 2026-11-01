@@ -11,10 +11,12 @@ permissions:
 jobs:
   full:
     runs-on: ubuntu-26.04
-    timeout-minutes: 180
+    timeout-minutes: 60
     env:
       MISE_TASK_RUN_AUTO_INSTALL: "false"
     steps:
+      # diagnosis only: the one red run died with "No space left on device" and left no log
+      - run: df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

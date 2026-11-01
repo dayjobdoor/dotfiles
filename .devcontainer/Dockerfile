@@ -1,22 +1,24 @@
 FROM ubuntu:26.04
 ARG DJD_MODULES=agent
 # DJD_NO_MUX: .zprofile would start herdr in every `docker run -it` login shell
-ENV DEBIAN_FRONTEND=noninteractive DJD_NO_MUX=1
+# LANG: `docker run` and `docker exec` read no ~/.profile, which sets it for login shells
+ENV DEBIAN_FRONTEND=noninteractive DJD_NO_MUX=1 LANG=C.UTF-8
 # `Defaults !admin_flag` stops sudo from creating ~/.sudo_as_admin_successful in the image
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git sudo zsh \
     && rm -rf /var/lib/apt/lists/* \
     && printf '%s\n' 'ubuntu ALL=(ALL) NOPASSWD:ALL' 'Defaults !admin_flag' > /etc/sudoers.d/ubuntu && chmod 0440 /etc/sudoers.d/ubuntu \
     && usermod -s /usr/bin/zsh ubuntu
-# Packages and tools depend only on install.sh and mise-config. Copying those first keeps edits to
+# Packages and tools depend only on install.sh, its wrapper and mise-config. Copying those first keeps edits to
 # dotfiles, docs and tests off the slow layer; the last install.sh run only links dotfiles.
 COPY --chown=ubuntu:ubuntu install.sh /home/ubuntu/.dotfiles/install.sh
+COPY --chown=ubuntu:ubuntu home/.local/bin/djd /home/ubuntu/.dotfiles/home/.local/bin/djd
 COPY --chown=ubuntu:ubuntu mise-config /home/ubuntu/.dotfiles/mise-config
 USER ubuntu
 WORKDIR /home/ubuntu
 # The first RUN installs the packages without the GitHub token: apt maintainer scripts (Brave's deb) run as root
-# in the environment of the mise process that called apt. Only the tools and the final hook (the HackGen download)
-# reach GitHub, so only the second RUN mounts the token. mise bootstrap refills the apt lists; deleting them in
+# in the environment of the mise process that called apt. Only the tools and the final hook reach GitHub (the tools
+# download releases), so only the second RUN mounts the token. mise bootstrap refills the apt lists; deleting them in
 # this layer is what shrinks the image. The build runs as ubuntu (mise calls sudo itself), so the cleanup needs
 # sudo too (DL3004).
 # hadolint ignore=SC2086,DL3004

@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: every container makes its own xrdp TLS key, xrdp is TLS-only and refuses root logins, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, the four apps launch, ~/.xsession passes its stub test, no audio daemon outlives a logout, and the session comes back after a container restart (builds it first)"
+#MISE description="Desktop image: xrdp TLS and root refusal, RDP login, XFCE session, audio, apps, logout and restart (see docs/ci.md)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
 set -Eeuo pipefail
-trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
+# GitHub lists ::error:: lines as annotations, which `gh run view` shows without the log
+# shellcheck disable=SC2329 # invoked by the ERR trap
+on_err() {
+    echo "FAIL line $1: $2" >&2
+    [ -z "${GITHUB_ACTIONS:-}" ] || printf '::error::test:desktop line %s: %.300s\n' "$1" "${2//$'\n'/ }"
+}
+trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
 image=${usage_image:-${1:-djd:desktop}}
 net="djd-rdp-$$"
@@ -20,6 +26,7 @@ trap cleanup EXIT
 
 fail() {
     echo "test:desktop: $1" >&2
+    [ -z "${GITHUB_ACTIONS:-}" ] || echo "::error::test:desktop: $1"
     docker logs "$server" >&2 || true
     docker exec "$server" sh -c 'tail -n 40 /var/log/xrdp.log /var/log/xrdp-sesman.log' >&2 || true
     docker exec "$client" sh -c 'tail -n 20 /tmp/*.log 2>&1' >&2 || true
@@ -208,12 +215,13 @@ login() {
 login
 
 wait_session
-# the fcitx variables that ~/.xsession exports must reach the session. Root cannot read another user's
+# the variables that ~/.xsession exports (fcitx) and the system locale that PAM reads from /etc/default/locale
+# must reach the session, whatever the LANG of the container itself. Root cannot read another user's
 # /proc/PID/environ in a container (permission denied), the session's owner can.
 pid=$(docker exec "$server" pgrep -o -u ubuntu -x xfce4-session)
 env=$(docker exec -u ubuntu "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
-for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
-    grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
+for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx LANG=ja_JP.UTF-8; do
+    grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession with the system locale"
 done
 echo "test:desktop: xfce4-session started through ~/.xsession"
 wait_xrdp "$control"

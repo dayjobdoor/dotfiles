@@ -107,6 +107,22 @@ asset_pattern = "zen.linux-x86_64.tar.xz"
 [tools."github:zen-browser/desktop".platforms.linux-arm64]
 asset_pattern = "zen.linux-aarch64.tar.xz"
 
+# HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. To bump it, change `version` and the
+# checksum together. mise strips the zip's top directory, so the .ttf files sit flat in the install dir. The
+# files are copied out, because a versioned install dir is gone after the next upgrade; PATH is reset for the
+# reason given at the Zed entry.
+[tools."http:hackgen"]
+version = "2.10.0"
+url = "https://github.com/yuru7/HackGen/releases/download/v{{ version }}/HackGen_NF_v{{ version }}.zip"
+checksum = "sha256:f8abd483d5edfad88a78ed511978f43c83b43c48e364aa29ebe4a68217474428"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/HackGen"
+rm -rf "$d"; mkdir -p "$d"
+install -m644 "$MISE_TOOL_INSTALL_PATH"/*.ttf "$d"
+fc-cache -f "$d"
+'''
+
 # overrides the base C.UTF-8 locale
 [bootstrap.files."/etc/locale.conf"]
 content = "LANG=ja_JP.UTF-8\n"
@@ -130,8 +146,8 @@ owner = "root"
 group = "root"
 phase = "pre-packages"
 
-# Purges screen lockers, im-config and the pulseaudio daemon, makes xrdp TLS-only without root logins, then installs
-# HackGen NF (hooks/desktop-final).
+# Purges screen lockers, im-config and the pulseaudio daemon, and makes xrdp TLS-only without root logins
+# (hooks/desktop-final).
 [bootstrap.hooks]
 pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts desktop"
 final = "~/.config/mise/hooks/desktop-final"

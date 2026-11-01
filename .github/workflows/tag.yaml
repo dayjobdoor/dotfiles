@@ -10,6 +10,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
   # an in-progress release is never cancelled. GitHub keeps one pending run per group and replaces an older
@@ -24,10 +26,12 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # waits for the push.yaml run, whose build alone may take 45 minutes (5-6 measured)
+    timeout-minutes: 60
     permissions:
       contents: write # push the tag, create the release
-      actions: write # dispatch push.yaml
+      actions: write # dispatch push.yaml, list its runs
+      checks: read # gh run watch reads the annotations of the watched run
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -116,15 +120,17 @@ jobs:
               --title="$new_tag" \
               --notes-file "$RUNNER_TEMP/notes.md" \
               "$latest_flag"
+            # only a new release publishes: a re-run for a released commit must not rebuild and overwrite
+            # the images of ${new_tag}
+            printf 'tag=%s\n' "$new_tag" >> "$GITHUB_OUTPUT"
           else
-            echo "release ${new_tag} already exists"
+            echo "release ${new_tag} already exists; this run does not publish again. To retry a failed publish: gh workflow run push.yaml --ref ${new_tag}"
           fi
 
-          printf 'tag=%s\n' "$new_tag" >> "$GITHUB_OUTPUT"
-
-      # tags pushed with GITHUB_TOKEN do not trigger other workflows, so start push.yaml explicitly
-      - name: Trigger GHCR build
-        # the previous step leaves no tag when it declined to release an older commit
+      # tags pushed with GITHUB_TOKEN do not trigger other workflows, so start push.yaml explicitly, then wait
+      # for it: a failed publish fails this run, whose actor is the one notified (push.yaml's actor is the bot)
+      - name: Trigger GHCR build and wait for it
+        # the previous step leaves no tag when it declined to release an older commit or the release existed
         if: steps.release.outputs.tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -136,5 +142,22 @@ jobs:
             echo "Invalid release tag: ${RELEASE_TAG}" >&2
             exit 1
           fi
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           echo "dispatching push.yaml for ${RELEASE_TAG}"
           gh workflow run push.yaml --ref "${RELEASE_TAG}"
+
+          # gh workflow run does not print a run id that is safe to parse without a terminal, so look for
+          # the run it created: a dispatch run for this tag that is newer than the dispatch
+          run_id=
+          for _ in $(seq 12); do
+            run_id=$(gh run list --workflow push.yaml --event workflow_dispatch --json databaseId,headBranch,createdAt |
+              jq -r --arg tag "${RELEASE_TAG}" --arg since "$since" \
+                '[.[] | select(.headBranch == $tag and .createdAt >= $since)] | max_by(.createdAt) | .databaseId // empty')
+            [ -z "$run_id" ] || break
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo "no push.yaml run for ${RELEASE_TAG} appeared within a minute of the dispatch" >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --exit-status --compact --interval 30

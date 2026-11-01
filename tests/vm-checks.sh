@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # Runs inside the VM after the README's `curl | sh -s -- server desktop` install (see mise-tasks/test/vm).
 set -euo pipefail
-# set -e alone fails silently; name the check that stopped the run
-trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
+# ufw rules, an sshd drop-in and module removals: a developer's own machine must never run this
+if [ "${DJD_TEST_VM:-}" != 1 ]; then
+    echo "vm-checks: changes the machine it runs on; run it through 'mise run test:vm', which sets DJD_TEST_VM=1 inside a VM" >&2
+    exit 2
+fi
+# set -e alone fails silently; name the check that stopped the run. GitHub lists ::error:: lines as annotations,
+# which `gh run view` shows without the log.
+on_err() {
+    echo "FAIL line $1: $2" >&2
+    [ -z "${GITHUB_ACTIONS:-}" ] || printf '::error::vm-checks line %s: %.300s\n' "$1" "${2//$'\n'/ }"
+}
+trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 export PATH="$HOME/.local/bin:$PATH"
 # mise parses English ufw output (see home/.local/bin/djd)
 export LC_ALL=C.UTF-8

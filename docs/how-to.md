@@ -46,6 +46,8 @@ orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdo
 
 For RDP, set a password with `orb -m djd-vm sudo passwd "$USER"`, restart xrdp once with `orb -m djd-vm sudo systemctl restart xrdp xrdp-sesman` (it reads its TLS-only settings at start), and connect to `localhost:3389`. OrbStack forwards the port from loopback, which ufw admits.
 
+The first two commands are the ones `mise run test:vm` runs when it finds OrbStack and no incus. That task ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01 against commit 58eff93. The server and desktop modules installed from `cloud-init/vm.yaml` on `ubuntu:resolute`, every check of `tests/vm-checks.sh` passed, and the task deleted the machine again. The tree has changed since then (`vm-checks.sh` gained a guard and more checks), and no run on the changed tree was recorded when this was written. The `curl` install line and the RDP steps above are not part of that run.
+
 ## Update the pinned tools
 
 To refresh `mise.lock`, follow these steps on a machine where you trust the checkout.
@@ -60,7 +62,7 @@ To refresh `mise.lock`, follow these steps on a machine where you trust the chec
 
 2. Commit `mise.lock` and the changes under `.mise/locks/`.
 
-Dependabot covers the pinned actions and does not cover mise tools.
+Dependabot covers the pinned actions and the `agentos-core` package in `agentos/package.json`. It does not cover mise tools.
 
 ## Raise the mise release
 
@@ -69,11 +71,21 @@ The mise release is pinned in several files, and no bot bumps them.
 1. List the pins:
 
    ```sh
-   grep -nE '^MISE_VERSION|^min_version|^ +version: [0-9]' install.sh mise.toml mise-config/config.toml .github/workflows/*.yaml
+   grep -nE '^min_version|^ +version: [0-9]' mise.toml mise-config/config.toml .github/workflows/*.yaml
    ```
 
-2. Change every pin to the new release. The pin in `install.sh` has a `v` prefix, and the others have none.
-3. Run `mise run lint:config`. It fails while two pins differ.
+2. Change every pin to the new release. None has a `v` prefix. `install.sh` has no pin of its own. When mise is missing, it reads `min_version` from `mise-config/config.toml` after the checkout is linked, and adds the `v`. `MISE_VERSION` in the environment overrides that for one run.
+3. Run `mise run lint:config`. It fails while two pins differ, and while a file has fewer pins than it should.
+
+## Handle a Dependabot agentos-core pull request
+
+A bump of `@rivet-dev/agentos-core` fails the offline test and the `agentos` job until the lock matches, because `agentos/software.lock.json` records the core version. Dependabot cannot run the lock task, so do this on the pull request branch, on a machine where you trust the checkout.
+
+1. Check out the branch.
+2. Run `mise run agentos:lock`. It rewrites `agentos/software.lock.json` from the live release manifest, and it refuses to run while `AGENTOS_SOFTWARE_REGISTRY_URL` is set.
+3. Review `git diff agentos/software.lock.json`. The `core` field must equal the version in `agentos/package.json`. Every changed URL and digest is a package that you now install, and nothing compares them with anything else.
+4. Run `mise run test:offline agentos-bundle`, which checks the lock and the bundle.
+5. Commit the lock file and push it to the pull request branch.
 
 ## Set your git identity
 
@@ -138,3 +150,22 @@ Nothing in the release chain has run against GHCR before the first release, so w
 
    The output must hold the description, the MIT license, the source, and the version.
 9. Open the package page. It must link to this repository.
+
+## Retry a failed publish
+
+`tag.yaml` creates the release, dispatches `push.yaml` for the tag, and waits for it. When the publish fails, the release exists, no floating tag moved if the smoke test was the cause, and the `tag.yaml` run is red. Re-running `tag.yaml` does not retry the publish. To retry it, follow these steps with the release tag in place of `X.Y.Z`.
+
+1. Run `gh workflow run push.yaml --ref X.Y.Z`.
+2. Find the run with `gh run list --workflow push.yaml --limit 1`, then follow it with `gh run watch <id> --exit-status`.
+
+The dispatch shares the concurrency group of `push.yaml` for that tag, so it cancels a tag-push run that is still going. A re-run of CI for a commit that already has a release does not dispatch a publish.
+
+## Harden the repository settings
+
+These settings are not files, so nothing in the repository enforces them, and they are not applied. [SECURITY.md](../SECURITY.md#workflows-and-releases) says why. The steps below were not tested, and GitHub may name the pages differently. The state was read on 2026-11-01 with `gh api repos/dayjobdoor/dotfiles/rulesets` (it returned `[]`) and `gh api repos/dayjobdoor/dotfiles/branches/main` (`"protected": false`). In a fork, use your own owner and name.
+
+- [ ] Add a tag ruleset for the pattern `refs/tags/[0-9]*` that restricts updates and deletions. Do not restrict creations, because `tag.yaml` pushes the tag.
+- [ ] Block force pushes and deletions on `main`, with a ruleset or a branch protection rule.
+- [ ] In the Actions settings, require actions to be pinned to a full-length commit SHA. Every `uses:` in the workflows is pinned that way, so none should be refused (inference, not tested).
+- [ ] Turn on immutable releases. Not tested against the release flow of `tag.yaml`.
+- [ ] In the Actions settings, set the default workflow token to read-only. The endpoint for this setting answered 403 to the investigation token, so the current value is unknown.

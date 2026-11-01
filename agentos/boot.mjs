@@ -2,17 +2,15 @@
 //   node agentos/boot.mjs --export <path>   write the bundle JSON (no agentOS needed)
 //   node agentos/boot.mjs --lock            re-pin the registry packages in agentos/software.lock.json
 //   node agentos/boot.mjs                   boot a VM, run checks in its shell, exit 0/1
-import { constants } from "node:fs";
-import { lstat, mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const GUEST_HOME = "/home/agentos";
 
-// guest path (under GUEST_HOME) -> repo file. ALLOWED_GUEST_PATHS is the same set written out a second time,
-// so adding a FILES entry without updating it fails instead of leaking a file into every VM. Keep it sorted:
-// it is compared with the sorted bundle paths, and an out-of-order entry fails printing the same set twice.
+// guest path (under GUEST_HOME) -> repo file. tests/agentos-bundle.sh lists the same five files, so a new entry
+// fails CI until it is reviewed there.
 const FILES = {
   ".profile": "home/.profile",
   ".config/git/config": "home/.config/git/config",
@@ -20,47 +18,22 @@ const FILES = {
   ".config/git/commit.template": "home/.config/git/commit.template",
   ".gitconfig": "agentos/gitconfig",
 };
-const ALLOWED_GUEST_PATHS = [
-  `${GUEST_HOME}/.config/git/commit.template`,
-  `${GUEST_HOME}/.config/git/config`,
-  `${GUEST_HOME}/.config/git/ignore`,
-  `${GUEST_HOME}/.gitconfig`,
-  `${GUEST_HOME}/.profile`,
-];
 
-// agentOS registry package -> `decl`, its declaration on the Ubuntu side (a [tools] key, or an apt: key under
-// [bootstrap.packages], in mise-config/config.toml or config.agent.toml), and `cmd`, the command it must put on
-// the guest's PATH. Rule: the Ubuntu agent toolset is a superset of the agentOS one, so a command an agent finds
-// in a guest also exists in the sandbox image.
+// agentOS registry package -> the command it must put on the guest's PATH. tests/agentos-bundle.sh looks each
+// command up in the sandbox image: an agent must not find in a guest a command the Ubuntu toolset lacks.
 // Same name, different program: the registry `jq` is jaq and `yq` is the registry's own build.
 // vim is omitted: the pinned release's vim package installs no commands.
 const SOFTWARE = {
-  git: { decl: "apt:git", cmd: "git" },
-  curl: { decl: "apt:curl", cmd: "curl" },
-  jq: { decl: "jq", cmd: "jq" },
-  ripgrep: { decl: "ripgrep", cmd: "rg" },
-  fd: { decl: "fd", cmd: "fd" },
-  yq: { decl: "yq", cmd: "yq" },
-  tree: { decl: "apt:tree", cmd: "tree" },
-  sqlite3: { decl: "apt:sqlite3", cmd: "sqlite3" },
-  unzip: { decl: "apt:unzip", cmd: "unzip" },
-  zip: { decl: "apt:zip", cmd: "zip" },
-};
-// The guest's base env: `environment` replaces it, so this starts from base-filesystem.js of the pinned agentos-core.
-// PAGER differs from that file (less): the guest has no less.
-const BASE_ENV = {
-  CHARSET: "UTF-8",
-  HOME: GUEST_HOME,
-  HOSTNAME: "agentos",
-  LANG: "C.UTF-8",
-  LC_COLLATE: "C",
-  LOGNAME: "agentos",
-  PAGER: "cat",
-  PATH: "/usr/local/sbin:/usr/local/bin:/opt/agentos/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  MANPATH: "/opt/agentos/share/man:/usr/local/share/man:/usr/share/man",
-  SHELL: "/bin/sh",
-  USER: "agentos",
-  PS1: "\\h:\\w\\$ ",
+  git: "git",
+  curl: "curl",
+  jq: "jq",
+  ripgrep: "rg",
+  fd: "fd",
+  yq: "yq",
+  tree: "tree",
+  sqlite3: "sqlite3",
+  unzip: "unzip",
+  zip: "zip",
 };
 
 const fail = (lines) => {
@@ -68,55 +41,13 @@ const fail = (lines) => {
   process.exit(1);
 };
 
-// A tracked symlink (the file, or a directory above it) or a hard link would copy a file from outside the repo
-// into every VM. The checks are not atomic: someone who can rewrite the checkout while this runs can also
-// edit the allowed files directly, so the opened handle is only compared with the lstat result to catch a swap.
+// Compares realpaths: that catches a tracked symlink and one in a directory above, either of which would copy a
+// file from outside the repo into every VM. Hard links are not checked: git cannot store them.
 async function readRepoFile(source) {
   const file = join(REPO_DIR, source);
-  const linked = await lstat(file);
-  if (!linked.isFile()) fail([`${source}: not a regular file (symlinks would leak their target)`]);
-  if (linked.nlink !== 1) fail([`${source}: ${linked.nlink} hard links (a link could point outside the repo)`]);
-  const [resolved, repo] = await Promise.all([realpath(file), realpath(REPO_DIR)]);
-  if (resolved !== join(repo, source)) fail([`${source}: resolves to ${resolved}; a symlinked directory would leak its target`]);
-  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  try {
-    const opened = await handle.stat();
-    if (opened.dev !== linked.dev || opened.ino !== linked.ino) fail([`${source}: changed while being read`]);
-    return await handle.readFile("utf8");
-  } finally {
-    await handle.close();
-  }
-}
-
-async function readBundleFiles() {
-  const files = await Promise.all(
-    Object.entries(FILES).map(async ([rel, source]) => {
-      const path = `${GUEST_HOME}/${rel}`;
-      if (rel.includes("..") || !path.startsWith(`${GUEST_HOME}/`)) fail([`${path}: outside ${GUEST_HOME}`]);
-      return { path, content: await readRepoFile(source) };
-    }),
-  );
-  const got = files.map((f) => f.path).sort();
-  if (JSON.stringify(got) !== JSON.stringify(ALLOWED_GUEST_PATHS)) {
-    fail(["bundle file set differs from ALLOWED_GUEST_PATHS", `got:     ${got.join(" ")}`, `allowed: ${ALLOWED_GUEST_PATHS.join(" ")}`]);
-  }
-  return files;
-}
-
-// Textual, so a typo or a deleted declaration fails but this is no trust boundary: it does not know which table
-// a key sits in, nor os-scoped entries or multi-line strings, and it sees `mode = "absent"` on the same line only.
-// A TOML parser is not worth carrying for that.
-async function checkParity() {
-  const toml = (
-    await Promise.all(["config.toml", "config.agent.toml"].map((f) => readFile(join(REPO_DIR, "mise-config", f), "utf8")))
-  ).join("\n");
-  const undeclared = Object.entries(SOFTWARE).filter(([, { decl }]) => {
-    const escaped = decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return !new RegExp(`^"?${escaped}"?\\s*=(?!.*\\bmode\\s*=\\s*["']absent["'])`, "m").test(toml);
-  });
-  if (undeclared.length > 0) {
-    fail(undeclared.map(([name, { decl }]) => `${name}: ${decl} is not declared in mise-config/config.toml or config.agent.toml`));
-  }
+  const resolved = await realpath(file);
+  if (resolved !== join(await realpath(REPO_DIR), source)) fail([`${source}: resolves to ${resolved}; a symlink would leak its target`]);
+  return readFile(file, "utf8");
 }
 
 // The registry packages are pinned in LOCK_FILE: the release (that of the agentos-core that package.json pins) and,
@@ -149,31 +80,29 @@ async function readLock() {
   return lock;
 }
 
-await checkParity();
-const files = await readBundleFiles();
+const files = await Promise.all(
+  Object.entries(FILES).map(async ([rel, source]) => ({ path: `${GUEST_HOME}/${rel}`, content: await readRepoFile(source) })),
+);
+const pinned = (lock) => Object.keys(SOFTWARE).map((name) => ({ url: lock.packages[name].url, digest: lock.packages[name].digest }));
 
 const exportIndex = process.argv.indexOf("--export");
 if (exportIndex !== -1) {
   const out = process.argv[exportIndex + 1];
   if (!out) throw new Error("usage: boot.mjs --export <path>");
-  // Checks the lock against SOFTWARE and package.json only: export has no network and no node_modules, and the
-  // bundle names packages without pinning them, so a consumer decides how to resolve them.
-  await readLock();
+  // Checks the lock against SOFTWARE and package.json only: export has no network and no node_modules.
+  const lock = await readLock();
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, `${JSON.stringify({ files, software: Object.keys(SOFTWARE), environment: BASE_ENV }, null, 2)}\n`);
+  await writeFile(out, `${JSON.stringify({ files, software: pinned(lock) }, null, 2)}\n`);
   console.log(`agentos: wrote ${out} (${files.length} files, ${Object.keys(SOFTWARE).length} packages)`);
   process.exit(0);
 }
 
-// `--lock` and the live check below read the manifest from this registry, so a stray value would pin or compare
-// against another server.
-if (process.env.AGENTOS_SOFTWARE_REGISTRY_URL) {
-  fail(["AGENTOS_SOFTWARE_REGISTRY_URL is set in the host environment; unset it to boot from the default registry"]);
-}
-
-const { AgentOs, resolveRegistrySoftware } = await import("@rivet-dev/agentos-core");
-
 if (process.argv.includes("--lock")) {
+  // The boot needs no such guard: it installs the locked `{ url, digest }` entries without a registry lookup.
+  if (process.env.AGENTOS_SOFTWARE_REGISTRY_URL) {
+    fail(["AGENTOS_SOFTWARE_REGISTRY_URL is set in the host environment; unset it to pin the default registry"]);
+  }
+  const { resolveRegistrySoftware } = await import("@rivet-dev/agentos-core");
   const names = Object.keys(SOFTWARE).sort();
   const resolved = await Promise.all(names.map((name) => resolveRegistrySoftware(name, { version: CORE })));
   const packages = Object.fromEntries(resolved.map(({ name, digest, url }) => [name, { digest, url }]));
@@ -183,21 +112,7 @@ if (process.argv.includes("--lock")) {
 }
 
 const lock = await readLock();
-// The VM below can only install the locked bytes. This check adds the diagnosis: when the registry has been
-// republished, it names the package and both digests instead of failing in the sidecar or going unnoticed.
-let live;
-try {
-  live = await Promise.all(Object.keys(SOFTWARE).map((name) => resolveRegistrySoftware(name, { version: lock.core })));
-} catch (e) {
-  fail([`live registry check failed: ${e.message}`]);
-}
-const drift = live.flatMap(({ name, digest, url }) => {
-  const want = lock.packages[name];
-  if (digest !== want.digest) return [`${name}: locked ${want.digest}, live ${digest}`];
-  if (url !== want.url) return [`${name}: locked ${want.url}, live ${url}`];
-  return [];
-});
-if (drift.length > 0) fail([`the registry no longer serves the ${lock.core} release that ${LOCK_FILE} pins`, ...drift, RELOCK]);
+const { AgentOs } = await import("@rivet-dev/agentos-core");
 
 // The guest shell (brush) reads no startup files for exec/execFile: `-l` is ignored and BASH_ENV/ENV make it
 // fail ("not yet implemented"). Checks source ~/.profile explicitly.
@@ -208,8 +123,8 @@ const PROFILE = '. "$HOME/.profile"';
 const CHECKS = [
   { name: "profile sources with exit 0 and no stderr", script: PROFILE, stdout: "" },
   {
-    name: "profile exports and base env",
-    script: `${PROFILE} && printf '%s\\n' "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$DJD_DIR" "$LANG" "$TZ" "$PAGER"`,
+    name: "profile exports",
+    script: `${PROFILE} && printf '%s\\n' "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$DJD_DIR" "$LANG" "$TZ"`,
     stdout: [
       `${GUEST_HOME}/.config`,
       `${GUEST_HOME}/.local/share`,
@@ -218,7 +133,6 @@ const CHECKS = [
       `${GUEST_HOME}/.dotfiles`,
       "C.UTF-8",
       "Asia/Tokyo",
-      "cat",
     ].join("\n"),
   },
   {
@@ -235,7 +149,7 @@ const CHECKS = [
   },
   {
     name: "every registry package is on PATH",
-    script: `for c in ${Object.values(SOFTWARE).map(({ cmd }) => cmd).join(" ")}; do command -v "$c" >/dev/null || echo "missing:$c"; done`,
+    script: `for c in ${Object.values(SOFTWARE).join(" ")}; do command -v "$c" >/dev/null || echo "missing:$c"; done`,
     stdout: "",
   },
   { name: "yq parses", script: "echo 'a: 1' | yq '.a'", stdout: "1" },
@@ -269,12 +183,12 @@ const CHECKS = [
 const sidecar = await AgentOs.createSidecar();
 let vm;
 const failures = [];
+let timedOut = false;
 try {
   vm = await AgentOs.create({
     sidecar: { kind: "explicit", handle: sidecar },
     // `{ url, digest }` entries skip the registry lookup: the sidecar downloads these URLs and rejects other bytes.
-    software: Object.keys(SOFTWARE).map((name) => ({ url: lock.packages[name].url, digest: lock.packages[name].digest })),
-    environment: BASE_ENV,
+    software: pinned(lock),
     // The default policy lets the guest resolve api.anthropic.com (see the "guest network is denied" check).
     // Registry packages are downloaded by this host process, which network permissions do not cover, so denying
     // costs nothing.
@@ -302,11 +216,16 @@ try {
       );
     }
   }
+} catch (e) {
+  // the sidecar's own acquisition wait (60s) is not configurable from here; the documented fix is to run again
+  if (e.errno !== "ETIMEDOUT") throw e;
+  timedOut = true;
 } finally {
   await vm?.dispose();
   await sidecar.dispose();
 }
 
+if (timedOut) fail(["registry download timed out (slow link); run `mise run agentos:boot` again"]);
 if (failures.length > 0) fail(["check failed", ...failures]);
 console.log(`agentos: ok (${files.length} files, ${Object.keys(SOFTWARE).length} packages, ${CHECKS.length} checks)`);
 process.exit(0);

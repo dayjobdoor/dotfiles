@@ -19,7 +19,12 @@ while IFS= read -r -d '' f; do
 done < <(find . \( -name .git -o -name node_modules -o -name dist \) -prune -o -type f -print0)
 shellcheck "${shell[@]}"
 # printer flags make shfmt ignore .editorconfig, so -i 4 holds for every script in the list
-if [ "$fix" = true ]; then shfmt -i 4 -w "${shell[@]}"; else shfmt -i 4 -d "${shell[@]}"; fi
+if [ "$fix" = true ]; then
+    shfmt -i 4 -w "${shell[@]}"
+elif ! shfmt -i 4 -d "${shell[@]}"; then
+    echo "lint: shell is not formatted; run mise run lint:fix" >&2
+    exit 1
+fi
 # one file per call: zsh takes the first operand as the script and the rest as its arguments
 for f in home/.zshenv home/.config/zsh/.z* home/.config/zsh/.functions; do zsh -n "$f"; done
 echo "ok shell"

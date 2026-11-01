@@ -22,7 +22,9 @@ services:
   # password RDP beyond this machine, so keep Cloudflare Access in front of it.
   # tunnel:
   #   image: cloudflare/cloudflared
-  #   command: tunnel run --token ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+  #   command: tunnel run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
   #   restart: unless-stopped
 
 secrets:

@@ -16,7 +16,6 @@ jobs = 8
 [tools]
 usage = "latest"
 starship = "latest"
-sheldon = "latest"
 zoxide = "latest"
 fzf = "latest"
 ripgrep = "latest"
@@ -77,3 +76,15 @@ pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts home"
 
 [dotfile_groups.home]
 root = "home"
+
+# zsh plugins, sourced by .zshrc. Every plugin is pinned to a commit, because a default branch would put
+# whatever it holds that day into shells that may see secrets. To update one, set a newer `ref`. A commit ref
+# rules out `depth`, so these are full clones.
+[bootstrap.repos]
+"~/.local/share/zsh/plugins/zsh-defer" = { url = "https://github.com/romkatv/zsh-defer", ref = "53a26e287fbbe2dcebb3aa1801546c6de32416fa" }
+"~/.local/share/zsh/plugins/fast-syntax-highlighting" = { url = "https://github.com/zdharma-continuum/fast-syntax-highlighting", ref = "4672ad5dd9ad68a7effc1476d65afb7c584ce2b3" }
+"~/.local/share/zsh/plugins/zsh-completions" = { url = "https://github.com/zsh-users/zsh-completions", ref = "989b23277ab33e8d5e82df6aed936e846db9d8b8" }
+"~/.local/share/zsh/plugins/zsh-autosuggestions" = { url = "https://github.com/zsh-users/zsh-autosuggestions", ref = "85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5" }
+"~/.local/share/zsh/plugins/zsh-autopair" = { url = "https://github.com/hlissner/zsh-autopair", ref = "449a7c3d095bc8f3d78cf37b9549f8bb4c383f3d" }
+"~/.local/share/zsh/plugins/forgit" = { url = "https://github.com/wfxr/forgit", ref = "8b638f4765cabe41bf3e86196cfcce388daa9266" }
+"~/.local/share/zsh/plugins/git-open" = { url = "https://github.com/paulirish/git-open", ref = "63c0e77aaf18b72c839b1113c1e2f9514413643b" }

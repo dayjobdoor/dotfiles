@@ -3,8 +3,14 @@
 #MISE depends=["build sandbox"]
 #USAGE arg "[image]" default="djd:sandbox" help="Image to test"
 set -euo pipefail
-# set -e alone fails silently; name the check that stopped the run
-trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
+# set -e alone fails silently; name the check that stopped the run. GitHub lists ::error:: lines as annotations,
+# which `gh run view` shows without the log; the command is cut to one short line, and its text holds no secret
+# because the token is only ever forwarded by name.
+on_err() {
+    echo "FAIL line $1: $2" >&2
+    [ -z "${GITHUB_ACTIONS:-}" ] || printf '::error::test line %s: %.300s\n' "$1" "${2//$'\n'/ }"
+}
+trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
 image=${usage_image:-${1:-djd:sandbox}}
 ok() { echo "ok $*"; }
@@ -12,13 +18,10 @@ ok() { echo "ok $*"; }
 # putting it on the command line
 export MISE_GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 
-# The tests/ scripts that need no network and no token, run on the copy of the repo inside the image. They are
-# fast, and a failure here says more than the same fault found by the long steps below. The apt source that
-# `djd module remove desktop` deletes is created first, because tests/djd-module.sh checks that only when it exists.
-for t in xsession-audio tree-check agentos-bundle djd-module; do
-    docker run --rm --init "$image" bash -c \
-        'sudo install -D /dev/null /etc/apt/sources.list.d/mise-brave-browser.sources && bash "$HOME/.dotfiles/tests/$0.sh"' "$t"
-done
+# The tests/ scripts that need no network and no token (test/offline, which also runs alone on a built image).
+# They are fast, and a failure here says more than the same fault found by the long steps below. Called as a
+# script, not through `mise run`: that would install the repo's tools on the host and fail on an untrusted checkout.
+usage_image="$image" "$(dirname "$0")/offline"
 ok offline tests
 
 # `docker run IMAGE djd doctor` is the green path. The red paths run in a zsh -lc script, so every check goes
@@ -64,9 +67,10 @@ docker run --rm "$image" sh -c 'node -p "process.env.PI_TELEMETRY + process.env.
 docker run --rm "$image" zsh -lc 'test -L ~/.pi/agent/AGENTS.md && cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md'
 ok agent env without a login shell, global AGENTS.md for pi and omp
 
-# Every start is interactive, on a tty. Two caches are involved: the first zsh start fetches the pinned sheldon
-# plugins and fills the zsh init cache, so its output is dropped. The second zsh start reads that cache. The bash
-# start fills its own, separate cache and is cold too, yet must be silent. Anything printed is a broken init script.
+# Every start is interactive, on a tty. Two caches are involved: the first zsh start fills the zsh init cache, so
+# its output is dropped (the plugins are bootstrap checkouts, not fetched at shell start). The second zsh start
+# reads that cache. The bash start fills its own, separate cache and is cold too, yet must be silent. Anything
+# printed is a broken init script.
 out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic true; bash -ic true' | tr -d '\r')
 [ -z "$out" ] || {
     printf 'interactive shell startup printed:\n%s\n' "$out" >&2
@@ -131,12 +135,32 @@ ok doctor rejects another Ubuntu release and another login shell
 # sshd -T. Ubuntu runs sshd -T through sudo, whose secure_path holds /usr/local/sbin, so a stub there stands in.
 docker run --rm "$image" zsh -lc "$doctor_lib"'
     printf "env = [\"agent\", \"server\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
-    sshd_t() { printf "#!/bin/sh\necho passwordauthentication %s\necho kbdinteractiveauthentication no\necho permitrootlogin no\n" "$1" | sudo tee /usr/local/sbin/sshd >/dev/null; sudo chmod +x /usr/local/sbin/sshd; }
+    # a real sshd evaluates Match blocks only under -C; a hook that leaves it out sees the global value
+    sshd_t() {
+        sudo tee /usr/local/sbin/sshd >/dev/null <<EOF
+#!/bin/sh
+pw=$1
+case " \$* " in *" -C "*) grep -qiE "^[[:space:]]*Match all" /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf && pw=yes ;; esac
+echo passwordauthentication \$pw
+echo kbdinteractiveauthentication no
+echo permitrootlogin no
+EOF
+        sudo chmod +x /usr/local/sbin/sshd
+    }
     sudo install -d /etc/ssh/sshd_config.d
     sudo touch /etc/ssh/sshd_config.d/10-djd.conf
     printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
     step stock layout
     doctor_says ok sshd
+
+    step a Match all block that turns passwords on
+    sshd_t no
+    printf "Match all\nPasswordAuthentication yes\n" | sudo tee /etc/ssh/sshd_config.d/99-m.conf >/dev/null
+    doctor_says FAIL sshd
+    step a Match block that leaves the three settings alone
+    printf "Match User nobody\nX11Forwarding no\n" | sudo tee /etc/ssh/sshd_config.d/99-m.conf >/dev/null
+    doctor_says ok sshd
+    sudo rm /etc/ssh/sshd_config.d/99-m.conf
 
     step an earlier drop-in that turns passwords on
     sudo touch /etc/ssh/sshd_config.d/00-x.conf
@@ -238,16 +262,20 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
     # a pipeline that starts with ! is exempt from set -e, so the refusals are spelled out
     if djd secret keygen >/dev/null 2>&1; then exit 1; fi
     step secret set
+    # the module is selected before the first set: with values to redact in the environment, mise stops feeding
+    # stdin to a task that is not raw, so the second set stored an empty value and exited 0
+    printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     printf "s3cret\n" | djd secret set DJD_CHECK >/dev/null
     grep -q DJD_CHECK ~/.dotfiles/mise-config/config.secrets.toml
     if grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
+    printf "second\n" | djd secret set DJD_CHECK2 >/dev/null
     # NAME=value would put the plaintext in argv; exit 2 is the usage error
     rc=0
     printf "x\n" | djd secret set DJD_BAD=plain >/dev/null 2>&1 || rc=$?
     [ "$rc" = 2 ]
     if grep -q DJD_BAD ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
-    printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     [ "$(mise exec -- printenv DJD_CHECK)" = s3cret ]
+    [ "$(mise exec -- printenv DJD_CHECK2)" = second ]
     doctor_says ok secrets
 
     step missing key

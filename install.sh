@@ -8,7 +8,6 @@ set -eu
 DJD_REPO="${DJD_REPO:-https://github.com/dayjobdoor/dotfiles.git}"
 # must equal mise's dotfiles.root default
 DJD_DIR="$HOME/.dotfiles"
-MISE_VERSION="${MISE_VERSION:-v2026.10.23}"
 
 die() {
     echo "djd install: $*" >&2
@@ -57,20 +56,22 @@ main() {
     fi
 
     if [ ! -x "$HOME/.local/bin/mise" ]; then
+        # the version the applied tree requires, so the pin has one home; MISE_VERSION overrides it
+        version=${MISE_VERSION:-}
+        if [ -z "$version" ]; then
+            version=$(sed -n 's/^min_version = "\(.*\)"$/v\1/p' "$DJD_DIR/mise-config/config.toml")
+            [ -n "$version" ] || die "no min_version in $DJD_DIR/mise-config/config.toml"
+        fi
         # sh has no pipefail: a failed download shows up as a missing binary
-        curl -fsSL https://mise.run | MISE_VERSION="$MISE_VERSION" sh
+        curl -fsSL https://mise.run | MISE_VERSION="$version" sh
         [ -x "$HOME/.local/bin/mise" ] || die "installing mise failed"
     fi
 
-    # LC_ALL: see home/.local/bin/djd (mise parses English ufw output). MISE_ENV: see there too. $HOME, so mise loads
-    # no project mise.toml from the current directory (a checkout's own dev config included).
-    cd "$HOME"
-    unset MISE_ENV
-    export PATH="$HOME/.local/bin:$PATH" MISE_TASK_RUN_AUTO_INSTALL=false LC_ALL=C.UTF-8
+    # the wrapper owns the environment that djd tasks need (PATH, LC_ALL, MISE_ENV, cwd)
     if [ $# -gt 0 ]; then
-        exec mise run djd:module add "$@"
+        exec "$DJD_DIR/home/.local/bin/djd" module add "$@"
     fi
-    exec mise run djd:apply
+    exec "$DJD_DIR/home/.local/bin/djd" apply
 }
 
 main "$@"
