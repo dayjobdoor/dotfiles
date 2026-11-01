@@ -15,7 +15,7 @@ services:
       - "127.0.0.1:${RDP_PORT:-33389}:3389"
     shm_size: 512m # browsers in the session crash with the 64m default
     restart: unless-stopped
-    init: true # xrdp is PID 1, and the init process forwards signals and reaps zombies
+    init: true # docker-init is PID 1: it forwards signals to xrdp and reaps zombies
 
   # Optional remote access through a Cloudflare Tunnel: set TUNNEL_TOKEN in the env file, uncomment this, and point
   # the tunnel's public hostname at desktop:3389 in the Cloudflare dashboard. Clients need cloudflared. It opens

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: xrdp is TLS-only, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, and the four apps launch (builds it first)"
+#MISE description="Desktop image: every container makes its own xrdp TLS key, xrdp is TLS-only and refuses root logins, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, the four apps launch, ~/.xsession passes its stub test, and the session comes back after a container restart (builds it first)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
 
 image=${usage_image:-${1:-djd:desktop}}
 net="djd-rdp-$$"
@@ -21,7 +22,7 @@ fail() {
     echo "test:desktop: $1" >&2
     docker logs "$server" >&2 || true
     docker exec "$server" sh -c 'tail -n 40 /var/log/xrdp.log /var/log/xrdp-sesman.log' >&2 || true
-    docker exec "$client" sh -c 'cat /tmp/xfreerdp.log /tmp/legacy.log 2>&1' >&2 || true
+    docker exec "$client" sh -c 'tail -n 20 /tmp/*.log 2>&1' >&2 || true
     exit 1
 }
 
@@ -82,50 +83,89 @@ check_wireplumber_respawn() {
     check_audio
 }
 
-# xrdp.ini and sesman.ini as desktop-final leaves them (see mise-config/hooks/desktop-final)
-check_xrdp_settings() {
-    docker exec "$server" grep -qx security_layer=tls /etc/xrdp/xrdp.ini || fail "xrdp.ini does not say security_layer=tls"
-    docker exec "$server" grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini || fail "sesman.ini does not say AllowRootLogin=false"
-    echo "test:desktop: xrdp is TLS-only and refuses root logins"
-}
-
 mkprobe() {
     docker exec "$1" sh -c 'useradd -m probe && echo probe:djd-test-pass | chpasswd'
 }
 
-# Exit code of an xfreerdp3 login to $1 as the throwaway account that insists on the legacy RDP security layer. A
-# client that stays connected until the timeout gives 124.
-legacy_rc() {
+# Exit code of an xfreerdp3 login to HOST as USER (the password of every test account is the same), with
+# the log in /tmp/LOG.log of the client. A client that stays connected until SECS gives 124.
+rdp_rc() {
+    local log=$1 host=$2 user=$3 secs=$4
+    shift 4
     docker exec "$client" sh -c \
-        "timeout 20 xvfb-run -a xfreerdp3 /v:$1 /u:probe /p:djd-test-pass /cert:ignore /sec:rdp >/tmp/legacy.log 2>&1" && echo 0 || echo $?
+        "timeout $secs xvfb-run -a xfreerdp3 /v:$host /u:$user /p:djd-test-pass /cert:ignore $* >/tmp/$log.log 2>&1" && echo 0 || echo $?
 }
 
-# $control is the same image with security_layer=negotiate. It must accept that client, or a client that cannot speak
-# the legacy layer would make the refusal below pass for any server. The legacy client then tries a second account
-# on $server, so a wrongly accepted one would start its own session and leave the first client's alone.
+tls_fingerprint() {
+    docker exec "$1" openssl x509 -in /etc/xrdp/cert.pem -noout -fingerprint -sha256 || fail "cannot read the certificate of $1"
+}
+
+# The entrypoint makes a TLS key for each container. The image keeps the pair that ssl-cert made at build time, and
+# anyone who pulls the image has it. Run before the entrypoint, the image's own certificate is that pair.
+check_tls_key() {
+    local built own other
+    built=$(docker run --rm --entrypoint openssl "$image" x509 -in /etc/xrdp/cert.pem -noout -fingerprint -sha256) ||
+        fail "cannot read the certificate of the image"
+    own=$(tls_fingerprint "$server")
+    other=$(tls_fingerprint "$control")
+    [ "$own" != "$built" ] || fail "xrdp in the server presents the certificate that is in the image ($built)"
+    [ "$other" != "$built" ] || fail "xrdp in the control presents the certificate that is in the image ($built)"
+    [ "$own" != "$other" ] || fail "two containers of the image present the same xrdp certificate ($own)"
+    echo "test:desktop: each container has its own xrdp TLS key"
+}
+
+# $control is the same image with security_layer=negotiate and AllowRootLogin=true. It must accept the legacy-layer
+# client, or a client that cannot speak that layer would make the refusal below pass for any server; its xrdp.log
+# shows the RDP layer was selected there and refused on $server. The legacy client then tries a second account on
+# $server, so a wrongly accepted one would start its own session and leave the first client's alone.
 check_legacy_refused() {
     local rc
-    wait_xrdp "$control"
     mkprobe "$control"
     mkprobe "$server"
-    rc=$(legacy_rc "$control")
+    rc=$(rdp_rc legacy-control "$control" probe 20 /sec:rdp)
     [ "$rc" = 124 ] || fail "the control (security_layer=negotiate) did not keep a legacy-layer client connected (exit $rc): the refusal check proves nothing"
-    rc=$(legacy_rc "$server")
-    [ "$rc" != 124 ] || fail "a client forcing the legacy RDP security layer stayed connected"
-    [ "$rc" != 0 ] || fail "a client forcing the legacy RDP security layer logged in"
+    docker exec "$control" grep -qF 'requested [RDP], selected [RDP]' /var/log/xrdp.log ||
+        fail "xrdp.log of the control does not show the RDP security layer selected: the refusal check proves nothing"
+    rc=$(rdp_rc legacy-server "$server" probe 20 /sec:rdp)
+    [ "$rc" != 124 ] || fail "a client forcing the legacy RDP security layer stayed connected: security_layer is not tls"
+    [ "$rc" != 0 ] || fail "a client forcing the legacy RDP security layer logged in: security_layer is not tls"
+    docker exec "$server" grep -q 'requested \[RDP\], selected \[\]' /var/log/xrdp.log ||
+        fail "xrdp.log of the server does not show the legacy-layer request refused (exit $rc): the client ended for another reason"
     if docker exec "$server" pgrep -u probe >/dev/null; then fail "the legacy-layer client got a session"; fi
     docker exec "$server" test -d "/proc/$1" || fail "the first client's xfce4-session ($1) is gone"
-    docker exec "$client" pgrep -x xfreerdp3 >/dev/null || fail "the first client lost its connection"
+    docker exec "$client" pgrep -f 'xfreerdp3 /v:[^ ]* /u:ubuntu ' >/dev/null || fail "the first client lost its connection"
     echo "test:desktop: a legacy-layer client is refused (exit $rc) where security_layer=negotiate accepts it"
 }
 
+# A client that is refused at the xrdp login screen stays connected, so the exit code says nothing: the proof is
+# the root session that $control starts and $server does not, and the refusal that sesman logs.
+check_root_refused() {
+    local h up=''
+    for h in "$control" "$server"; do
+        docker exec "$h" sh -c 'echo root:djd-test-pass | chpasswd'
+    done
+    rdp_rc root-control "$control" root 15 >/dev/null
+    for _ in $(seq 60); do
+        if docker exec "$control" pgrep -u root -x xfce4-session >/dev/null; then
+            up=1
+            break
+        fi
+        sleep 1
+    done
+    [ -n "$up" ] || fail "the control (AllowRootLogin=true) started no root session: the root refusal check proves nothing"
+    rdp_rc root-server "$server" root 10 >/dev/null
+    docker exec "$server" grep -qF 'ROOT login attempted, but root login is disabled' /var/log/xrdp-sesman.log ||
+        fail "sesman in the server did not refuse a root login: AllowRootLogin is not false"
+    if docker exec "$server" pgrep -u root -x xfce4-session >/dev/null; then fail "a root login on the server started a session"; fi
+    echo "test:desktop: root logins are refused where AllowRootLogin=true accepts them"
+}
+
 docker network create "$net" >/dev/null
-docker run -d --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
+docker run -d --init --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
     "$image" ubuntu djd-test-pass >/dev/null
 wait_xrdp
-check_xrdp_settings
-docker run -d --name "$control" --network "$net" --user root --entrypoint sh "$image" \
-    -c "sed -i 's/^security_layer=.*/security_layer=negotiate/' /etc/xrdp/xrdp.ini && exec djd-desktop-entrypoint ubuntu djd-test-pass" >/dev/null
+docker run -d --init --name "$control" --network "$net" --user root --entrypoint sh "$image" -c \
+    "sed -i 's/^security_layer=.*/security_layer=negotiate/' /etc/xrdp/xrdp.ini && sed -i 's/^AllowRootLogin=.*/AllowRootLogin=true/' /etc/xrdp/sesman.ini && exec djd-desktop-entrypoint ubuntu djd-test-pass" >/dev/null
 
 # Install the client before the clock starts; the login itself gets 120s.
 docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
@@ -146,17 +186,21 @@ for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
     grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
 done
 echo "test:desktop: xfce4-session started through ~/.xsession"
+wait_xrdp "$control"
+check_tls_key
 check_legacy_refused "$pid"
+check_root_refused
 check_audio
 check_wireplumber_respawn
 docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
 docker exec -u ubuntu "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
 
 # /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not
-# take it for a live server.
+# take it for a live server. The client goes first: left running, it could reconnect to the restarted server and
+# make wait_session pass on its session.
+docker exec "$client" pkill -x xfreerdp3 || true
 docker restart "$server" >/dev/null
 wait_xrdp
-docker exec "$client" pkill -x xfreerdp3 || true
 login
 wait_session
 echo "test:desktop: xfce4-session started again after a container restart"

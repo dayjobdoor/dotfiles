@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Desktop image entrypoint (runs as root): set the RDP password, then run xrdp in the foreground.
+# Desktop image entrypoint (runs as root): set the RDP password, make this container's TLS key, then run xrdp in the
+# foreground.
 # Usage: djd-desktop-entrypoint USER PASSWORD
 set -euo pipefail
 
@@ -14,9 +15,15 @@ id "$user" >/dev/null 2>&1 || die "no such user: $user"
 [ -n "$password" ] || die "usage: djd-desktop-entrypoint USER PASSWORD"
 
 printf '%s:%s\n' "$user" "$password" | chpasswd
+# no logind in the container: this is the XDG_RUNTIME_DIR that ~/.xsession falls back to
 install -d -m 700 -o "$user" -g "$user" "/run/user/$(id -u "$user")"
+# /run survives a container restart, and a stale pid file makes xrdp and sesman refuse to start
 rm -f /var/run/xrdp*.pid /var/run/xrdp/*.pid
+# /etc/xrdp/{cert,key}.pem link to the snakeoil pair that ssl-cert made once, while the image was built: every
+# container of the image would share a key that anyone who pulls the image holds. The files keep their owner and mode.
+make-ssl-cert generate-default-snakeoil --force-overwrite
 
-# exec: xrdp becomes PID 1 and gets docker stop's SIGTERM; the daemonized sesman goes down with the container
+# exec: xrdp replaces the shell and gets docker stop's SIGTERM (directly as PID 1 under a plain docker run, from
+# docker-init under compose's init: true); the daemonized sesman goes down with the container
 xrdp-sesman
 exec xrdp --nodaemon

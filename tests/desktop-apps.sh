@@ -34,7 +34,7 @@ main_exec() {
 run_headless() {
     local app=$1 rc=0
     shift
-    timeout 90 "$@" >"$tmp/$app.out" 2>"$tmp/$app.err" || rc=$?
+    timeout 90 "$@" >"$tmp/$app.out" 2>"$tmp/$app.err" </dev/null || rc=$?
     [ "$rc" = 0 ] || fail "$app does not launch (exit $rc, 124 is the 90s timeout): $(tail -n 5 "$tmp/$app.err")"
 }
 
@@ -58,24 +58,27 @@ launch_zen() {
 # launch_window APP CLASS ENTRY: ENTRY's Exec runs with the DISPLAY, XAUTHORITY and D-Bus address of the running
 # xfce4-session (what a menu click inherits), and a visible window of WM_CLASS CLASS must appear within 30s.
 launch_window() {
-    local app=$1 class=$2 words sid win='' pid='' launcher
+    local app=$1 class=$2 words sid win='' pid='' launcher start elapsed
     local -a session
     read -ra words <<<"$(main_exec "$3" | sed -E 's/%[A-Za-z]//g')"
     sid=$(pgrep -o -u "$(id -u)" -x xfce4-session) || fail "$app: no xfce4-session to show a window in"
     mapfile -t session < <(tr '\0' '\n' <"/proc/$sid/environ" | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS)=' || true)
     printf '%s\n' "${session[@]}" | grep -q '^DISPLAY=' || fail "$app: xfce4-session has no DISPLAY"
-    env "${session[@]}" setsid timeout 60 "${words[@]}" >"$tmp/$app.out" 2>"$tmp/$app.err" &
+    start=$SECONDS
+    env "${session[@]}" setsid timeout 60 "${words[@]}" >"$tmp/$app.out" 2>"$tmp/$app.err" </dev/null &
     launcher=$!
     for _ in $(seq 30); do
-        win=$(env "${session[@]}" xdotool search --onlyvisible --class "^${class//./\\.}\$" 2>/dev/null | head -n1 || true)
+        # exit 1 is "no window yet"; a missing display or XAUTHORITY lands in $tmp/$app.xdotool instead
+        win=$(env "${session[@]}" xdotool search --onlyvisible --class "^${class//./\\.}\$" 2>>"$tmp/$app.xdotool" | head -n1 || true)
         [ -z "$win" ] || break
         sleep 1
     done
-    [ -z "$win" ] || pid=$(env "${session[@]}" xdotool getwindowpid "$win" 2>/dev/null || true)
+    elapsed=$((SECONDS - start))
+    [ -z "$win" ] || pid=$(env "${session[@]}" xdotool getwindowpid "$win" 2>>"$tmp/$app.xdotool" || true)
     # zed-editor leaves the launcher's session for its own, so the window's process is signalled too
     kill -TERM -- "-$launcher" ${pid:+"$pid"} 2>/dev/null || true
-    [ -n "$win" ] || fail "$app showed no $class window in 30s: $(tail -n 5 "$tmp/$app.err")"
-    [ -n "$pid" ] || fail "$app's window has no _NET_WM_PID, so the app cannot be stopped"
+    [ -n "$win" ] || fail "$app showed no $class window in ${elapsed}s: $(tail -n 5 "$tmp/$app.err") xdotool: $(tail -n 3 "$tmp/$app.xdotool")"
+    [ -n "$pid" ] || fail "$app's window has no _NET_WM_PID, so the app cannot be stopped: $(tail -n 3 "$tmp/$app.xdotool")"
     for _ in $(seq 20); do
         if ! kill -0 "$pid" 2>/dev/null && ! pgrep -g "$launcher" >/dev/null; then break; fi
         sleep 0.5
@@ -84,13 +87,14 @@ launch_window() {
         kill -KILL -- "-$launcher" "$pid" 2>/dev/null || true
         fail "$app (pid $pid) is still running after SIGTERM"
     fi
-    echo "ok $app window"
+    echo "ok $app window (after ${elapsed}s)"
 }
 
+checked=0
 while IFS='|' read -r cmd id; do
     command -v "$cmd" >/dev/null || fail "$cmd is not on PATH"
-    # shims print their own error for a tool that is not installed, and exit non-zero
-    if ! "$cmd" --version >/dev/null 2>&1; then fail "$cmd --version failed"; fi
+    # shims print their own error for a tool that is not installed, and exit non-zero; stdin is the app list
+    if ! "$cmd" --version >/dev/null 2>&1 </dev/null; then fail "$cmd --version failed"; fi
 
     entry=
     for d in "${dirs[@]}"; do
@@ -113,4 +117,7 @@ while IFS='|' read -r cmd id; do
         zed) launch_window zed dev.zed.Zed "$entry" ;;
         esac
     fi
+    checked=$((checked + 1))
 done <<<"$apps"
+# a launched command that swallowed the list would end the loop early without a failure
+[ "$checked" = "$(grep -c . <<<"$apps")" ] || fail "checked $checked apps, the list has $(grep -c . <<<"$apps")"

@@ -26,6 +26,7 @@
           "**/.DS_Store": true,
         },
       },
+      // Commented-out entries are kept for re-enabling.
       "extensions": [
         // "42crunch.vscode-openapi",
         "adpyke.codesnap",

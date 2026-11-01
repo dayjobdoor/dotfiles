@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && printf '%s\n' 'ubuntu ALL=(ALL) NOPASSWD:ALL' 'Defaults !admin_flag' > /etc/sudoers.d/ubuntu && chmod 0440 /etc/sudoers.d/ubuntu \
     && usermod -s /usr/bin/zsh ubuntu
 # Packages and tools depend only on install.sh and mise-config. Copying those first keeps edits to
-# dotfiles, docs and tests off the slow layer; the second install.sh run only links dotfiles.
+# dotfiles, docs and tests off the slow layer; the last install.sh run only links dotfiles.
 COPY --chown=ubuntu:ubuntu install.sh /home/ubuntu/.dotfiles/install.sh
 COPY --chown=ubuntu:ubuntu mise-config /home/ubuntu/.dotfiles/mise-config
 USER ubuntu
