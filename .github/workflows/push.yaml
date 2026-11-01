@@ -75,6 +75,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
+          # runners are single-use, so skip the post step that removes the builder
           cleanup: false
 
       - name: Login to GitHub Container Registry
@@ -146,6 +147,7 @@ jobs:
         with:
           path: /tmp/digests
           pattern: digests-*
+          # one directory per artifact: the loop below picks a flavor's digests by directory name
           merge-multiple: false
 
       - name: Set up Docker Buildx
@@ -208,5 +210,6 @@ jobs:
               --annotation "index:org.opencontainers.image.version=${GITHUB_REF_NAME}"
             )
             docker buildx imagetools create "${annotations[@]}" "${tags[@]}" "${refs[@]}"
+            # tags[0] is the -t flag; tags[1] is the image reference
             docker buildx imagetools inspect "${tags[1]}"
           done

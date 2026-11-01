@@ -13,10 +13,8 @@
 **/auth.json
 *.pem
 *.key
-# age identities (mise defaults to ~/.config/mise/age.txt, which is this repo)
+# age identities (mise defaults to ~/.config/mise/age.txt, which links to mise-config/ in this repo)
 age.txt
 .DS_Store
 dist/
 node_modules/
-# the global ~/.config/git/ignore (home/.config/git/ignore) excludes *lock.json; lockfiles here are tracked
-!*lock.json

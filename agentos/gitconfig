@@ -1,6 +1,6 @@
 # Installed as ~/.gitconfig in agentOS guests. git reads ~/.config/git/config (the shared home/ file) first
-# and this file after it, so these win. The guest has no delta, gh or less, and the shared file points at all
-# three; the shared file stays untouched because Ubuntu machines do have them.
+# and this file after it, so these win. The guest has no delta or gh, and the shared file points at both;
+# the shared file stays untouched because Ubuntu machines do have them.
 [core]
 	pager = cat
 

@@ -11,7 +11,8 @@ const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const GUEST_HOME = "/home/agentos";
 
 // guest path (under GUEST_HOME) -> repo file. ALLOWED_GUEST_PATHS is the same set written out a second time,
-// so adding a FILES entry without updating it fails instead of leaking a file into every VM.
+// so adding a FILES entry without updating it fails instead of leaking a file into every VM. Keep it sorted:
+// it is compared with the sorted bundle paths, and an out-of-order entry fails printing the same set twice.
 const FILES = {
   ".profile": "home/.profile",
   ".config/git/config": "home/.config/git/config",
@@ -27,26 +28,26 @@ const ALLOWED_GUEST_PATHS = [
   `${GUEST_HOME}/.profile`,
 ];
 
-// agentOS registry package -> its declaration on the Ubuntu side: a [tools] key, or an apt: key under
-// [bootstrap.packages], in mise-config/config.toml or config.agent.toml. Rule: the Ubuntu agent toolset is a
-// superset of the agentOS one, so a command an agent finds in a guest also exists in the sandbox image.
+// agentOS registry package -> `decl`, its declaration on the Ubuntu side (a [tools] key, or an apt: key under
+// [bootstrap.packages], in mise-config/config.toml or config.agent.toml), and `cmd`, the command it must put on
+// the guest's PATH. Rule: the Ubuntu agent toolset is a superset of the agentOS one, so a command an agent finds
+// in a guest also exists in the sandbox image.
 // Same name, different program: the registry `jq` is jaq and `yq` is the registry's own build.
-// vim is omitted: its 0.4.6 registry package installs no commands.
+// vim is omitted: the pinned release's vim package installs no commands.
 const SOFTWARE = {
-  git: "apt:git",
-  curl: "apt:curl",
-  jq: "jq",
-  ripgrep: "ripgrep",
-  fd: "fd",
-  yq: "yq",
-  tree: "apt:tree",
-  sqlite3: "apt:sqlite3",
-  unzip: "apt:unzip",
-  zip: "apt:zip",
+  git: { decl: "apt:git", cmd: "git" },
+  curl: { decl: "apt:curl", cmd: "curl" },
+  jq: { decl: "jq", cmd: "jq" },
+  ripgrep: { decl: "ripgrep", cmd: "rg" },
+  fd: { decl: "fd", cmd: "fd" },
+  yq: { decl: "yq", cmd: "yq" },
+  tree: { decl: "apt:tree", cmd: "tree" },
+  sqlite3: { decl: "apt:sqlite3", cmd: "sqlite3" },
+  unzip: { decl: "apt:unzip", cmd: "unzip" },
+  zip: { decl: "apt:zip", cmd: "zip" },
 };
-// The guest's base env: `environment` replaces it, so this starts from agentos-core 0.4.6 base-filesystem.js.
-// PAGER differs from that file (less): the guest has no less, and neither does it have vim for the EDITOR that
-// home/.profile sets. vim installs no commands, and Ubuntu machines keep EDITOR=vim.
+// The guest's base env: `environment` replaces it, so this starts from base-filesystem.js of the pinned agentos-core.
+// PAGER differs from that file (less): the guest has no less.
 const BASE_ENV = {
   CHARSET: "UTF-8",
   HOME: GUEST_HOME,
@@ -109,12 +110,12 @@ async function checkParity() {
   const toml = (
     await Promise.all(["config.toml", "config.agent.toml"].map((f) => readFile(join(REPO_DIR, "mise-config", f), "utf8")))
   ).join("\n");
-  const undeclared = Object.entries(SOFTWARE).filter(([, key]) => {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const undeclared = Object.entries(SOFTWARE).filter(([, { decl }]) => {
+    const escaped = decl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return !new RegExp(`^"?${escaped}"?\\s*=(?!.*\\bmode\\s*=\\s*["']absent["'])`, "m").test(toml);
   });
   if (undeclared.length > 0) {
-    fail(undeclared.map(([name, key]) => `${name}: ${key} is not declared in mise-config/config.toml or config.agent.toml`));
+    fail(undeclared.map(([name, { decl }]) => `${name}: ${decl} is not declared in mise-config/config.toml or config.agent.toml`));
   }
 }
 
@@ -208,12 +209,33 @@ const CHECKS = [
   { name: "profile sources with exit 0 and no stderr", script: PROFILE, stdout: "" },
   {
     name: "profile exports and base env",
-    script: `${PROFILE} && printf '%s\\n' "$XDG_CONFIG_HOME" "$DJD_DIR" "$PAGER"`,
-    stdout: `${GUEST_HOME}/.config\n${GUEST_HOME}/.dotfiles\ncat`,
+    script: `${PROFILE} && printf '%s\\n' "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$DJD_DIR" "$LANG" "$TZ" "$PAGER"`,
+    stdout: [
+      `${GUEST_HOME}/.config`,
+      `${GUEST_HOME}/.local/share`,
+      `${GUEST_HOME}/.local/state`,
+      `${GUEST_HOME}/.cache`,
+      `${GUEST_HOME}/.dotfiles`,
+      "C.UTF-8",
+      "Asia/Tokyo",
+      "cat",
+    ].join("\n"),
+  },
+  {
+    // the no-file branch is the first check; this one proves the profile sources a file that exists
+    name: "profile sources profile.local",
+    script: `d=/tmp/djd-profile-$$ && mkdir -p "$d/djd" && printf 'export DJD_LOCAL=yes\\n' > "$d/djd/profile.local" && export XDG_CONFIG_HOME="$d" && ${PROFILE} && echo "$DJD_LOCAL"`,
+    stdout: "yes",
+  },
+  {
+    // brush already misreports `[ -r ]`, so show that `command -v` can say no before trusting the loop below
+    name: "command -v fails for an unknown command",
+    script: "command -v djd-no-such-command >/dev/null && echo found || echo absent",
+    stdout: "absent",
   },
   {
     name: "every registry package is on PATH",
-    script: `for c in git curl jq rg fd yq tree sqlite3 unzip zip; do command -v "$c" >/dev/null || echo "missing:$c"; done`,
+    script: `for c in ${Object.values(SOFTWARE).map(({ cmd }) => cmd).join(" ")}; do command -v "$c" >/dev/null || echo "missing:$c"; done`,
     stdout: "",
   },
   { name: "yq parses", script: "echo 'a: 1' | yq '.a'", stdout: "1" },

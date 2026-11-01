@@ -11,16 +11,13 @@ trim_trailing_whitespace = true
 [*.{py,pyi,php,java,rs,go,sh}]
 indent_size = 4
 
-# Shell scripts without an extension (*.sh is covered above); `mise run lint` formats them with 4 spaces (shfmt -i 4)
+# Shell scripts without an extension (*.sh is covered above). This section is for editors: `mise run lint` only
+# reports shfmt -i 4 differences, and `mise run lint:fix` rewrites them
 [{.githooks/*,home/.profile,home/.bash_profile,home/.bashrc,home/.local/bin/*,desktop/.xsession,mise-tasks/**,mise-config/tasks/**,mise-config/hooks/*}]
 indent_size = 4
 
 [Makefile]
 indent_style = tab
-
-# spaces: DESIGN.md opens with YAML front matter, which forbids tabs
-[*.{md,mdx,mdc}]
-indent_style = space
 
 [{.env,.env.*}]
 indent_style = tab

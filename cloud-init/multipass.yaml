@@ -1,5 +1,5 @@
 #cloud-config
-# multipass launch 26.04 --name djd --cloud-init cloud-init/multipass.yaml
+# multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml
 # RDP needs a password: multipass exec djd -- sudo passwd ubuntu
 timezone: Asia/Tokyo
 keyboard:

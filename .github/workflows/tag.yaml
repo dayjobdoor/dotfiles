@@ -12,7 +12,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
-  # never cancel a release mid-push; queued runs wait instead
+  # an in-progress release is never cancelled. GitHub keeps one pending run per group and replaces an older
+  # pending run with a newer one; the replaced run's commit is inside the newer run's tag
   cancel-in-progress: false
 
 jobs:
@@ -87,14 +88,16 @@ jobs:
             new_tag="${major}.${minor}.${new_patch}"
             echo "new tag: ${new_tag}"
 
+            # the fetch above saw no such tag, so one pushed since then points at another commit: releasing
+            # HEAD_SHA under it would be wrong, and a re-run recomputes the tag
             if git ls-remote --tags origin "refs/tags/${new_tag}" | grep -q .; then
-              echo "tag ${new_tag} already exists on the remote; only rerunning the GHCR build"
-            else
-              git config --global user.email "github-actions[bot]@users.noreply.github.com"
-              git config --global user.name "github-actions[bot]"
-              git tag "$new_tag" "$HEAD_SHA"
-              git push origin "$new_tag"
+              echo "tag ${new_tag} appeared on the remote after the fetch; re-run to compute the next tag" >&2
+              exit 1
             fi
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "github-actions[bot]"
+            git tag "$new_tag" "$HEAD_SHA"
+            git push origin "$new_tag"
           fi
 
           # only the newest version is the latest release

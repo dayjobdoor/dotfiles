@@ -2,10 +2,11 @@ name: CI
 on:
   push:
     branches: [main]
-    # docs-only changes skip CI, except DESIGN.md, which lint checks
-    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md"]
+    # Markdown-only changes skip CI, except DESIGN.md (lint checks it) and agent/** (its AGENTS.md files ship in the
+    # images and the sandbox test compares them)
+    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md", "agent/**"]
   pull_request:
-    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md"]
+    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md", "agent/**"]
   # tools track `latest`, so a quiet repository still breaks upstream; this run catches it.
   # Scheduled runs never tag a release (tag.yaml accepts push runs only).
   schedule:
@@ -109,6 +110,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y incus-base incus-client
           sudo incus admin init --minimal
+          # the tests run incus as the runner user; this opens the socket to every local user of the runner
           sudo chmod 666 /var/lib/incus/unix.socket
           # the runner's docker sets the FORWARD policy to DROP, which would cut the containers off
           sudo iptables -I DOCKER-USER -i incusbr0 -j ACCEPT

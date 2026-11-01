@@ -1,10 +1,11 @@
+# the local overrides and credential files .gitignore lists; docker build sends untracked files too
 .git
 **/.env
 **/.env.*
 !**/.env.example
 **/*.local.toml
-# the local overrides and credential files .gitignore lists; docker build sends untracked files too
 **/*.local
+# **/*.local also matches the .local directory name
 !home/.local
 **/gh/hosts.yml
 **/rclone/rclone.conf
