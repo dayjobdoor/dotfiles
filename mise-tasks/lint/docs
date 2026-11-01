@@ -3,9 +3,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+docs="README.md AGENTS.md SECURITY.md DESIGN.md llms.txt docs/*.md"
+
 # GitHub's heading slugs decide what an anchor is
 broken=0
-for f in README.md AGENTS.md SECURITY.md DESIGN.md docs/*.md; do
+# shellcheck disable=SC2086
+for f in $docs; do
     while IFS= read -r link; do
         case $link in http* | mailto*) continue ;; esac
         path=${link%%#*}
@@ -17,7 +20,8 @@ for f in README.md AGENTS.md SECURITY.md DESIGN.md docs/*.md; do
             broken=1
         elif [ -n "$anchor" ] && [ -f "$target" ]; then
             # a here-string, not a pipe: grep -q exiting early would SIGPIPE the producer under pipefail
-            slugs=$(grep -E '^#+ ' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g')
+            # fences skipped like the span extractor below: a `# comment` in a code block is no heading
+            slugs=$(awk '/^[ \t]*```/ { fence = !fence; next } !fence && /^#+ /' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g')
             if ! grep -qx -- "$anchor" <<<"$slugs"; then
                 echo "lint: $f links to a missing anchor: $link" >&2
                 broken=1
@@ -27,7 +31,6 @@ for f in README.md AGENTS.md SECURITY.md DESIGN.md docs/*.md; do
 done
 
 # Inline code spans outside fenced blocks, as FILE<TAB>LINE<TAB>span
-docs="README.md AGENTS.md SECURITY.md DESIGN.md llms.txt docs/*.md"
 # shellcheck disable=SC2086
 spans=$(awk '
     /^[ \t]*```/ { fence = !fence; next }
@@ -47,17 +50,25 @@ allow_paths=" .devcontainer/.env "
 # docs/history.md: planned, not implemented, and removed
 allow_cmds=" djd:menu make:age-keygen "
 
+# Top-level names that a path may start with: those now, and those of every commit when there is a git history
+# (CI fetches all of it; the docker lint run has no .git and checks only the names that exist), so a reference
+# to a renamed or deleted file or directory is reported instead of skipped as prose.
 roots=" "
 for p in * .[!.]*; do [ "$p" = .git ] || roots="$roots$p "; done
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    while IFS= read -r p; do roots="$roots$p "; done < <(git -c core.quotePath=false log --all --name-only --pretty=format: | sed 's|/.*||' | sort -u)
+fi
 djd=" "
 for p in mise-config/tasks/djd/*; do djd="$djd${p##*/} "; done
 tasks=" $(find mise-tasks -type f | sed 's|^mise-tasks/||; s|/_default$||; s|/|:|g' | tr '\n' ' ')"
 tasks="$tasks $(sed -nE 's/^\[tasks\."?([^]"]+)"?\]$/\1/p' mise.toml | tr '\n' ' ') init help "
 
 while IFS=$'\t' read -r f line span; do
-    # 1. repo paths
+    # 1. repo paths: a token is one when it is no ~, absolute, URL, $, flag, <placeholder> or pattern (* < > { } [ ] | = @)
+    # once trailing punctuation, a leading ./ and a trailing / are dropped, and it starts with a top-level name
     for tok in $span; do
         while [[ $tok =~ [,.\;:\)]$ ]]; do tok=${tok%?}; done
+        tok=${tok#./}
         case $tok in '' | '~'* | /* | http* | '$'* | -* | '<'*) continue ;; esac
         case $tok in *[*\<\>{}\[\]\|=@]*) continue ;; esac
         tok=${tok%/}
@@ -65,19 +76,30 @@ while IFS=$'\t' read -r f line span; do
         case $allow_paths in *" $tok "*) continue ;; esac
         [ -e "$tok" ] || fail "$f" "$line" "missing path: $tok"
     done
-    # 2. commands
+    # 2. commands: every word after `make` is a task (the Makefile's % rule); after `mise run` and `djd`, only
+    # the first word that is no flag
     while IFS= read -r cmd; do
-        [ -n "$cmd" ] || continue
-        name=${cmd##* }
-        case $name in -* | '<'* | '$'* | '['* | *'<'* | *'|'*) continue ;; esac
-        case $cmd in
-        make*) ok="$tasks$djd" ;;
-        djd*) ok=$djd ;;
+        prog=${cmd%% *}
+        rest=${cmd#"$prog "}
+        [ "$prog" != mise ] || rest=${rest#run }
+        # NAME=value arguments are no tasks, a quoted value included
+        read -ra names <<<"$(sed -E 's/[A-Za-z_]+=("[^"]*"|[^ ]*)//g' <<<"$rest")"
+        [ ${#names[@]} -gt 0 ] || continue
+        if [ "$prog" != make ]; then
+            while [ ${#names[@]} -gt 1 ] && [[ ${names[0]} == -* ]]; do names=("${names[@]:1}"); done
+            names=("${names[0]}")
+        fi
+        case $prog in
+        make) ok="$tasks$djd" ;;
+        djd) ok=$djd ;;
         *) ok="$tasks${djd// / djd:}" ;;
         esac
-        case $allow_cmds in *" ${cmd%% *}:$name "*) continue ;; esac
-        case $ok in *" $name "*) ;; *) fail "$f" "$line" "unknown command: $cmd" ;; esac
-    done < <(grep -oE '(mise run|make|djd) [^ ]+' <<<"$span" || true)
+        for name in "${names[@]}"; do
+            case $name in '' | -* | '<'* | '$'* | '['* | *'<'* | *'|'*) continue ;; esac
+            case $allow_cmds in *" $prog:$name "*) continue ;; esac
+            case $ok in *" $name "*) ;; *) fail "$f" "$line" "unknown command: $cmd" ;; esac
+        done
+    done < <(grep -oE '(mise run|make|djd) [^&|;]+' <<<"$span" || true)
 done <<<"$spans"
 
 # 3. DJD_ variables

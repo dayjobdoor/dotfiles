@@ -14,8 +14,15 @@ full) modules="agent full" ;;
     exit 2
     ;;
 esac
-# the token reaches the build only as a BuildKit secret, never as ARG/ENV
-export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+# The token reaches the build only as a BuildKit secret, never as ARG/ENV.
+# A token needs no scope; it only lifts the anonymous rate limit (SECURITY.md#github-tokens). No fallback to
+# `gh auth token`: it carries every scope of the login, and installs run third-party code.
+# GITHUB_TOKEN= (set, empty) runs anonymously.
+if [ -z "${GITHUB_TOKEN+x}" ]; then
+    echo "$0: set GITHUB_TOKEN to a token without scopes (classic with none, or fine-grained with no permissions), or GITHUB_TOKEN= for none; \`gh auth token\` would hand the installs every scope of your login (SECURITY.md#github-tokens)" >&2
+    exit 1
+fi
+export GITHUB_TOKEN
 docker build -f .devcontainer/Dockerfile --build-arg DJD_MODULES="$modules" \
-    --build-arg DJD_REVISION="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" \
+    --build-arg DJD_REVISION="$(git describe --always --dirty 2>/dev/null || echo unknown)" \
     --secret id=github_token,env=GITHUB_TOKEN -t "djd:$flavor" .

@@ -21,7 +21,15 @@ git -C "$work" -c user.name=act -c user.email=act@localhost commit -qm "act $(gi
 # act derives github.repository from origin; tag.yaml only releases for this repository
 git -C "$work" remote add origin https://github.com/dayjobdoor/dotfiles.git
 
-export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+# act hands the token to the workflows as a secret.
+# A token needs no scope; it only lifts the anonymous rate limit (SECURITY.md#github-tokens). No fallback to
+# `gh auth token`: it carries every scope of the login, and installs run third-party code.
+# GITHUB_TOKEN= (set, empty) runs anonymously.
+if [ -z "${GITHUB_TOKEN+x}" ]; then
+    echo "$0: set GITHUB_TOKEN to a token without scopes (classic with none, or fine-grained with no permissions), or GITHUB_TOKEN= for none; \`gh auth token\` would hand the installs every scope of your login (SECURITY.md#github-tokens)" >&2
+    exit 1
+fi
+export GITHUB_TOKEN
 cd "$work"
 # runner images and options come from .actrc; -s NAME reads the secret from the environment
 if [ "${usage_dry_run:-false}" = true ]; then
@@ -36,5 +44,6 @@ if [ "${usage_dry_run:-false}" = true ]; then
 fi
 for job in "${selected[@]}"; do
     echo "ci: $job"
+    # .actrc maps both runner labels to one image, so one matrix entry runs each job once
     act push -W .github/workflows/ci.yaml -j "$job" --matrix runner:ubuntu-26.04 -s GITHUB_TOKEN
 done

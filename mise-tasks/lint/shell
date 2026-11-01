@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="shellcheck, shfmt and zsh -n over every script"
+#MISE description="shellcheck, shfmt and zsh -n over every sh or bash script (found by shebang), the home/ profiles and the zsh startup files"
 #MISE tools={shellcheck="latest", shfmt="latest"}
 #USAGE flag "--fix" help="Rewrite shell formatting instead of reporting it"
 set -euo pipefail
@@ -7,16 +7,19 @@ cd "$(dirname "$0")/../.."
 
 fix=${usage_fix:-false}
 
-# a read loop, not mapfile: macOS still ships bash 3.2
-shell=()
-while IFS= read -r f; do shell+=("$f"); done < <(
-    printf '%s\n' install.sh home/.profile home/.bash_profile home/.bashrc home/.local/bin/djd desktop/.xsession \
-        .devcontainer/desktop-entrypoint.sh .githooks/pre-commit tests/*.sh
-    find mise-config/tasks mise-config/hooks mise-tasks -type f
-)
+# A read loop, not mapfile: macOS still ships bash 3.2. The scripts are found by their shebang, not by a
+# list, so a new one is checked; no git, because the docker lint run has no .git. The profiles have no shebang.
+shell=(home/.profile home/.bash_profile home/.bashrc)
+while IFS= read -r -d '' f; do
+    # || true: a file without a final newline still fills first, but read exits 1
+    IFS= read -r first <"$f" || true
+    case $first in
+    '#!/bin/sh' | '#!/bin/bash' | '#!/usr/bin/env sh' | '#!/usr/bin/env bash') shell+=("${f#./}") ;;
+    esac
+done < <(find . \( -name .git -o -name node_modules -o -name dist \) -prune -o -type f -print0)
 shellcheck "${shell[@]}"
 # printer flags make shfmt ignore .editorconfig, so -i 4 holds for every script in the list
 if [ "$fix" = true ]; then shfmt -i 4 -w "${shell[@]}"; else shfmt -i 4 -d "${shell[@]}"; fi
-zsh -n home/.zshenv home/.config/zsh/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile \
-    home/.config/zsh/.zlogin home/.config/zsh/.zlogout home/.config/zsh/.functions
+# one file per call: zsh takes the first operand as the script and the rest as its arguments
+for f in home/.zshenv home/.config/zsh/.z* home/.config/zsh/.functions; do zsh -n "$f"; done
 echo "ok shell"
