@@ -4,8 +4,9 @@
 
 add_newline = true
 
+# Raised from starship's defaults (30ms scan, 500ms command): a timeout drops the module, and
+# runtime detection and jj-starship are slower than that in big directories.
 scan_timeout = 420
-
 command_timeout = 4200
 
 palette = 'color'
@@ -101,11 +102,13 @@ truncation_length = 5
 truncation_symbol = "…/"
 
 [directory.substitutions]
-"Documents" = " "
+"Documents" = "󰈙 "
 "Downloads" = "  "
 "Music" = "  "
 "Pictures" = "  "
 
+# git_branch and git_status are off because custom.jj (jj-starship) shows the repo state. They stay
+# in `format` and keep their styles so re-enabling one is a one-line change.
 [git_branch]
 symbol = " "
 style = "fg:dd bg:dark"
@@ -138,7 +141,7 @@ style = "fg:gray bg:dd"
 format = '[ $symbol($version)]($style bold)'
 
 [golang]
-symbol = "ﳑ "
+symbol = "󰟓 "
 style = "fg:gray bg:dd"
 format = '[ $symbol($version)]($style bold)'
 
@@ -168,13 +171,13 @@ style = "fg:gray bg:dd"
 format = '[ $symbol($version)]($style bold)'
 
 [package]
-symbol = " "
+symbol = "󰏗 "
 style = "fg:gray bg:dd"
 format = '[ $symbol($version)]($style bold)'
 
 [time]
 disabled = false
-time_format = "%R" # Hour:Minute Format
+time_format = "%R"
 style = "fg:gray bg:ddd"
 format = '[ $time]($style bold)'
 
@@ -226,7 +229,7 @@ error_symbol = "[♨︎ ](fg:red bold)"
 
 [shell]
 disabled = false
-fish_indicator = ' '
+fish_indicator = '󰈺 '
 powershell_indicator = '_ '
 style = 'fg:green'
 format = '[$indicator](fg:green bold) [](fg:yellow bold) '

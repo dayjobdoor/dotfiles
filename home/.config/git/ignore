@@ -4,9 +4,8 @@
 
 *.gz
 node_modules
+# local secrets: .envrc and *.env hold exports, .npmrc can hold registry auth tokens
 *.env
-*lock.json
-bun.lock
 .envrc
 .npmrc
 
@@ -76,7 +75,6 @@ tmtags
 Session.vim
 Sessionx.vim
 .netrwhist
-tags
 [._]*.un~
 
 # Visual Studio Code.
@@ -93,10 +91,6 @@ sites/*/files
 # Sass.
 .!*
 
-# SQL.
-*.sql
-*.sql.*
-
 # Agent tools (local state and caches).
 .claude/settings.local.json
 .pi/sessions
@@ -106,10 +100,5 @@ sites/*/files
 .codegraph
 graphify-out
 .graphifyignore
-
-# musubi
-steering
-templates
-storage
 
 .decapod

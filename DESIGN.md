@@ -75,7 +75,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 | ghostty | Kanagawa Dragon, background `#112233` (surface), foreground `#D4C69A` (on-surface) | `desktop/.config/ghostty/config` |
 | starship | `[palettes.color]`, the dragon colors above (its unused `white` is left out) | `home/.config/starship.toml` |
 | herdr | built-in `kanagawa` | `home/.config/herdr/config.toml` |
-| lazygit, lazydocker | not themed; named ANSI colors (`green`, `blue`, `cyan`, `white`), so they follow the terminal palette | `home/.config/lazygit/config.yml`, `home/.config/lazydocker/config.yaml` |
+| lazygit, lazydocker | not themed; named ANSI colors (`green`, `blue`, `white`), so they follow the terminal palette | `home/.config/lazygit/config.yml`, `home/.config/lazydocker/config.yaml` |
 | micro | not themed; micro's own `default` colorscheme | `home/.config/micro/settings.json` |
 | lsd | not themed; its own palette of ANSI names and 256-color numbers | `home/.config/lsd/colors.yaml` |
 | fzf, XFCE | not themed; this repo sets no fzf colors and no XFCE theme | none |

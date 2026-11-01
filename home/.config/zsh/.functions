@@ -34,7 +34,11 @@ if command -v bat >/dev/null 2>&1; then
 fi
 
 if command -v tree >/dev/null 2>&1; then
-    alias tree="tree -NC"
+    # -C only on a terminal: nothing here sets LS_COLORS, so without -C tree is uncolored, and with
+    # it a pipe would receive escape codes
+    function tree() {
+        if [[ -t 1 ]]; then command tree -NC "$@"; else command tree -N "$@"; fi
+    }
 fi
 
 if command -v openssl >/dev/null 2>&1; then

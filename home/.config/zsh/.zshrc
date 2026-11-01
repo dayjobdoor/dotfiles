@@ -5,11 +5,10 @@ HISTFILE="$XDG_STATE_HOME/zsh/history"
 
 export HISTSIZE=123456
 export SAVEHIST=123456
-export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="#123"
+export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#a6a69c"
 export ZLE_REMOVE_SUFFIX_CHARS=$''
 
 setopt share_history
-setopt inc_append_history
 setopt hist_verify
 setopt hist_expand
 setopt hist_ignore_space
@@ -49,8 +48,9 @@ zstyle ':completion:*:default' menu select=2
 # find commands installed since the shell started, without running rehash
 zstyle ':completion:*' rehash 1
 
+# not in a subshell: `$(cd dir && pwd)` would capture the listing
 chpwd() {
-    ls -la
+    (( ZSH_SUBSHELL )) || ls -la
 }
 
 # Tool init scripts are cached (omp completions alone cost ~650ms per shell).
@@ -67,8 +67,9 @@ _djd_init() {
 }
 _djd_init starship starship init zsh --print-full-init
 _djd_init zoxide zoxide init zsh --hook prompt
-_djd_init atuin atuin init zsh
 _djd_init fzf fzf --zsh
+# after fzf: both bind Ctrl-R, and the later one wins
+_djd_init atuin atuin init zsh
 _djd_init uv uv generate-shell-completion zsh
 _djd_init omp omp completions zsh
 _djd_init mise mise completion zsh

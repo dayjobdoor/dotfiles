@@ -15,7 +15,7 @@ color:
 date: '+%m/%d %y %T'
 dereference: false
 icons:
-  when: always
+  when: auto
   theme: fancy
   separator: " "
 indicators: false

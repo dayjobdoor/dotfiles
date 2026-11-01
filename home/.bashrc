@@ -4,6 +4,7 @@ case $- in
 *) return ;;
 esac
 
+# a non-login shell (a terminal started from a desktop session) has not read .profile yet
 if [ -z "${DJD_DIR:-}" ] && [ -r "$HOME/.profile" ]; then
     . "$HOME/.profile"
 fi
@@ -14,6 +15,7 @@ HISTSIZE=100000
 HISTFILESIZE=100000
 HISTCONTROL=ignorespace
 HISTTIMEFORMAT='%F %T '
+shopt -s histappend
 
 if [ -r /usr/share/bash-completion/bash_completion ]; then
     . /usr/share/bash-completion/bash_completion
@@ -37,13 +39,14 @@ _djd_init() {
     . "$file"
 }
 PS1='\[\e[32m\]\u@\h\[\e[m\]:\[\e[34m\]\w\[\e[m\] \$ '
-# not cached: mise's activate output embeds the current PATH
-if command -v mise >/dev/null 2>&1; then
-    eval "$(mise activate bash)"
-fi
 _djd_init starship starship init bash --print-full-init
 _djd_init zoxide zoxide init bash
 _djd_init omp omp completions bash
+# mise after starship: `starship init bash` overwrites PROMPT_COMMAND, which would drop mise's hook.
+# Not cached: mise's activate output embeds the current PATH.
+if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate bash)"
+fi
 
 if [ -r "$XDG_CONFIG_HOME/djd/bashrc.local" ]; then
     . "$XDG_CONFIG_HOME/djd/bashrc.local"

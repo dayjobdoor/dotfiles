@@ -1,4 +1,4 @@
-# identity and signing live in the per-machine ~/.config/git/user.conf, never in this file
+# identity and signing keys live in the per-machine ~/.config/git/user.conf, not in this file
 [include]
 	path = ~/.config/git/user.conf
 
@@ -19,7 +19,6 @@
 	pom = push origin main
 	psf = push --force-with-lease
 	fml = reset --hard HEAD
-	conf = config --global
 	hist = log --pretty=format:\"%C(cyan)%h %C(green)%ad%Creset | %s %C(yellow)%d %C(magenta)[%an]\" --graph --date=short
 	unstage = reset -q --
 
@@ -67,7 +66,8 @@
 	statGraphWidth = 8
 
 [help]
-	autocorrect = 30
+	# prompt, not a countdown: a typo like `git fm` would otherwise run the fml alias (reset --hard)
+	autocorrect = prompt
 
 [push]
 	default = simple

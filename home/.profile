@@ -1,6 +1,6 @@
 # shellcheck shell=sh
 # Shared by bash, zsh (via .zshenv) and agentOS guests (which source it explicitly).
-# Keep it POSIX and side-effect free: only exports, no mkdir/chmod, no tool calls.
+# Keep it POSIX: this file's own code only exports. profile.local is the one escape hatch.
 
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
