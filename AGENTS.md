@@ -21,7 +21,7 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 | encrypted env secrets | `mise-config/config.secrets.toml`, only through `djd secret set` (never plaintext) |
 | dotfiles in `~` | `home/` (literal names, e.g. `home/.config/git/config`) |
 | djd commands | `mise-config/tasks/djd/<name>` (bash, `#MISE description=`, `#MISE quiet=true`) |
-| agentOS export | `agentos/boot.mjs`, `agentos/gitconfig`; every registry tool in `boot.mjs` must be declared in `config.toml` or `config.agent.toml` |
+| agentOS export | `agentos/boot.mjs`, `agentos/gitconfig`, `agentos/software.lock.json` (refresh with `mise run agentos:lock`); every registry tool in `boot.mjs` must be declared in `config.toml` or `config.agent.toml` |
 | repo tasks (lint, build, test, test:desktop, test:vm, ci) | `mise-tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `mise-tasks/lint/` of `lint:*` checks), short ones in `mise.toml`. The `Makefile` runs `make <task>` as `mise run <task>`, except `init` (runs `install.sh`) and apply, update, status, doctor, module and secret (run `djd`) |
 | repo tool versions | each task's `tools` (in `mise.toml`, or a `#MISE tools=` header in `mise-tasks/`), pinned in `mise.lock` plus `.mise/locks/` for npm tools (`mise lock --bump` advances them, and `lockfile_platforms` in `mise.toml` names the platforms; commit both) |
 | colors, fonts, theme names | `DESIGN.md` first, then the files its Colors table names |

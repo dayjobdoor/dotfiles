@@ -51,7 +51,7 @@ docker run --rm -it --init ghcr.io/dayjobdoor/dotfiles:sandbox
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles |
 | `agent` | node, bun, python, uv, pi, omp, skills, build tools, the global AGENTS.md of pi and omp, telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `desktop` | XFCE over xrdp with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), system locale ja_JP.UTF-8 |
+| `desktop` | XFCE over xrdp (TLS only, no root login) with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), system locale ja_JP.UTF-8 |
 | `full` | the whole personal toolbox (~180 tools; more than 10 GB of disk); implies `agent`. Its GUI packages install only together with `desktop` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
@@ -123,6 +123,7 @@ The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) V
 ```sh
 mise run agentos:export   # writes dist/agentos/bundle.json
 mise run agentos:boot     # boots a VM with the network denied and checks the bundle, shell, git config and tools
+mise run agentos:lock     # re-pins the registry packages after a bump of agentos-core
 ```
 
 ## Remove

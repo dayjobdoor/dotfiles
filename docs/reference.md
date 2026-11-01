@@ -72,8 +72,10 @@ Base:
 - The four required apps. `ghostty` comes from the Ubuntu archive. `brave-browser` comes from Brave's apt repository, declared in `[bootstrap.apt.sources.brave-browser]` with `suites = "stable"` and three pinned key fingerprints. `zed` and `zen` are `github:` tools at `latest`, with a per-platform `asset_pattern`. [architecture.md](architecture.md#the-desktop-apps-each-carry-a-trust-anchor) explains what verifies each one.
 - Each app has an XFCE menu entry. Brave and ghostty use the entries of their packages. The `postinstall` of `zed` and `zen` writes `~/.local/share/applications/dev.zed.Zed.desktop` and `zen.desktop` with `Exec` on the mise shim, and installs the icon. `filter_bins = "zen"` keeps `zen-bin`, `updater`, `pingsender`, and `gfxtest` off `PATH`.
 - The Docker image, not the module, writes a user-level `~/.local/share/applications/brave-browser.desktop` that adds `--no-sandbox` to every `Exec` line.
-- `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless, and `tests/vm-checks.sh` runs it in the VM without the variable.
-- The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon that installs from before PipeWire still have. It then installs HackGen NF with curl, from a pinned version and SHA-256.
+- `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless and opens a window for ghostty and Zed inside the RDP session, and `tests/vm-checks.sh` runs it in the VM without the variable.
+- The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon that installs from before PipeWire still have. It sets `security_layer=tls` in `/etc/xrdp/xrdp.ini` and `AllowRootLogin=false` in `/etc/xrdp/sesman.ini`, and it prints a reminder that xrdp keeps the old values until it restarts. It then installs HackGen NF with curl, from a pinned version and SHA-256.
+- The dotfile `desktop/.config/zed/settings.json` turns Zed's telemetry and auto-update off. Zed may rewrite the file through its symlink.
+- Two limits of the audio start remain. `pipewire-module-xrdp` loads its module from a background `pw-cli`, so each login leaves one idle `pw-cli` behind. Nothing restarts `wireplumber` if it dies after the session has started.
 
 `secrets`: `[env]` values stored as age ciphertext.
 
@@ -146,7 +148,7 @@ Only `djd module` and `djd secret` declare arguments, so only their `--help` lis
 | `DJD_DIR` | `~/.dotfiles` | Path of the checkout in `.profile` and in the djd tasks. `install.sh` always uses `~/.dotfiles`. |
 | `DJD_REPO` | the GitHub URL of this repository | Repository that `install.sh` clones. |
 | `MISE_VERSION` | the pinned release | mise release that `install.sh` installs. |
-| `DJD_BOOTSTRAP_FLAGS` | empty | Extra flags that `djd apply` passes to `mise bootstrap`. The Docker build passes `--skip dotfiles` and `--only dotfiles`. |
+| `DJD_BOOTSTRAP_FLAGS` | empty | Extra flags that `djd apply` passes to `mise bootstrap`. The Docker build passes `--skip tools,final-hook,dotfiles`, `--only tools,final-hook`, and `--only dotfiles`. |
 | `DJD_NO_MUX` | unset | When set, `.zprofile` does not start herdr. The Docker images set it. |
 | `DJD_MODULES` | `agent` | Build argument of the Dockerfile. It lists the modules that a flavor installs. |
 | `DJD_REVISION` | `unknown` | Build argument of the Dockerfile. `mise run build` and `push.yaml` set it, and the builds of `compose.yaml` and `devcontainer.json` leave it unset. `djd status` prints it when the checkout has no `.git`. |
@@ -196,7 +198,8 @@ Verified guest shell behavior on 0.4.6:
 - `exec` and `execFile` shells read no startup files. `sh -l`, `bash --login`, and `bash -l -i` all skip `/etc/profile` and `~/.profile`, so callers source `~/.profile` themselves.
 - Setting `BASH_ENV` or `ENV` in `environment` breaks every shell with the error `not yet implemented: load config from $ENV/BASH_ENV`. The export keeps the base environment of agentos-core, except `PAGER`, which is `cat` because the guest has no `less`.
 - `[ -r <missing file> ]`, `[ -x ... ]`, and `[ -w ... ]` return true in the guest, while `-f` and `-e` return false. Before `.profile` used `-f`, sourcing it printed `failed to source file` and returned 1 in every guest.
-- Registry packages download on the host from `releases.rivet.dev`, so the guest needs no network for them. The default download timeout of 30 s fails on slow links, so the boot raises it to 5 minutes. A separate 60 s wait for package acquisition has no option in JavaScript, so a slow link can still fail the boot with `acquisition waiter exceeded 60000ms`. Run it again.
+- Registry packages download on the host from the locked URLs on `releases.rivet.dev`, so the guest needs no network for them. The default download timeout of 30 s fails on slow links, so the boot raises it to 5 minutes. A separate 60 s wait for package acquisition has no option in JavaScript, so a slow link can still fail the boot with `acquisition waiter exceeded 60000ms`. Run it again.
+- `mise run agentos:lock` rewrites `agentos/software.lock.json` from the live manifest of the release that `agentos/package.json` pins. Review the diff, commit it, and run `mise run agentos:boot`.
 - The registry `jq` is jaq, and the registry `yq` is its own build. `yq --version` hangs for about 15 s, so the boot pipes a document through `yq '.a'` instead.
 
 ## Docker images
