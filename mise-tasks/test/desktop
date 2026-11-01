@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: an xfreerdp client logs in over RDP, XFCE starts, xrdp-sink is the default audio sink, and Brave and Zen launch headless (builds it first)"
+#MISE description="Desktop image: xrdp is TLS-only, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink, and the four apps launch (builds it first)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
 set -euo pipefail
@@ -63,10 +63,34 @@ check_audio() {
     echo "test:desktop: xrdp-source is the default audio source"
 }
 
+# xrdp.ini and sesman.ini as desktop-final leaves them (see mise-config/hooks/desktop-final)
+check_xrdp_settings() {
+    docker exec "$server" grep -qx security_layer=tls /etc/xrdp/xrdp.ini || fail "xrdp.ini does not say security_layer=tls"
+    docker exec "$server" grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini || fail "sesman.ini does not say AllowRootLogin=false"
+    echo "test:desktop: xrdp is TLS-only and refuses root logins"
+}
+
+# A client that insists on the legacy RDP security layer is turned away before any login. It tries a second account,
+# so a wrongly accepted one would start its own session and leave the first client's alone. An accepted client stays
+# connected until the timeout (124); a refused one gives up within seconds.
+check_legacy_refused() {
+    local rc=0
+    docker exec "$server" sh -c 'useradd -m probe && echo probe:djd-test-pass | chpasswd'
+    docker exec "$client" sh -c \
+        "timeout 20 xvfb-run -a xfreerdp3 /v:$server /u:probe /p:djd-test-pass /cert:ignore /sec:rdp >/tmp/legacy.log 2>&1" || rc=$?
+    [ "$rc" != 124 ] || fail "a client forcing the legacy RDP security layer stayed connected"
+    [ "$rc" != 0 ] || fail "a client forcing the legacy RDP security layer logged in"
+    if docker exec "$server" pgrep -u probe >/dev/null; then fail "the legacy-layer client got a session"; fi
+    docker exec "$server" test -d "/proc/$1" || fail "the first client's xfce4-session ($1) is gone"
+    docker exec "$client" pgrep -x xfreerdp3 >/dev/null || fail "the first client lost its connection"
+    echo "test:desktop: a client forcing the legacy RDP security layer is refused (exit $rc)"
+}
+
 docker network create "$net" >/dev/null
 docker run -d --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
     "$image" ubuntu djd-test-pass >/dev/null
 wait_xrdp
+check_xrdp_settings
 
 # Install the client before the clock starts; the login itself gets 120s.
 docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
@@ -87,6 +111,7 @@ for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
     grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
 done
 echo "test:desktop: xfce4-session started through ~/.xsession"
+check_legacy_refused "$pid"
 check_audio
 docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
 

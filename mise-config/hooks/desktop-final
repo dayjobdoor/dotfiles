@@ -9,6 +9,22 @@ for p in light-locker xscreensaver im-config pulseaudio; do
     if dpkg -s "$p" >/dev/null 2>&1; then sudo apt-get purge -y "$p"; fi
 done
 
+# Refuse the weak xrdp settings: "negotiate" lets a client fall back to the RDP security layer, and sesman allows
+# root logins. Every run reasserts them. A restart is left to the user: it ends the RDP session an apply may run over.
+restart=
+set_ini() {
+    if grep -qx "$2=$3" "$1"; then return; fi
+    sudo sed -i "s/^$2=.*/$2=$3/" "$1"
+    if ! grep -qx "$2=$3" "$1"; then
+        echo "desktop-final: $1 has no $2= line to set" >&2
+        exit 1
+    fi
+    restart=1
+}
+set_ini /etc/xrdp/xrdp.ini security_layer tls
+set_ini /etc/xrdp/sesman.ini AllowRootLogin false
+if [ -n "$restart" ]; then echo "desktop-final: xrdp needs a restart to pick up security_layer=tls and AllowRootLogin=false"; fi
+
 # HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. Bump both values together.
 version=v2.10.0
 sha256=f8abd483d5edfad88a78ed511978f43c83b43c48e364aa29ebe4a68217474428

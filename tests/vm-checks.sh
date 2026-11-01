@@ -83,6 +83,7 @@ grep -qi '^ja_JP.utf8$' <<<"$(locale -a)"
 # a here-string, not a pipe: grep -q exiting early would SIGPIPE fc-list under pipefail
 grep -q 'HackGen35 Console NF' <<<"$(fc-list : family)"
 ok desktop locale and font
+test "$(cat /etc/xrdp/xrdp.ini /etc/xrdp/sesman.ini | grep -cxE 'security_layer=tls|AllowRootLogin=false')" = 2
 bash ~/.dotfiles/tests/desktop-apps.sh
 # plan covers packages, files, services and the firewall; dotfiles and tools are checked by doctor
 plan=$(mise bootstrap plan --detailed-exitcode 2>&1) || {

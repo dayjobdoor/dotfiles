@@ -110,7 +110,8 @@ mode = "0644"
 owner = "root"
 group = "root"
 
-# Purges screen lockers, im-config and the pulseaudio daemon, then installs HackGen NF (hooks/desktop-final).
+# Purges screen lockers, im-config and the pulseaudio daemon, makes xrdp TLS-only without root logins, then installs
+# HackGen NF (hooks/desktop-final).
 [bootstrap.hooks]
 final = "~/.config/mise/hooks/desktop-final"
 
