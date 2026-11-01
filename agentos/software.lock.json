@@ -1,0 +1,45 @@
+{
+  "core": "0.4.6",
+  "packages": {
+    "curl": {
+      "digest": "sha256:0e53ad6478de3d989fec7ebfc8f992242b76c35b8c31142c9176a9138ef6b2d5",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/curl/0e53ad6478de3d989fec7ebfc8f992242b76c35b8c31142c9176a9138ef6b2d5.aospkg"
+    },
+    "fd": {
+      "digest": "sha256:d9ae4ba6d4cff68da385af3248d78e7c5080753e7ea622ebd5dfd3d79d6dac61",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/fd/d9ae4ba6d4cff68da385af3248d78e7c5080753e7ea622ebd5dfd3d79d6dac61.aospkg"
+    },
+    "git": {
+      "digest": "sha256:f7ba9616bb0d1910b0e8c8072cedfb74392b615c89b89812d29279cb9530d1b0",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/git/f7ba9616bb0d1910b0e8c8072cedfb74392b615c89b89812d29279cb9530d1b0.aospkg"
+    },
+    "jq": {
+      "digest": "sha256:81d592a6c786ec2b14ef7c19ee0af77fc16aa0df485509adb3148a860c534d4d",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/jq/81d592a6c786ec2b14ef7c19ee0af77fc16aa0df485509adb3148a860c534d4d.aospkg"
+    },
+    "ripgrep": {
+      "digest": "sha256:cd93a5562ed10ae016869eca95a2762751445694710207dd78311bf25e6d8d2d",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/ripgrep/cd93a5562ed10ae016869eca95a2762751445694710207dd78311bf25e6d8d2d.aospkg"
+    },
+    "sqlite3": {
+      "digest": "sha256:1fcb404bf2e9e1f23aab8a582cc577b8093da937366a90e153514ceb513520eb",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/sqlite3/1fcb404bf2e9e1f23aab8a582cc577b8093da937366a90e153514ceb513520eb.aospkg"
+    },
+    "tree": {
+      "digest": "sha256:484df9f81bdd1d187877a7effa4feab0d725023d6964ab236c34d21dbf47059f",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/tree/484df9f81bdd1d187877a7effa4feab0d725023d6964ab236c34d21dbf47059f.aospkg"
+    },
+    "unzip": {
+      "digest": "sha256:f48a9477cc6473a519c3494128633ad2d2544e5e45f92793e2dcbf58d1061aa8",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/unzip/f48a9477cc6473a519c3494128633ad2d2544e5e45f92793e2dcbf58d1061aa8.aospkg"
+    },
+    "yq": {
+      "digest": "sha256:b3e06e6e335ec992aa812a7242a7eac52f26c00fdc75194f56426280966e8c9b",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/yq/b3e06e6e335ec992aa812a7242a7eac52f26c00fdc75194f56426280966e8c9b.aospkg"
+    },
+    "zip": {
+      "digest": "sha256:40a00e0112bc555228ab13b00d75425ee70991638ec77657c5c533d342c4ebeb",
+      "url": "https://releases.rivet.dev/agent-os/0.4.6/software/packages/zip/40a00e0112bc555228ab13b00d75425ee70991638ec77657c5c533d342c4ebeb.aospkg"
+    }
+  }
+}

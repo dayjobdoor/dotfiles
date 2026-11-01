@@ -1,5 +1,6 @@
 // Export the agentOS-portable subset of these dotfiles, or boot a VM with it and assert it works.
 //   node agentos/boot.mjs --export <path>   write the bundle JSON (no agentOS needed)
+//   node agentos/boot.mjs --lock            re-pin the registry packages in agentos/software.lock.json
 //   node agentos/boot.mjs                   boot a VM, run checks in its shell, exit 0/1
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
@@ -117,6 +118,36 @@ async function checkParity() {
   }
 }
 
+// The registry packages are pinned in LOCK_FILE: the release (that of the agentos-core that package.json pins) and,
+// per package, the URL and digest its manifest listed when `--lock` last ran. The manifest comes from the same
+// server as the packages, so its digest alone detects a corrupt download but not a republished release.
+const LOCK_FILE = "agentos/software.lock.json";
+const RELOCK = "after reviewing what changed, run `mise run agentos:lock`";
+const CORE = JSON.parse(await readFile(join(REPO_DIR, "agentos/package.json"), "utf8")).dependencies["@rivet-dev/agentos-core"];
+
+// Offline: the lock names exactly the SOFTWARE packages, in the release this agentos-core resolves against.
+async function readLock() {
+  let lock;
+  try {
+    lock = JSON.parse(await readFile(join(REPO_DIR, LOCK_FILE), "utf8"));
+  } catch (e) {
+    fail([`${LOCK_FILE}: ${e.message}`, RELOCK]);
+  }
+  const packages = lock?.packages ?? {};
+  const problems = [];
+  if (lock?.core !== CORE) problems.push(`core is ${lock?.core}, but agentos/package.json pins @rivet-dev/agentos-core ${CORE}`);
+  for (const name of Object.keys(SOFTWARE)) {
+    const p = packages[name];
+    if (!p) problems.push(`${name}: SOFTWARE names it, the lock does not`);
+    else if (!/^sha256:[0-9a-f]{64}$/.test(p.digest) || !/^https:\/\//.test(p.url)) problems.push(`${name}: digest or url is malformed`);
+  }
+  for (const name of Object.keys(packages)) {
+    if (!Object.hasOwn(SOFTWARE, name)) problems.push(`${name}: the lock has it, SOFTWARE does not`);
+  }
+  if (problems.length > 0) fail([`${LOCK_FILE} does not match boot.mjs and package.json`, ...problems, RELOCK]);
+  return lock;
+}
+
 await checkParity();
 const files = await readBundleFiles();
 
@@ -124,16 +155,48 @@ const exportIndex = process.argv.indexOf("--export");
 if (exportIndex !== -1) {
   const out = process.argv[exportIndex + 1];
   if (!out) throw new Error("usage: boot.mjs --export <path>");
+  // Checks the lock against SOFTWARE and package.json only: export has no network and no node_modules, and the
+  // bundle names packages without pinning them, so a consumer decides how to resolve them.
+  await readLock();
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, `${JSON.stringify({ files, software: Object.keys(SOFTWARE), environment: BASE_ENV }, null, 2)}\n`);
   console.log(`agentos: wrote ${out} (${files.length} files, ${Object.keys(SOFTWARE).length} packages)`);
   process.exit(0);
 }
 
-// The host fetches the package manifest from this registry, so a stray value would swap the guest's binaries.
+// `--lock` and the live check below read the manifest from this registry, so a stray value would pin or compare
+// against another server.
 if (process.env.AGENTOS_SOFTWARE_REGISTRY_URL) {
   fail(["AGENTOS_SOFTWARE_REGISTRY_URL is set in the host environment; unset it to boot from the default registry"]);
 }
+
+const { AgentOs, resolveRegistrySoftware } = await import("@rivet-dev/agentos-core");
+
+if (process.argv.includes("--lock")) {
+  const names = Object.keys(SOFTWARE).sort();
+  const resolved = await Promise.all(names.map((name) => resolveRegistrySoftware(name, { version: CORE })));
+  const packages = Object.fromEntries(resolved.map(({ name, digest, url }) => [name, { digest, url }]));
+  await writeFile(join(REPO_DIR, LOCK_FILE), `${JSON.stringify({ core: CORE, packages }, null, 2)}\n`);
+  console.log(`agentos: wrote ${LOCK_FILE} (${names.length} packages, agentos-core ${CORE})`);
+  process.exit(0);
+}
+
+const lock = await readLock();
+// The VM below can only install the locked bytes. This check adds the diagnosis: when the registry has been
+// republished, it names the package and both digests instead of failing in the sidecar or going unnoticed.
+let live;
+try {
+  live = await Promise.all(Object.keys(SOFTWARE).map((name) => resolveRegistrySoftware(name, { version: lock.core })));
+} catch (e) {
+  fail([`live registry check failed: ${e.message}`]);
+}
+const drift = live.flatMap(({ name, digest, url }) => {
+  const want = lock.packages[name];
+  if (digest !== want.digest) return [`${name}: locked ${want.digest}, live ${digest}`];
+  if (url !== want.url) return [`${name}: locked ${want.url}, live ${url}`];
+  return [];
+});
+if (drift.length > 0) fail([`the registry no longer serves the ${lock.core} release that ${LOCK_FILE} pins`, ...drift, RELOCK]);
 
 // The guest shell (brush) reads no startup files for exec/execFile: `-l` is ignored and BASH_ENV/ENV make it
 // fail ("not yet implemented"). Checks source ~/.profile explicitly.
@@ -181,14 +244,14 @@ const CHECKS = [
   },
 ];
 
-const { AgentOs } = await import("@rivet-dev/agentos-core");
 const sidecar = await AgentOs.createSidecar();
 let vm;
 const failures = [];
 try {
   vm = await AgentOs.create({
     sidecar: { kind: "explicit", handle: sidecar },
-    software: Object.keys(SOFTWARE).map((registry) => ({ registry })),
+    // `{ url, digest }` entries skip the registry lookup: the sidecar downloads these URLs and rejects other bytes.
+    software: Object.keys(SOFTWARE).map((name) => ({ url: lock.packages[name].url, digest: lock.packages[name].digest })),
     environment: BASE_ENV,
     // The default policy lets the guest resolve api.anthropic.com (see the "guest network is denied" check).
     // Registry packages are downloaded by this host process, which network permissions do not cover, so denying
