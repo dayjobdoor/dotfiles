@@ -12,7 +12,8 @@
 # Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
 # a PipeWire server in the session (desktop/.xsession starts one where systemd does not). That script calls
 # pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card keeps playing
-# locally. pipewire-pulse gives PulseAudio clients such as browsers a way in. There is no pulseaudio daemon.
+# locally. pipewire-pulse gives PulseAudio clients such as browsers a way in. desktop-final purges the pulseaudio
+# daemon that older installs got through xfce4-pulseaudio-plugin.
 "apt:pipewire" = "latest"
 "apt:pipewire-pulse" = "latest"
 "apt:wireplumber" = "latest"
