@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The desktop module's four required apps, as the desktop user in the image (mise-tasks/test/desktop) or the VM
 # (tests/vm-checks.sh): the command runs and the XFCE menu entry points at something executable.
-# DJD_APPS_LAUNCH=1 (the image test only) also starts brave-browser and zen headless; zed and ghostty need a
-# display, so they keep the checks above.
+# DJD_APPS_LAUNCH=1 (the image test only, which runs it after the RDP login) also starts brave-browser and zen headless,
+# and ghostty and zed inside the running XFCE session, where each must put a window on screen.
 set -euo pipefail
 
 # command|desktop file id
@@ -55,6 +55,38 @@ launch_zen() {
     echo "ok zen launches"
 }
 
+# launch_window APP CLASS ENTRY: ENTRY's Exec runs with the DISPLAY, XAUTHORITY and D-Bus address of the running
+# xfce4-session (what a menu click inherits), and a visible window of WM_CLASS CLASS must appear within 30s.
+launch_window() {
+    local app=$1 class=$2 words sid win='' pid='' launcher
+    local -a session
+    read -ra words <<<"$(main_exec "$3" | sed -E 's/%[A-Za-z]//g')"
+    sid=$(pgrep -o -u "$(id -u)" -x xfce4-session) || fail "$app: no xfce4-session to show a window in"
+    mapfile -t session < <(tr '\0' '\n' <"/proc/$sid/environ" | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS)=' || true)
+    printf '%s\n' "${session[@]}" | grep -q '^DISPLAY=' || fail "$app: xfce4-session has no DISPLAY"
+    env "${session[@]}" setsid timeout 60 "${words[@]}" >"$tmp/$app.out" 2>"$tmp/$app.err" &
+    launcher=$!
+    for _ in $(seq 30); do
+        win=$(env "${session[@]}" xdotool search --onlyvisible --class "^${class//./\\.}\$" 2>/dev/null | head -n1 || true)
+        [ -z "$win" ] || break
+        sleep 1
+    done
+    [ -z "$win" ] || pid=$(env "${session[@]}" xdotool getwindowpid "$win" 2>/dev/null || true)
+    # zed-editor leaves the launcher's session for its own, so the window's process is signalled too
+    kill -TERM -- "-$launcher" ${pid:+"$pid"} 2>/dev/null || true
+    [ -n "$win" ] || fail "$app showed no $class window in 30s: $(tail -n 5 "$tmp/$app.err")"
+    [ -n "$pid" ] || fail "$app's window has no _NET_WM_PID, so the app cannot be stopped"
+    for _ in $(seq 20); do
+        if ! kill -0 "$pid" 2>/dev/null && ! pgrep -g "$launcher" >/dev/null; then break; fi
+        sleep 0.5
+    done
+    if kill -0 "$pid" 2>/dev/null || pgrep -g "$launcher" >/dev/null; then
+        kill -KILL -- "-$launcher" "$pid" 2>/dev/null || true
+        fail "$app (pid $pid) is still running after SIGTERM"
+    fi
+    echo "ok $app window"
+}
+
 while IFS='|' read -r cmd id; do
     command -v "$cmd" >/dev/null || fail "$cmd is not on PATH"
     # shims print their own error for a tool that is not installed, and exit non-zero
@@ -76,7 +108,9 @@ while IFS='|' read -r cmd id; do
     if [ "$launch" = 1 ]; then
         case $cmd in
         brave-browser) launch_brave "$entry" ;;
+        ghostty) launch_window ghostty com.mitchellh.ghostty "$entry" ;;
         zen) launch_zen ;;
+        zed) launch_window zed dev.zed.Zed "$entry" ;;
         esac
     fi
 done <<<"$apps"
