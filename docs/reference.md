@@ -67,13 +67,13 @@ Base:
 `desktop`:
 
 - `/etc/locale.conf` is set to `ja_JP.UTF-8`, which overrides base. `/etc/default/locale` links to it.
-- The dotfile group `desktop`. Its `~/.xsession` starts `pipewire`, `wireplumber`, and `pipewire-pulse` when no systemd user manager has opened the PipeWire socket, which is the case in the Docker image. In a VM, systemd starts them through socket activation.
+- The dotfile group `desktop`. Its `~/.xsession` starts `pipewire`, `wireplumber`, and `pipewire-pulse` inside the session's D-Bus when no PipeWire server answers `pw-cli info 0`, which is the case in the Docker image. It waits for pipewire before it starts the other two, because wireplumber exits when it starts first. A socket file that a dead server left behind does not count. In a VM, systemd's socket-activated server should answer the check, so that nothing starts twice. That case was not tested in a VM.
 - Audio over RDP comes from the package `pipewire-module-xrdp`. An XDG autostart entry of that package loads `xrdp-sink` and `xrdp-source` into the session's PipeWire and makes them the defaults through `pactl`, from `pulseaudio-utils`.
 - The four required apps. `ghostty` comes from the Ubuntu archive. `brave-browser` comes from Brave's apt repository, declared in `[bootstrap.apt.sources.brave-browser]` with `suites = "stable"` and three pinned key fingerprints. `zed` and `zen` are `github:` tools at `latest`, with a per-platform `asset_pattern`. [architecture.md](architecture.md#the-desktop-apps-each-carry-a-trust-anchor) explains what verifies each one.
 - Each app has an XFCE menu entry. Brave and ghostty use the entries of their packages. The `postinstall` of `zed` and `zen` writes `~/.local/share/applications/dev.zed.Zed.desktop` and `zen.desktop` with `Exec` on the mise shim, and installs the icon. `filter_bins = "zen"` keeps `zen-bin`, `updater`, `pingsender`, and `gfxtest` off `PATH`.
 - The Docker image, not the module, writes a user-level `~/.local/share/applications/brave-browser.desktop` that adds `--no-sandbox` to every `Exec` line.
 - `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless, and `tests/vm-checks.sh` runs it in the VM without the variable.
-- The `final` hook purges light-locker, xscreensaver, and im-config. It then installs HackGen NF with curl, from a pinned version and SHA-256.
+- The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon that installs from before PipeWire still have. It then installs HackGen NF with curl, from a pinned version and SHA-256.
 
 `secrets`: `[env]` values stored as age ciphertext.
 

@@ -110,7 +110,7 @@ mode = "0644"
 owner = "root"
 group = "root"
 
-# Purges screen lockers and im-config, then installs HackGen NF (hooks/desktop-final).
+# Purges screen lockers, im-config and the pulseaudio daemon, then installs HackGen NF (hooks/desktop-final).
 [bootstrap.hooks]
 final = "~/.config/mise/hooks/desktop-final"
 
