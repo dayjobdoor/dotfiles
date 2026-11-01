@@ -55,7 +55,7 @@ Base:
 `agent`:
 
 - The dotfile group `agent`: `~/.pi/agent/AGENTS.md` and `~/.omp/agent/AGENTS.md`, the global instructions that pi and omp each read from their own agent directory. The two files have the same content.
-- `[env]` values that every shell type sees through the mise shims: the npm and bun locations, `PI_TELEMETRY=0`, and `DO_NOT_TRACK=1`.
+- `[env]` values that every program started through a mise shim sees, in any shell type: the npm and bun locations, `PI_TELEMETRY=0`, and `DO_NOT_TRACK=1`. A plain `sh -c 'echo $DO_NOT_TRACK'` prints nothing, because `sh` is not a shim.
 
 `server`:
 
@@ -166,7 +166,7 @@ The shell files and tools put their files in these places. [architecture.md](arc
 | Data | `$XDG_DATA_HOME`: `mise/` with the shims, the sheldon plugin clones, and `fonts/` | mise, sheldon, `hooks/desktop-final` |
 | Executables | `~/.local/bin`, which holds `djd` | the dotfile deployment |
 
-The `agent` module sets `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, and `BUN_INSTALL_CACHE_DIR` in the `[env]` table of `config.agent.toml`. mise shims apply them to every shell type, including `docker exec` and `sh -c`, and the image build applies them too. The same table turns telemetry off with `PI_TELEMETRY=0`, which pi reads, and `DO_NOT_TRACK=1`, which skills and bun read.
+The `agent` module sets `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, and `BUN_INSTALL_CACHE_DIR` in the `[env]` table of `config.agent.toml`. mise shims apply them to every program they start, in every shell type, including `docker exec` and `sh -c`, and the image build applies them too. The same table turns telemetry off with `PI_TELEMETRY=0`, which pi reads, and `DO_NOT_TRACK=1`, which skills reads. bun reads it too, but only to stop crash reports, which it sends by default on macOS and Windows and not on Linux. omp does not read it, and its only telemetry is an OTLP export that sends nothing until `OTEL_*` endpoints are set.
 
 These files stay outside the XDG directories. A session in the sandbox image in October 2026 that ran bash, zsh, npm, bun, gpg, omp, pi, python, node, and vim created every entry from `~/.gnupg` down. The first four rows are files that the repository or the system places there on purpose.
 
@@ -177,7 +177,7 @@ These files stay outside the XDG directories. A session in the sandbox image in 
 | `~/.xsession` | `/etc/X11/Xsession` hard-codes it. |
 | `~/.dotfiles` | It is the default `dotfiles.root` of mise, and `install.sh` clones there. |
 | `~/.gnupg` | A `GNUPGHOME` export in `.profile` would reach login shells and not `docker exec`, which would then use another keyring. |
-| `~/.omp`, `~/.pi` | omp and pi keep their state there. |
+| `~/.omp`, `~/.pi` | omp and pi keep their state there. The `agent` dotfile group also links `AGENTS.md` into `~/.pi/agent` and `~/.omp/agent`. |
 | `~/.viminfo` | A `~/.config/vim/vimrc` with `viminfofile` can move it. The repository does not ship one. |
 | `~/.config/herdr`, `~/.config/micro` | herdr keeps sockets and logs in its config directory, and micro keeps `buffers/` and `bindings.json` in its own. |
 
