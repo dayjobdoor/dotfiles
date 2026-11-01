@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: an xfreerdp client logs in over RDP and XFCE starts (builds it first)"
+#MISE description="Desktop image: an xfreerdp client logs in over RDP, XFCE starts and xrdp-sink is the default audio sink (builds it first)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
 set -euo pipefail
@@ -51,6 +51,17 @@ for _ in $(seq 120); do
             grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
         done
         echo "test:desktop: xfce4-session started through ~/.xsession"
+        # pipewire-module-xrdp loads the sink from an XDG autostart entry a few seconds after the session starts,
+        # and its script then makes it the default through pactl. The server is the one ~/.xsession started.
+        uid=$(docker exec -u ubuntu "$server" id -u)
+        sink=
+        for _ in $(seq 60); do
+            sink=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-sink 2>/dev/null || true)
+            [ "$sink" = xrdp-sink ] && break
+            sleep 1
+        done
+        [ "$sink" = xrdp-sink ] || fail "the default audio sink is '${sink:-none}', not xrdp-sink: audio over RDP is not set up"
+        echo "test:desktop: xrdp-sink is the default audio sink"
         exit 0
     fi
     sleep 1

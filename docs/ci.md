@@ -46,7 +46,7 @@ The `test` task builds the sandbox image and then checks that:
 
 ### desktop, on amd64 and arm64
 
-The `test:desktop` task builds the desktop image. An xfreerdp client logs in, and XFCE starts through `~/.xsession`. The task reads the environment of `xfce4-session` as its owner and expects the fcitx variables `GTK_IM_MODULE`, `QT_IM_MODULE`, and `XMODIFIERS`, which `~/.xsession` exports.
+The `test:desktop` task builds the desktop image. An xfreerdp client logs in, and XFCE starts through `~/.xsession`. The task reads the environment of `xfce4-session` as its owner and expects the fcitx variables `GTK_IM_MODULE`, `QT_IM_MODULE`, and `XMODIFIERS`, which `~/.xsession` exports. It then waits for `pactl get-default-sink` to print `xrdp-sink`, which shows that `~/.xsession` started PipeWire and that the autostart entry of pipewire-module-xrdp loaded its sink. The client has no audio device and plays nothing, so the test proves the setup and not the sound.
 
 ### vm, on amd64 and arm64
 

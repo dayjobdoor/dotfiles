@@ -14,7 +14,7 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 | To change | Edit |
 | --- | --- |
 | apt packages, tools, files every machine needs | `mise-config/config.toml` |
-| agent runtimes and CLIs | `mise-config/config.agent.toml` |
+| agent runtimes and CLIs, their env, the global AGENTS.md of pi and omp | `mise-config/config.agent.toml`, `agent/` |
 | ssh, firewall, docker | `mise-config/config.server.toml` |
 | XFCE, xrdp, Japanese input, ghostty | `mise-config/config.desktop.toml`, `desktop/` |
 | the opt-in toolbox | `mise-config/config.full.toml` |

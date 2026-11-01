@@ -19,6 +19,11 @@ ok tools on PATH without a login shell
 docker run --rm "$image" env -i HOME=/home/ubuntu bash -lc 'rg --version' >/dev/null
 ok .profile puts the shims on PATH
 
+# the agent module's [env] reaches a shimmed tool in a plain `docker run`, and pi and omp each get the global AGENTS.md
+docker run --rm "$image" sh -c 'node -p "process.env.PI_TELEMETRY + process.env.DO_NOT_TRACK"' | grep -qx 01
+docker run --rm "$image" zsh -lc 'test -L ~/.pi/agent/AGENTS.md && cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md'
+ok agent env without a login shell, global AGENTS.md for pi and omp
+
 # Every start is interactive, on a tty. The first one fetches the pinned sheldon plugins and fills the init
 # cache, so its output is dropped; the second reads the cache. Anything printed is a broken init script.
 out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic true; bash -ic true' | tr -d '\r')

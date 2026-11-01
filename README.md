@@ -49,9 +49,9 @@ docker run --rm -it --init ghcr.io/dayjobdoor/dotfiles:sandbox
 | Module | Adds |
 | --- | --- |
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles |
-| `agent` | node, bun, python, uv, pi, omp, skills, build tools |
+| `agent` | node, bun, python, uv, pi, omp, skills, build tools, the global AGENTS.md of pi and omp, telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `desktop` | XFCE over xrdp, Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, system locale ja_JP.UTF-8 |
+| `desktop` | XFCE over xrdp with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, system locale ja_JP.UTF-8 |
 | `full` | the whole personal toolbox (~180 tools; more than 10 GB of disk); implies `agent`. Its GUI packages install only together with `desktop` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
@@ -158,7 +158,7 @@ make                                  # list tasks
 make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
 make lint:fix                         # rewrite shell and mise TOML formatting
 make test                             # sandbox image: doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
-make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession
+make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink
 make test:vm                          # fresh incus or multipass VM (OrbStack also works): server + desktop install, hardening, module removal
 make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
 make ci ARGS=--dry-run                # plan every job of every workflow, release ones included

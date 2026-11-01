@@ -19,6 +19,7 @@ mise-config/            linked as ~/.config/mise, the global config
   tasks/djd/            the djd commands, as global file tasks
   hooks/                hook scripts that are too long for an inline [bootstrap.hooks] string
 home/                   dotfile group home, symlinked file by file into ~
+agent/                  dotfile group agent: the global AGENTS.md of pi and omp
 desktop/                dotfile group desktop: .xsession, fcitx5, and ghostty
 agentos/                agentOS export and boot check
 tests/                  tree.sh and vm-checks.sh
@@ -39,7 +40,7 @@ A module is the file `mise-config/config.<module>.toml`. `djd module add` and `d
 | base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree openssh-client gnupg fastfetch make` | `usage starship sheldon zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
 | `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | sandbox image, desktop image, VMs |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
-| `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty xsel xdotool` | none | desktop image, VMs |
+| `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty xsel xdotool` | none | desktop image, VMs |
 | `full`, which requires `agent` | 34 packages, counted in the section below | 183 tools | opt-in, and the weekly CI |
 | `secrets` | none | none | machines you own, never sandboxes |
 
@@ -51,6 +52,11 @@ Base:
 - The login shell `zsh`.
 - `/etc/locale.conf` set to `C.UTF-8`.
 
+`agent`:
+
+- The dotfile group `agent`: `~/.pi/agent/AGENTS.md` and `~/.omp/agent/AGENTS.md`, the global instructions that pi and omp each read from their own agent directory. The two files have the same content.
+- `[env]` values that every shell type sees through the mise shims: the npm and bun locations, `PI_TELEMETRY=0`, and `DO_NOT_TRACK=1`.
+
 `server`:
 
 - The sshd drop-in `/etc/ssh/sshd_config.d/10-djd.conf` allows keys only and denies root login. The `pre-dotfiles` hook `hooks/server-pre-dotfiles` checks it.
@@ -61,7 +67,8 @@ Base:
 `desktop`:
 
 - `/etc/locale.conf` is set to `ja_JP.UTF-8`, which overrides base. `/etc/default/locale` links to it.
-- The dotfile group `desktop`.
+- The dotfile group `desktop`. Its `~/.xsession` starts `pipewire`, `wireplumber`, and `pipewire-pulse` when no systemd user manager has opened the PipeWire socket, which is the case in the Docker image. In a VM, systemd starts them through socket activation.
+- Audio over RDP comes from the package `pipewire-module-xrdp`. An XDG autostart entry of that package loads `xrdp-sink` and `xrdp-source` into the session's PipeWire and makes them the defaults through `pactl`, from `pulseaudio-utils`.
 - The `final` hook purges light-locker, xscreensaver, and im-config. It then installs HackGen NF with curl, from a pinned version and SHA-256.
 
 `secrets`: `[env]` values stored as age ciphertext.
@@ -155,7 +162,7 @@ The shell files and tools put their files in these places. [architecture.md](arc
 | Data | `$XDG_DATA_HOME`: `mise/` with the shims, the sheldon plugin clones, and `fonts/` | mise, sheldon, `hooks/desktop-final` |
 | Executables | `~/.local/bin`, which holds `djd` | the dotfile deployment |
 
-The `agent` module sets `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, and `BUN_INSTALL_CACHE_DIR` in the `[env]` table of `config.agent.toml`. mise shims apply them to every shell type, including `docker exec` and `sh -c`, and the image build applies them too.
+The `agent` module sets `NPM_CONFIG_CACHE`, `NPM_CONFIG_USERCONFIG`, and `BUN_INSTALL_CACHE_DIR` in the `[env]` table of `config.agent.toml`. mise shims apply them to every shell type, including `docker exec` and `sh -c`, and the image build applies them too. The same table turns telemetry off with `PI_TELEMETRY=0`, which pi reads, and `DO_NOT_TRACK=1`, which skills and bun read.
 
 These files stay outside the XDG directories. A session in the sandbox image in October 2026 that ran bash, zsh, npm, bun, gpg, omp, pi, python, node, and vim created every entry from `~/.gnupg` down. The first four rows are files that the repository or the system places there on purpose.
 
