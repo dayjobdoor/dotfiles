@@ -7,6 +7,7 @@ unset DBUS_SESSION_BUS_ADDRESS
 # connect to PipeWire" and nothing restarts it. Asking the server (not testing for the socket file) skips a systemd
 # user manager's already-running socket-activated server (a VM) and ignores the stale socket a restarted container
 # keeps in /run.
+# shellcheck disable=SC2016 # the inner sh must expand $(seq 50), this one must not
 exec dbus-launch --exit-with-session sh -c '
 if command -v pipewire >/dev/null && ! pw-cli info 0 >/dev/null 2>&1; then
     pipewire &
