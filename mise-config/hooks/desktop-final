@@ -2,8 +2,10 @@
 # The desktop module's final hook (declared in config.desktop.toml).
 set -euo pipefail
 
-# Screen lockers blank xrdp sessions and im-config breaks xrdp logins.
-for p in light-locker xscreensaver im-config; do
+# Screen lockers blank xrdp sessions and im-config breaks xrdp logins. An install from before PipeWire got the
+# pulseaudio daemon through xfce4-pulseaudio-plugin, and apt keeps it next to pipewire-pulse: both would claim
+# the pulse socket.
+for p in light-locker xscreensaver im-config pulseaudio; do
     if dpkg -s "$p" >/dev/null 2>&1; then sudo apt-get purge -y "$p"; fi
 done
 

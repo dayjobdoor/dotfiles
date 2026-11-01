@@ -24,47 +24,79 @@ fail() {
     exit 1
 }
 
+wait_xrdp() {
+    for _ in $(seq 60); do
+        if docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null; then break; fi
+        sleep 1
+    done
+    docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null || fail "xrdp is not listening on 3389"
+}
+
+wait_session() {
+    for _ in $(seq 120); do
+        docker exec "$server" pgrep -u ubuntu -x xfce4-session >/dev/null && return
+        sleep 1
+    done
+    fail "no xfce4-session for ubuntu after 120s"
+}
+
+# pipewire-module-xrdp loads the sink and source from an XDG autostart entry a few seconds after the session starts,
+# and its script then makes them the defaults through pactl. The server is the one ~/.xsession started. The sink is
+# the only one in a container, so wireplumber picks it without the script; the default source (xrdp-sink.monitor
+# otherwise) is what shows the script ran.
+check_audio() {
+    local uid sink='' src=''
+    uid=$(docker exec -u ubuntu "$server" id -u)
+    for _ in $(seq 60); do
+        sink=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-sink 2>/dev/null || true)
+        [ "$sink" = xrdp-sink ] && break
+        sleep 1
+    done
+    [ "$sink" = xrdp-sink ] || fail "the default audio sink is '${sink:-none}', not xrdp-sink: audio over RDP is not set up"
+    echo "test:desktop: xrdp-sink is the default audio sink"
+    for _ in $(seq 30); do
+        src=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-source 2>/dev/null || true)
+        [ "$src" = xrdp-source ] && break
+        sleep 1
+    done
+    [ "$src" = xrdp-source ] || fail "the default audio source is '${src:-none}', not xrdp-source: the xrdp module script did not set the defaults"
+    echo "test:desktop: xrdp-source is the default audio source"
+}
+
 docker network create "$net" >/dev/null
 docker run -d --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
     "$image" ubuntu djd-test-pass >/dev/null
-
-for _ in $(seq 60); do
-    if docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null; then break; fi
-    sleep 1
-done
-docker exec "$server" bash -c '</dev/tcp/127.0.0.1/3389' 2>/dev/null || fail "xrdp is not listening on 3389"
+wait_xrdp
 
 # Install the client before the clock starts; the login itself gets 120s.
 docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
 docker exec -e DEBIAN_FRONTEND=noninteractive "$client" sh -c \
-    'apt-get -o Acquire::Retries=3 update -qq && apt-get -o Acquire::Retries=3 install -y -qq freerdp3-x11 xvfb >/dev/null'
-docker exec -d "$client" sh -c \
-    "xvfb-run -a xfreerdp3 /v:$server /u:ubuntu /p:djd-test-pass /cert:ignore >/tmp/xfreerdp.log 2>&1"
+    'apt-get -o Acquire::Retries=3 update -qq && apt-get -o Acquire::Retries=3 install -y -qq freerdp3-x11 xvfb procps >/dev/null'
+login() {
+    docker exec -d "$client" sh -c \
+        "xvfb-run -a xfreerdp3 /v:$server /u:ubuntu /p:djd-test-pass /cert:ignore >/tmp/xfreerdp.log 2>&1"
+}
+login
 
-for _ in $(seq 120); do
-    if docker exec "$server" pgrep -u ubuntu -x xfce4-session >/dev/null; then
-        # the fcitx variables that ~/.xsession exports must reach the session. Root cannot read another user's
-        # /proc/PID/environ in a container (permission denied), the session's owner can.
-        pid=$(docker exec "$server" pgrep -o -u ubuntu -x xfce4-session)
-        env=$(docker exec -u ubuntu "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
-        for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
-            grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
-        done
-        echo "test:desktop: xfce4-session started through ~/.xsession"
-        # pipewire-module-xrdp loads the sink from an XDG autostart entry a few seconds after the session starts,
-        # and its script then makes it the default through pactl. The server is the one ~/.xsession started.
-        uid=$(docker exec -u ubuntu "$server" id -u)
-        sink=
-        for _ in $(seq 60); do
-            sink=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-sink 2>/dev/null || true)
-            [ "$sink" = xrdp-sink ] && break
-            sleep 1
-        done
-        [ "$sink" = xrdp-sink ] || fail "the default audio sink is '${sink:-none}', not xrdp-sink: audio over RDP is not set up"
-        echo "test:desktop: xrdp-sink is the default audio sink"
-        docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
-        exit 0
-    fi
-    sleep 1
+wait_session
+# the fcitx variables that ~/.xsession exports must reach the session. Root cannot read another user's
+# /proc/PID/environ in a container (permission denied), the session's owner can.
+pid=$(docker exec "$server" pgrep -o -u ubuntu -x xfce4-session)
+env=$(docker exec -u ubuntu "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
+for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx; do
+    grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
 done
-fail "no xfce4-session for ubuntu after 120s"
+echo "test:desktop: xfce4-session started through ~/.xsession"
+check_audio
+docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
+
+# /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not
+# take it for a live server.
+docker restart "$server" >/dev/null
+wait_xrdp
+docker exec "$client" pkill -x xfreerdp3 || true
+login
+wait_session
+echo "test:desktop: xfce4-session started again after a container restart"
+check_audio
+exit 0
