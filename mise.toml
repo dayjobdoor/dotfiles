@@ -31,6 +31,8 @@ sources = [
   "home/.config/git/*",
   "agentos/boot.mjs",
   "agentos/gitconfig",
+  "agentos/package.json",
+  "agentos/software.lock.json",
   "home/.profile",
   "mise-config/config.agent.toml",
   "mise-config/config.toml",
@@ -42,6 +44,11 @@ run = "node agentos/boot.mjs --export dist/agentos/bundle.json"
 description = "Boot an agentOS VM with the bundle and assert it works"
 tools.node = "lts"
 run = ["npm ci --prefix agentos", "node agentos/boot.mjs"]
+
+[tasks."agentos:lock"]
+description = "Pin the agentOS registry packages: rewrite agentos/software.lock.json from the live release manifest"
+tools.node = "lts"
+run = ["npm ci --prefix agentos", "node agentos/boot.mjs --lock"]
 
 [tasks.shell]
 description = "Open a shell in the sandbox image"
