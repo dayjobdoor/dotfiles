@@ -14,11 +14,16 @@ COPY --chown=ubuntu:ubuntu install.sh /home/ubuntu/.dotfiles/install.sh
 COPY --chown=ubuntu:ubuntu mise-config /home/ubuntu/.dotfiles/mise-config
 USER ubuntu
 WORKDIR /home/ubuntu
-# mise bootstrap refills the apt lists; deleting them in this layer is what shrinks the image. The build
-# runs as ubuntu (mise calls sudo itself), so the cleanup needs sudo too (DL3004).
+# The first RUN installs the packages without the GitHub token: apt maintainer scripts (Brave's deb) run as root
+# in the environment of the mise process that called apt. Only the tools and the final hook (the HackGen download)
+# reach GitHub, so only the second RUN mounts the token. mise bootstrap refills the apt lists; deleting them in
+# this layer is what shrinks the image. The build runs as ubuntu (mise calls sudo itself), so the cleanup needs
+# sudo too (DL3004).
 # hadolint ignore=SC2086,DL3004
-RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--skip dotfiles" \
-    ~/.dotfiles/install.sh $DJD_MODULES && sudo rm -rf /var/lib/apt/lists/*
+RUN DJD_BOOTSTRAP_FLAGS="--skip tools,final-hook,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
+    && sudo rm -rf /var/lib/apt/lists/*
+RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--only tools,final-hook" \
+    ~/.dotfiles/install.sh
 # Docker's default seccomp policy blocks namespace creation, so Brave aborts at startup unless it runs with
 # --no-sandbox, which also disables its renderer seccomp-bpf sandbox. The container is the isolation boundary
 # (SECURITY.md); VMs keep Brave's own sandbox because this override lives only here.
