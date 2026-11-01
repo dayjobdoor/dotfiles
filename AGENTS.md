@@ -15,8 +15,9 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 | --- | --- |
 | apt packages, tools, files every machine needs | `mise-config/config.toml` |
 | agent runtimes and CLIs, their env, the global AGENTS.md of pi and omp | `mise-config/config.agent.toml`, `agent/` |
-| ssh, firewall, docker | `mise-config/config.server.toml` |
-| XFCE, xrdp, Japanese input, ghostty, brave, zen, zed | `mise-config/config.desktop.toml`, `desktop/` |
+| ssh, firewall, docker | `mise-config/config.server.toml`, `mise-config/hooks/server-pre-dotfiles` and `sshd-keys-only` |
+| XFCE, xrdp, Japanese input, ghostty, brave, zen, zed | `mise-config/config.desktop.toml`, `mise-config/hooks/desktop-final`, `desktop/` |
+| the Docker images, the desktop entrypoint, compose | `.devcontainer/` (the desktop password and the TLS key are handled in `desktop-entrypoint.sh`) |
 | the opt-in toolbox | `mise-config/config.full.toml` |
 | encrypted env secrets | `mise-config/config.secrets.toml`, only through `djd secret set` (never plaintext) |
 | dotfiles in `~` | `home/` (literal names, e.g. `home/.config/git/config`) |

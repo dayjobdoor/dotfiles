@@ -10,10 +10,10 @@ Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (contai
 - [Architecture](docs/architecture.md): why the design is what it is, covering symlinks, the install flow, modules, hooks, secrets, shell startup, agentOS, Docker images, and CI decisions
 - [Reference](docs/reference.md): layout tree, module contents, djd commands, make targets, hooks, shell startup files, environment variables, agentOS, Docker images
 - [CI/CD reference](docs/ci.md): workflows, what each test proves, repo tasks, running CI with act, the release chain
-- [How-to guides](docs/how-to.md): run CI locally, keep a VM after a failed test, update pinned tools, raise the mise release, publish the first release
+- [How-to guides](docs/how-to.md): run CI locally, keep a VM after a failed test, try an OrbStack machine, update pinned tools, raise the mise release, move an npm config, keep an edit a program made, publish the first release
 - [History](docs/history.md): comparison with budybye/dotfiles, origin, planned work
 - [AGENTS.md](AGENTS.md): rules for coding agents, where each kind of change goes, verification commands
-- [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets, Docker and server hardening
+- [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets, GitHub tokens, Docker, server and desktop hardening, agentOS, checks
 - [DESIGN.md](DESIGN.md): colors, fonts and theme tokens (google-labs-code/design.md format)
 
 ## Configuration
@@ -22,6 +22,10 @@ Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (contai
 - [home/](home/): dotfiles symlinked into ~
 - [mise-tasks/](mise-tasks/): repo tasks (lint:shell, lint:config, lint:workflows, lint:design, lint:docs, lint:secrets, build, test, test:desktop, test:vm, ci)
 - [mise.toml](mise.toml): the short repo tasks (lint, lint:fix, agentos:*, shell, up, down, pre-commit) and mise settings. Each task declares its own tools.
+- [install.sh](install.sh): the installer that `curl | sh` runs
+- [.devcontainer/](.devcontainer/): the Dockerfile, the desktop entrypoint, compose.yaml and devcontainer.json
+- [cloud-init/](cloud-init/): cloud-init files for the incus, multipass and OrbStack VMs
+- [tests/](tests/): VM and app checks, and the offline tests that the sandbox test runs
 
 ## Optional
 

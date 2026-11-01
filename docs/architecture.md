@@ -27,7 +27,7 @@ A program can still change a tracked file through its link. lazygit rewrites its
 
 ## One install path covers three situations
 
-`install.sh` runs the same steps whether you start from a checkout, from `curl | sh`, or inside the Docker build. From a checkout, it turns `~/.dotfiles` into a symlink to that checkout. From `curl | sh`, it clones into `~/.dotfiles`. In the Docker build, the image copies the repository to `~/.dotfiles` first.
+`install.sh` runs the same steps whether you start from a checkout, from `curl | sh`, or inside the Docker build. From a checkout, it turns `~/.dotfiles` into a symlink to that checkout, but only when `~/.dotfiles` does not exist yet (a link that points nowhere counts as missing). When it exists, `install.sh` says so and applies the tree that is already there, not the checkout it runs from. From `curl | sh`, it clones into `~/.dotfiles`. In the Docker build, the image copies the repository to `~/.dotfiles` first.
 
 ```mermaid
 flowchart LR
@@ -48,7 +48,7 @@ flowchart LR
 
 Each module is a file named `mise-config/config.<module>.toml`, which mise loads as a config environment. `djd module add` and `djd module remove` write the selection to `miserc.local.toml`, which git ignores. They write the modules in one canonical order, `agent server desktop full secrets`, so later modules win key collisions. A module declares its own dotfile group, so the group is active exactly when you select the module.
 
-The `server` module owns the sshd hardening. Its `pre-dotfiles` hook fails an apply unless the drop-in `10-djd.conf` is in effect. The hook reads the setting without sudo from the `sshd_config` layout of Ubuntu and falls back to `sudo sshd -T`. After the drop-in changes, the hook reloads a running sshd once. On 26.04, sshd is socket-activated. `ssh.socket` stays active, and `ssh.service` stays idle until a connection arrives. [SECURITY.md](../SECURITY.md#server-module) lists the rest of the hardening.
+The `server` module owns the sshd hardening. Its `pre-dotfiles` hook fails an apply unless the drop-in `10-djd.conf` is in effect. The check lives in `hooks/sshd-keys-only`, which `djd doctor` runs too. It reads the setting without sudo from the `sshd_config` layout of Ubuntu and falls back to `sudo sshd -T`. After the drop-in changes, the hook reloads a running sshd once. On 26.04, sshd is socket-activated. `ssh.socket` stays active, and `ssh.service` stays idle until a connection arrives. [SECURITY.md](../SECURITY.md#server-module) lists the rest of the hardening.
 
 Shells and sandboxes default to `LANG=C.UTF-8`, so tool output stays English for agents. Only the `desktop` module switches the system locale to Japanese.
 
@@ -67,6 +67,7 @@ A headless `full` machine skips those packages, and adding `desktop` later insta
 mise runs the hooks of every selected module in order, base first, so two modules could declare the same phase and both hooks would run. Each phase key is declared once today.
 
 - Base declares `pre-user`. It switches the login shell through sudo, because the plain `chsh` that mise runs asks for a password that cloud users lack.
+- Base, `agent`, and `desktop` each declare `pre-dotfiles`, which runs `hooks/dotfile-conflicts` for their dotfile group and moves a real file that a dotfile would replace aside. It is a hook and not part of `djd apply`, because mise runs the hooks of a part only when that part runs, so `--dry-run`, `--skip dotfiles`, and a bootstrap that stops earlier leave your files alone. The hooks of all selected modules run in order, base first, so a failing `server` hook still comes after the base and `agent` hooks have moved files.
 - The `server` module declares `post-packages`, which adds the user to the `docker` group. It also declares `pre-dotfiles`, which runs `hooks/server-pre-dotfiles` after the files phase wrote the sshd drop-in.
 - The `desktop` module declares `final`, which runs `hooks/desktop-final`.
 
@@ -78,7 +79,7 @@ The repository has no migrations framework. Machine tools have no lockfile. Only
 
 Removing things uses mise itself: `mode = "absent"` entries, `mise bootstrap --prune-dotfiles`, and `djd module remove`. That command runs `mise bootstrap unapply` and then `mise dot unapply --group`, because the first skips dotfile groups. apt packages stay installed.
 
-Tools track `latest` behind `minimum_release_age = "3d"`, so a release must be three days old before mise installs it. The Docker image digest is the reproducible artifact. Add `lockfile = true` and run `mise lock --global` if your machines must match bit for bit. Add an Omarchy-style `migrations/` runner when a change needs imperative steps.
+Tools track `latest` behind `minimum_release_age = "3d"`, so a release must be three days old before mise installs it. `pi` and `omp` are the exception (`minimum_release_age_excludes` in `config.agent.toml`): they release often, and new releases are wanted at once. The Docker image digest is the reproducible artifact. Add `lockfile = true` and run `mise lock --global` if your machines must match bit for bit. Add an Omarchy-style `migrations/` runner when a change needs imperative steps.
 
 ## djd forces the C.UTF-8 locale
 
@@ -127,7 +128,7 @@ Aliases stay in `.functions`, not in the `[shell_alias]` table of mise. `[shell_
 
 `.profile` exports the four XDG variables with the defaults of the specification. The shell files keep history in `$XDG_STATE_HOME`, completion dumps and init scripts in `$XDG_CACHE_HOME`, and configuration in `$XDG_CONFIG_HOME`. Four files stay directly in `~`, because their programs read only that path: `.profile`, `.bash_profile`, `.bashrc`, and `.zshenv`. `.zshenv` then moves zsh to `ZDOTDIR`. The X session reads `~/.xsession`, which x11-common hard-codes.
 
-The repository assumes the default locations. The dotfile deployment, the age key, the git include path, and the `PATH` of the Dockerfile name `~/.config` directly. Setting other XDG directories changes only what shells and tools resolve themselves.
+The repository assumes the default locations. The dotfile deployment, the age key, and the git include path name `~/.config` directly. The `PATH` of the Dockerfile, the gh credential helper in the git config, and the `Exec` lines that the zed and zen `postinstall` scripts write name `~/.local/share/mise/shims` directly. Setting other XDG directories changes what shells and tools resolve themselves, and it would break those fixed paths.
 
 Some programs still write into `~` or into their config directory, and the repository accepts that. Two reasons decide. A variable that `.profile` exports reaches login shells and not `docker exec`, so a tool would keep its state in two places. Some tools have no setting at all. npm and bun are the exception, because mise shims apply the `[env]` table of the `agent` module to every shell type, so those two follow XDG everywhere. gpg is not a mise tool, so it stays. [reference.md](reference.md#xdg-locations) lists what lands where.
 
@@ -155,7 +156,7 @@ agentOS guests are WASM processes with a virtual filesystem and the brush shell.
 - **Files.** `FILES` maps guest paths to repository files: `.profile`, the three git files, and `agentos/gitconfig`. A second list, `ALLOWED_GUEST_PATHS`, must equal the first, so a new entry fails the export until someone also changes the allowlist. The reader rejects a file that is a symlink, has more than one hard link, or resolves to anything but its own path under the real repository root, which covers a symlinked parent directory. It then reads through an `O_NOFOLLOW` handle whose device and inode must match the earlier `lstat`. The checks are not atomic, which costs nothing, because anyone who can rewrite the checkout during a run can edit the allowed files directly.
 - **Tools.** `SOFTWARE` maps each registry package to its declaration on the Ubuntu side, such as `ripgrep` or `apt:zip`. The export and the boot both fail when `config.toml` and `config.agent.toml` lack the declaration. The rule is that the Ubuntu agent toolset is a superset of the agentOS one, so a command an agent finds in a guest also exists in the sandbox image. The same name does not mean the same program. The registry `jq` is jaq.
 - **Pin.** `agentos/software.lock.json` holds the release and, per registry package, the URL and sha256 of the file the registry served when someone last ran `mise run agentos:lock`. The boot gives the VM those entries instead of package names, so the sidecar can only install the locked bytes, and it fails before the VM starts when the live manifest of that release differs from the lock. The export checks the lock against `SOFTWARE` and `package.json` offline. A bump of `@rivet-dev/agentos-core` fails both until the lock is refreshed.
-- **Git.** The shared git config names delta, gh, and less, and the guest has none of them. `agentos/gitconfig` becomes `~/.gitconfig`, which git reads after `~/.config/git/config`. It sets the pager to `cat`, empties the diff filter, and resets the credential helpers. The shared file stays unchanged, because Ubuntu machines have those tools.
+- **Git.** The shared git config names delta and gh, and the guest has neither. It also lacks `less`, git's default pager. `agentos/gitconfig` becomes `~/.gitconfig`, which git reads after `~/.config/git/config`. It sets the pager to `cat`, empties the diff filter, and resets the credential helpers. The shared file stays unchanged, because Ubuntu machines have those tools.
 - **Shell.** brush says `[ -r <missing file> ]` is true, so `.profile` tests `profile.local` with `-f`. One boot check sources `.profile` alone and requires exit 0 and an empty stderr. The earlier check compared only stdout, so a `.profile` that printed an error and returned 1 in every guest still passed.
 - **Permissions.** The boot denies the guest network. The default policy lets the guest resolve model-provider hosts such as api.anthropic.com. A boot check fetches that host and passes only when curl fails with `Could not resolve host`, which is what distinguishes the denied policy from the default one. The check cannot tell the two apart on an offline host. Package downloads run on the host, so the denial costs nothing.
 
@@ -173,7 +174,7 @@ Every CI job runs the mise task that you run locally, so a green CI run and a gr
 
 Three decisions shape the release chain.
 
-- CI skips a change that touches only `docs/**` or Markdown files, except `DESIGN.md`. A docs-only push therefore never releases. The cost is that the Markdown link check in `lint` does not run on such a push.
+- CI skips a change that touches only `docs/**` or Markdown files, except `DESIGN.md` and `agent/**`, because the two `agent/**/AGENTS.md` files ship in the images. A docs-only push therefore never releases. The cost is that the Markdown link check in `lint` does not run on such a push.
 - `tag.yaml` tags a commit only when that commit contains the newest `X.Y.Z` tag, and only the newest release moves the floating tags. A re-run of an older CI run, or a slower older release, then cannot move `latest` backward.
 - Release builds use no build cache, so a published image cannot reuse a cache entry that another workflow wrote.
 

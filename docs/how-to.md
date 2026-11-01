@@ -38,12 +38,13 @@ The VM is named `djd-test-<number>`, and the task prints the name. When you fini
 
 ```sh
 orb create -c cloud-init/vm.yaml ubuntu:resolute djd-vm
+orb -m djd-vm -w / sudo cloud-init status --wait   # the install would otherwise race cloud-init's apt run
 orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
 ```
 
 `orb` starts commands in the Mac's current directory, mounted under `/Users`, where mise would also load any Mac `mise.toml` up the tree. The `cd` keeps the install inside the VM home.
 
-For RDP, set a password with `orb -m djd-vm sudo passwd "$USER"` and connect to `localhost:3389`. OrbStack forwards the port from loopback, which ufw admits.
+For RDP, set a password with `orb -m djd-vm sudo passwd "$USER"`, restart xrdp once with `orb -m djd-vm sudo systemctl restart xrdp xrdp-sesman` (it reads its TLS-only settings at start), and connect to `localhost:3389`. OrbStack forwards the port from loopback, which ufw admits.
 
 ## Update the pinned tools
 
@@ -95,7 +96,7 @@ mv ~/.npmrc ~/.config/npm/npmrc
 rm -rf ~/.npm
 ```
 
-The last command deletes the old cache. bun leaves its old cache in `~/.bun`, and you can delete that directory too.
+The last command deletes the old cache. bun leaves its old install cache in `~/.bun/install/cache`, and you can delete that directory too. Keep the rest of `~/.bun`: it can hold bun's global packages and a bun that bun.sh installed.
 
 ## Keep an edit that a program made
 
@@ -115,10 +116,10 @@ A program that saves a managed file through a rename replaces its link with a re
 
 Nothing in the release chain has run against GHCR before the first release, so watch the first run.
 
-1. Run `git init` and `git add -A`.
+1. Run `git init` unless the folder is already a repository, then `git add -A`.
 2. Run `git status` and `git ls-files`. Check that neither lists `.devcontainer/.env`, `age.txt`, or `miserc.local.toml`. All three are gitignored.
-3. Run `git config core.hooksPath .githooks`, so that gitleaks runs on each commit.
-4. In the repository settings, enable private vulnerability reporting. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
+3. Run `mise trust` in the checkout, then `git config core.hooksPath .githooks`, so that gitleaks runs on each commit, and make the first commit. The hook needs mise and the trust: without them every commit fails.
+4. Create the repository on GitHub, add it as `origin`, and enable private vulnerability reporting in its settings. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
 5. Push to `main`. CI runs. When it passes, `tag.yaml` creates the tag `0.0.1` and a GitHub release, and `push.yaml` publishes the GHCR images.
 6. Read the logs of the jobs that run only on GitHub: the amd64 runs of `sandbox` and `desktop`, the incus path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 runs of `sandbox` and `desktop`.
 7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/dayjobdoor/dotfiles:sandbox`. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.

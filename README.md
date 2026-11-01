@@ -24,9 +24,9 @@ What it changes on the machine:
 
 - `TZ` defaults to Asia/Tokyo in `~/.profile`. Override it in `~/.config/djd/profile.local`.
 - zsh becomes the login shell, and the `server` module adds your user to the `docker` group. Both need a new login.
-- A real file that a dotfile would replace is moved to `<file>.djd-backup-<time>`.
+- A real file that a dotfile would replace is moved to `<file>.djd-backup-<time>`, just before the dotfiles are linked. `djd apply --dry-run` moves nothing.
 - A login zsh on a real terminal starts herdr. Export `DJD_NO_MUX=1` (for example in `~/.config/djd/profile.local`) to skip it.
-- The `server` module's firewall denies every inbound port except SSH (rate-limited) and RDP from private networks.
+- The `server` module's firewall denies every inbound port except SSH (rate-limited) and RDP from private networks. Docker's published ports bypass it (the module makes them bind to `127.0.0.1` by default), and mDNS multicast stays open.
 - The `desktop` module sets the system locale to ja_JP.UTF-8.
 - The cloud-init files set the timezone to Asia/Tokyo, and `cloud-init/multipass.yaml` also sets a Japanese keyboard layout (`layout: jp`, `ctrl:nocaps`).
 
@@ -81,9 +81,9 @@ cp .devcontainer/.env.example .devcontainer/.env   # set PASSWORD
 mise run up
 ```
 
-`make up` and `mise run up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). Without mise, run `docker compose -f .devcontainer/compose.yaml up -d --build desktop`. `mise run down` stops the container. A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens.
+`make up` and `mise run up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). Without mise, run `docker compose -f .devcontainer/compose.yaml up -d --build desktop`. `mise run down` removes the container and everything saved in it (files, browser profiles, settings); `docker compose -f .devcontainer/compose.yaml stop desktop` keeps them. A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens.
 
-Connect an RDP client (e.g. Windows App) to `localhost:33389` as `ubuntu`. The port is bound to `127.0.0.1` only.
+Connect an RDP client to `localhost:33389` as `ubuntu`. The port is bound to `127.0.0.1` only. The tests use xfreerdp3; Windows App and mstsc were not tried against the TLS-only setting.
 
 ## VMs and system containers
 
@@ -99,6 +99,7 @@ incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c cloud-ini
 incus exec djd -- cloud-init status --wait
 incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
 incus exec djd -- passwd ubuntu   # RDP login needs a password
+incus exec djd -- systemctl restart xrdp xrdp-sesman   # xrdp reads its TLS-only settings at start
 incus list djd                    # connect an RDP client to this address, port 3389
 ```
 
@@ -111,6 +112,7 @@ multipass ([install it](https://documentation.ubuntu.com/multipass/latest/how-to
 ```sh
 multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml   # waits for the install
 multipass exec djd -- sudo passwd ubuntu   # RDP login needs a password
+multipass exec djd -- sudo systemctl restart xrdp xrdp-sesman   # xrdp reads its TLS-only settings at start
 multipass info djd                         # connect an RDP client to this address, port 3389
 ```
 
@@ -118,7 +120,7 @@ The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the des
 
 ## agentOS
 
-The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it: `.profile`, the git config with an agentOS override, and WASM registry tools. Every registry tool must also be declared in the Ubuntu `agent` module, so a command an agent finds in a guest exists in the sandbox image too.
+The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it: `.profile`, the git config with an agentOS override, and WASM registry tools. Every registry tool must also be declared in `mise-config/config.toml` or `config.agent.toml`, so a command an agent finds in a guest exists in the sandbox image too. `agentos:boot` starts a native sidecar as your user: run it in the sandbox image, as [Development](#development) shows, not on a machine you care about.
 
 ```sh
 mise run agentos:export   # writes dist/agentos/bundle.json
@@ -136,7 +138,7 @@ mise dot unapply --group home --yes      # the base dotfile links
 sudo chsh -s /bin/bash "$USER"           # login shell back to bash
 cp --update=none /etc/skel/.bashrc /etc/skel/.profile ~   # djd apply deleted the defaults these links replaced
 rm ~/.config/mise                        # the link to this repository's mise config
-rm -rf ~/.dotfiles                       # a clone; if it is a link to your own checkout, use `rm ~/.dotfiles` instead
+rm -rf ~/.dotfiles                       # a clone; check `git -C ~/.dotfiles status` and push first. If it is a link to your own checkout, use `rm ~/.dotfiles` instead
 ```
 
 `~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back.
