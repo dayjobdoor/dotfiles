@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: xrdp is TLS-only, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink, and the four apps launch (builds it first)"
+#MISE description="Desktop image: xrdp is TLS-only, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, and the four apps launch (builds it first)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
 set -euo pipefail
@@ -63,6 +63,23 @@ check_audio() {
     done
     [ "$src" = xrdp-source ] || fail "the default audio source is '${src:-none}', not xrdp-source: the xrdp module script did not set the defaults"
     echo "test:desktop: xrdp-source is the default audio source"
+}
+
+# ~/.xsession starts wireplumber again when it dies. The defaults live in wireplumber's metadata, so they must come
+# back with the new process, not only the process.
+check_wireplumber_respawn() {
+    local old new=''
+    old=$(docker exec "$server" pgrep -o -u ubuntu -x wireplumber) || fail "no wireplumber is running for ubuntu"
+    docker exec "$server" kill "$old"
+    for _ in $(seq 30); do
+        new=$(docker exec "$server" pgrep -o -u ubuntu -x wireplumber 2>/dev/null || true)
+        [ -n "$new" ] && [ "$new" != "$old" ] && break
+        new=''
+        sleep 1
+    done
+    [ -n "$new" ] || fail "wireplumber ($old) was killed and not started again within 30 s"
+    echo "test:desktop: wireplumber was started again after it died"
+    check_audio
 }
 
 # xrdp.ini and sesman.ini as desktop-final leaves them (see mise-config/hooks/desktop-final)
@@ -131,7 +148,9 @@ done
 echo "test:desktop: xfce4-session started through ~/.xsession"
 check_legacy_refused "$pid"
 check_audio
+check_wireplumber_respawn
 docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
+docker exec -u ubuntu "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
 
 # /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not
 # take it for a live server.
