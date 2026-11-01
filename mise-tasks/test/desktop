@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: every container makes its own xrdp TLS key, xrdp is TLS-only and refuses root logins, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, the four apps launch, ~/.xsession passes its stub test, and the session comes back after a container restart (builds it first)"
+#MISE description="Desktop image: every container makes its own xrdp TLS key, xrdp is TLS-only and refuses root logins, an xfreerdp client logs in over RDP and a legacy-layer one is refused, XFCE starts, xrdp-sink is the default audio sink and comes back after wireplumber dies, the four apps launch, ~/.xsession passes its stub test, no audio daemon outlives a logout, and the session comes back after a container restart (builds it first)"
 #MISE depends=["build desktop"]
 #USAGE arg "[image]" default="djd:desktop" help="Image to test"
 set -Eeuo pipefail
@@ -81,6 +81,36 @@ check_wireplumber_respawn() {
     [ -n "$new" ] || fail "wireplumber ($old) was killed and not started again within 30 s"
     echo "test:desktop: wireplumber was started again after it died"
     check_audio
+}
+
+audio_pids() {
+    docker exec "$server" pgrep -u ubuntu -x 'pipewire|pipewire-pulse|wireplumber' | sort | tr '\n' ' ' || true
+}
+
+# Log Out ends the desktop and the session bus. The daemons that ~/.xsession started used to outlive both, and the
+# supervisor started a wireplumber against the dead bus; the next login found a live server, started nothing, and kept
+# those daemons. After a logout none may be left, and the next login must get new ones.
+check_logout_cleanup() {
+    local before after p
+    before=$(audio_pids)
+    [ -n "$before" ] || fail "no audio daemon runs for ubuntu before the logout"
+    docker exec "$server" pkill -u ubuntu -x xfce4-session
+    for _ in $(seq 30); do
+        [ -z "$(audio_pids)" ] && break
+        sleep 1
+    done
+    after=$(audio_pids)
+    [ -z "$after" ] || fail "audio daemons ($after) still run 30 s after the logout"
+    echo "test:desktop: no audio daemon outlives the logout"
+    docker exec "$client" pkill -x xfreerdp3 || true
+    login
+    wait_session
+    check_audio
+    after=$(audio_pids)
+    for p in $before; do
+        case " $after " in *" $p "*) fail "daemon $p of the first session still runs in the second" ;; esac
+    done
+    echo "test:desktop: the second login started its own audio daemons"
 }
 
 mkprobe() {
@@ -194,6 +224,7 @@ check_audio
 check_wireplumber_respawn
 docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
 docker exec -u ubuntu "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
+check_logout_cleanup
 
 # /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not
 # take it for a live server. The client goes first: left running, it could reconnect to the restarted server and
