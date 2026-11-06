@@ -12,11 +12,11 @@ unset DBUS_SESSION_BUS_ADDRESS
 # row that each lasted under 30 s.
 # Asking the server (not testing for the socket file) skips a systemd user manager's already-running socket-activated
 # server (a VM) and ignores the stale socket a restarted container keeps in /run.
-# startxfce4 runs without exec so that the shell outlives it and ends what this script started: logging out leaves
-# pipewire, pipewire-pulse and the supervisor running, and the supervisor would start a wireplumber against the dead
-# bus. The supervisor ends its own wireplumber and pipewire-pulse on TERM; its kill list names $! because TERM can
-# arrive between starting a daemon and saving its PID. A session that only disconnects keeps startxfce4 running, so
-# nothing is killed. A server that already answered is not ours and stays.
+# startxfce4 runs without exec so that the shell outlives it and ends what this script started: with an exec,
+# logging out would leave pipewire, pipewire-pulse and the supervisor running, and the supervisor would start a
+# wireplumber against the dead bus. The supervisor ends its own wireplumber and pipewire-pulse on TERM; its kill
+# list names $! because TERM can arrive between starting a daemon and saving its PID. A session that only
+# disconnects keeps startxfce4 running, so nothing is killed. A server that already answered is not ours and stays.
 # shellcheck disable=SC2016 # the inner sh must expand $(seq 600) and the rest, this one must not
 exec dbus-launch --exit-with-session sh -c '
 server= supervisor=

@@ -118,6 +118,16 @@ grep -q 'HackGen35 Console NF' <<<"$(fc-list : family)"
 ok desktop locale and font
 grep -qx security_layer=tls /etc/xrdp/xrdp.ini
 grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini
+# the files are not the daemon: xrdp started when its package was installed, before the final hook set these, so the
+# running one must have been (re)started after the last change to either file
+started=$(date -d "$(systemctl show -p ActiveEnterTimestamp --value xrdp)" +%s)
+for ini in /etc/xrdp/xrdp.ini /etc/xrdp/sesman.ini; do
+    [ "$started" -ge "$(stat -c %Y "$ini")" ] || {
+        echo "xrdp has run since before $ini last changed: the hardening is in the file, not in the daemon" >&2
+        exit 1
+    }
+done
+ok xrdp runs with the hardened settings
 bash ~/.dotfiles/tests/desktop-apps.sh
 # plan covers packages, files, services and the firewall; doctor adds the Ubuntu release, the mise link, the login
 # shell, the dotfiles, and the sshd and xrdp settings that the hooks enforce

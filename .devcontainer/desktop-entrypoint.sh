@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Desktop image entrypoint (runs as root): set the RDP password, make this container's TLS key, then run xrdp in the
 # foreground.
-# Usage: djd-desktop-entrypoint USER PASSWORD
+# Usage: djd-desktop-entrypoint USER [PASSWORD]
+# Without PASSWORD the password is read from /run/secrets/djd_rdp_password, which compose.yaml mounts: an argument
+# shows in `docker inspect` and in /proc/1/cmdline, a mounted secret does not.
 set -euo pipefail
 
 die() {
@@ -10,9 +12,11 @@ die() {
 }
 user=${1:-ubuntu}
 password=${2:-}
+secret=/run/secrets/djd_rdp_password
+if [ -z "$password" ] && [ -f "$secret" ]; then password=$(<"$secret"); fi
 [[ $user =~ ^[a-zA-Z0-9_-]+$ ]] || die "invalid user: $user"
 id "$user" >/dev/null 2>&1 || die "no such user: $user"
-[ -n "$password" ] || die "usage: djd-desktop-entrypoint USER PASSWORD"
+[ -n "$password" ] || die "usage: djd-desktop-entrypoint USER [PASSWORD]; with no PASSWORD, $secret must hold a non-empty one"
 
 printf '%s:%s\n' "$user" "$password" | chpasswd
 # no logind in the container: this is the XDG_RUNTIME_DIR that ~/.xsession falls back to

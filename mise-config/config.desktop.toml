@@ -146,8 +146,8 @@ owner = "root"
 group = "root"
 phase = "pre-packages"
 
-# Purges screen lockers, im-config and the pulseaudio daemon, and makes xrdp TLS-only without root logins
-# (hooks/desktop-final).
+# pre-dotfiles moves aside real files that a desktop dotfile would replace. final purges screen lockers, im-config
+# and the pulseaudio daemon, and makes xrdp TLS-only without root logins (hooks/desktop-final).
 [bootstrap.hooks]
 pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts desktop"
 final = "~/.config/mise/hooks/desktop-final"

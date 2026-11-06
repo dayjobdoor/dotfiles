@@ -16,10 +16,11 @@ net="djd-rdp-$$"
 server="djd-desktop-$$"
 client="djd-rdp-client-$$"
 control="djd-desktop-negotiate-$$"
+secret="djd-desktop-secret-$$"
 
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
-    docker rm -f "$server" "$client" "$control" >/dev/null 2>&1 || true
+    docker rm -f "$server" "$client" "$control" "$secret" >/dev/null 2>&1 || true
     docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -73,8 +74,8 @@ check_audio() {
     echo "test:desktop: xrdp-source is the default audio source"
 }
 
-# ~/.xsession starts wireplumber again when it dies. The defaults live in wireplumber's metadata, so they must come
-# back with the new process, not only the process.
+# ~/.xsession starts wireplumber again when it dies. The defaults live in wireplumber's metadata, which a new process
+# starts without, so the check is that the new wireplumber has them again, not only that one is running.
 check_wireplumber_respawn() {
     local old new=''
     old=$(docker exec "$server" pgrep -o -u ubuntu -x wireplumber) || fail "no wireplumber is running for ubuntu"
@@ -177,7 +178,7 @@ check_legacy_refused() {
 # A client that is refused at the xrdp login screen stays connected, so the exit code says nothing: the proof is
 # the root session that $control starts and $server does not, and the refusal that sesman logs.
 check_root_refused() {
-    local h up=''
+    local h up='' refused=''
     for h in "$control" "$server"; do
         docker exec "$h" sh -c 'echo root:djd-test-pass | chpasswd'
     done
@@ -191,10 +192,41 @@ check_root_refused() {
     done
     [ -n "$up" ] || fail "the control (AllowRootLogin=true) started no root session: the root refusal check proves nothing"
     rdp_rc root-server "$server" root 10 >/dev/null
-    docker exec "$server" grep -qF 'ROOT login attempted, but root login is disabled' /var/log/xrdp-sesman.log ||
-        fail "sesman in the server did not refuse a root login: AllowRootLogin is not false"
+    # sesman logs the refusal a moment after the client gives up, which a slow arm64 runner stretches
+    for _ in $(seq 20); do
+        if docker exec "$server" grep -qF 'ROOT login attempted, but root login is disabled' /var/log/xrdp-sesman.log; then
+            refused=1
+            break
+        fi
+        sleep 1
+    done
+    [ -n "$refused" ] || fail "sesman in the server did not refuse a root login: AllowRootLogin is not false"
     if docker exec "$server" pgrep -u root -x xfce4-session >/dev/null; then fail "a root login on the server started a session"; fi
     echo "test:desktop: root logins are refused where AllowRootLogin=true accepts them"
+}
+
+# The password reaches the entrypoint as a mounted secret as well as an argument (compose.yaml uses the secret, which
+# `docker inspect` and /proc/1/cmdline do not show). passwd -S says P once a password is set. The control is the
+# image itself, which has none, and a start with neither an argument nor a secret must refuse.
+check_password_secret() {
+    local file status='' rc=0
+    file=$(mktemp)
+    printf 'djd-test-secret\n' >"$file"
+    status=$(docker run --rm --user root --entrypoint passwd "$image" -S ubuntu | awk '{print $2}')
+    [ "$status" != P ] || fail "the image already has a password for ubuntu, so the secret check proves nothing"
+    docker run -d --name "$secret" --user root --entrypoint djd-desktop-entrypoint \
+        -v "$file:/run/secrets/djd_rdp_password:ro" "$image" ubuntu >/dev/null
+    for _ in $(seq 20); do
+        status=$(docker exec "$secret" passwd -S ubuntu | awk '{print $2}')
+        [ "$status" = P ] && break
+        sleep 1
+    done
+    [ "$status" = P ] || fail "the entrypoint set no password from /run/secrets/djd_rdp_password"
+    docker rm -f "$secret" >/dev/null
+    rm -f "$file"
+    docker run --rm --user root --entrypoint djd-desktop-entrypoint "$image" ubuntu >/dev/null 2>&1 || rc=$?
+    [ "$rc" = 2 ] || fail "the entrypoint started without a password (exit $rc)"
+    echo "test:desktop: the RDP password comes from a mounted secret, and its absence is refused"
 }
 
 docker network create "$net" >/dev/null
@@ -228,6 +260,7 @@ wait_xrdp "$control"
 check_tls_key
 check_legacy_refused "$pid"
 check_root_refused
+check_password_secret
 check_audio
 check_wireplumber_respawn
 docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"

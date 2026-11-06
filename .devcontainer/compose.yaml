@@ -10,7 +10,10 @@ services:
         - github_token
     user: root
     entrypoint: ["djd-desktop-entrypoint"]
-    command: ["ubuntu", "${PASSWORD:?set PASSWORD in .env}"]
+    # the password comes from the djd_rdp_password secret, so it is in neither argv nor `docker inspect`
+    command: ["ubuntu"]
+    secrets:
+      - djd_rdp_password
     ports:
       - "127.0.0.1:${RDP_PORT:-33389}:3389"
     shm_size: 512m # browsers in the session crash with the 64m default
@@ -30,3 +33,6 @@ services:
 secrets:
   github_token:
     environment: GITHUB_TOKEN
+  # compose stops with an error when PASSWORD is unset; an empty one stops the entrypoint
+  djd_rdp_password:
+    environment: PASSWORD

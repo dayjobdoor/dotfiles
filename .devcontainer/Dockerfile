@@ -16,15 +16,16 @@ COPY --chown=ubuntu:ubuntu home/.local/bin/djd /home/ubuntu/.dotfiles/home/.loca
 COPY --chown=ubuntu:ubuntu mise-config /home/ubuntu/.dotfiles/mise-config
 USER ubuntu
 WORKDIR /home/ubuntu
-# The first RUN installs the packages without the GitHub token: apt maintainer scripts (Brave's deb) run as root
-# in the environment of the mise process that called apt. Only the tools and the final hook reach GitHub (the tools
-# download releases), so only the second RUN mounts the token. mise bootstrap refills the apt lists; deleting them in
-# this layer is what shrinks the image. The build runs as ubuntu (mise calls sudo itself), so the cleanup needs
-# sudo too (DL3004).
+# The first RUN does everything that runs apt or other root scripts, without the GitHub token: apt maintainer
+# scripts (Brave's deb) run as root in the environment of the mise process that called apt, and so does the final
+# hook's `apt-get purge`. Only the tools reach GitHub (they download releases), so only the second RUN mounts the
+# token. mise bootstrap refills the apt lists; deleting them in this layer is what shrinks the image. The build
+# runs as ubuntu (mise calls sudo itself), so the cleanup needs sudo too (DL3004). SC2086: $DJD_MODULES is a list
+# of words on purpose.
 # hadolint ignore=SC2086,DL3004
-RUN DJD_BOOTSTRAP_FLAGS="--skip tools,final-hook,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
+RUN DJD_BOOTSTRAP_FLAGS="--skip tools,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
     && sudo rm -rf /var/lib/apt/lists/*
-RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--only tools,final-hook" \
+RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--only tools" \
     ~/.dotfiles/install.sh
 # Docker's default seccomp policy blocks namespace creation, so Brave aborts at startup unless it runs with
 # --no-sandbox, which also disables its renderer seccomp-bpf sandbox. The container is the isolation boundary

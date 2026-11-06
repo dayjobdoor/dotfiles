@@ -6,6 +6,8 @@
     "args": {
       "DJD_MODULES": "agent"
     },
+    // BuildKit secret for the tool downloads. Export GITHUB_TOKEN first: a token without scopes, or empty for none
+    // (SECURITY.md#github-tokens); never the output of `gh auth token`
     "options": [
       "--secret=id=github_token,env=GITHUB_TOKEN"
     ]
