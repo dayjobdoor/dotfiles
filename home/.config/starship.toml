@@ -51,7 +51,7 @@ $line_break\
 $character\
 $localip\
 $docker_context\
-${custom.arch}\
+${env_var.DJD_ARCH}\
 $shell\
 """
 
@@ -234,15 +234,17 @@ powershell_indicator = '_ '
 style = 'fg:green'
 format = '[$indicator](fg:green bold) [](fg:yellow bold) '
 
-# arch badge, shown on x86_64 only
-[custom.arch]
-command = "uname -m"
-when = """ test $(uname -m) = "x86_64" """
+# arch badge, shown on x86_64 only: .zshrc and .bashrc export DJD_ARCH there. A custom module would start a
+# shell for `uname` before every prompt.
+[env_var.DJD_ARCH]
+variable = "DJD_ARCH"
 style = "bold gray"
-format = "[$output]($style bold) "
+format = "[$env_value]($style bold) "
 
 [custom.jj]
-when = "jj-starship detect"
+# `when` is not a test here: with shell = ["jj-starship"] the command is handed to jj-starship, which ignores
+# it and renders the whole segment, so a `when` command would run it twice. The segment is empty outside a repo.
+when = true
 shell = ["jj-starship"]
 style = "fg:dd bg:gray"
 format = "[$output]($style bold) "

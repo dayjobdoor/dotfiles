@@ -4,8 +4,11 @@
 
 *.gz
 node_modules
-# local secrets: .envrc and *.env hold exports, .npmrc can hold registry auth tokens
+# local secrets: .envrc and *.env hold exports (.env.local and .env.production too, but not a committed .env.example),
+# .npmrc can hold registry auth tokens
 *.env
+.env.*
+!.env.example
 .envrc
 .npmrc
 
@@ -91,8 +94,8 @@ sites/*/files
 # Sass.
 .!*
 
-# Agent tools (local state and caches).
-.claude/settings.local.json
+# Agent tools: local state, caches and whole directories (.claude and .codex hide project settings and commands
+# too; a repo's own .gitignore can negate them with `!.claude`).
 .pi/sessions
 .claude
 .codex

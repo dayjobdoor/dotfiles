@@ -1,5 +1,5 @@
-# `zsh -lc cmd` (agents) also reads this file; its output would mix into theirs
-[[ -o interactive ]] || return
+# `zsh -lc cmd` (agents) also reads this file, and so does `zsh -lic cmd`; the banners would mix into their output
+[[ -o interactive && -z ${ZSH_EXECUTION_STRING-} ]] || return
 
 if command -v fortune > /dev/null 2>&1 && \
   command -v cowsay > /dev/null 2>&1; then

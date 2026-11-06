@@ -7,8 +7,11 @@ set -euo pipefail
 # they stay put on --dry-run, --skip dotfiles and a bootstrap that fails before the dotfiles part.
 # DJD_BOOTSTRAP_FLAGS: extra mise bootstrap flags for non-interactive callers (the Docker build's passes)
 status=0
+# the flags are split on spaces on purpose and must not be globbed (set -f)
+set -f
 # shellcheck disable=SC2086
 mise bootstrap --yes --update ${DJD_BOOTSTRAP_FLAGS:-} "$@" || status=$?
+set +f
 # after bootstrap, so a cache that a shell started mid-run wrote is removed too (home/.config/zsh/.zshrc, home/.bashrc)
 rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}"/zsh/init "${XDG_CACHE_HOME:-$HOME/.cache}"/bash/init
 exit "$status"

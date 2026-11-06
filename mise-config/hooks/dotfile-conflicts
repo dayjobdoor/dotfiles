@@ -5,6 +5,8 @@
 # Symlink entries refuse real files: drop untouched /etc/skel copies, move anything else aside.
 set -euo pipefail
 root="$HOME/.dotfiles/${1:?dotfile group}"
+# ~/.dotfiles may itself be a link to a checkout elsewhere
+real_root=$(realpath "$HOME/.dotfiles")
 
 while IFS= read -r -d '' src; do
     rel=${src#"$root/"}
@@ -12,6 +14,9 @@ while IFS= read -r -d '' src; do
     if [ ! -e "$target" ] || [ -L "$target" ]; then
         continue
     fi
+    # a directory above the target may be a link into this checkout (a hand-made ~/.config/git -> ~/.dotfiles/...):
+    # then the target is the repo's own file, and moving it aside would rename a tracked file
+    case $(realpath "$target") in "$real_root"/*) continue ;; esac
     if [ -f "/etc/skel/$rel" ] && cmp -s "/etc/skel/$rel" "$target"; then
         rm "$target"
     else

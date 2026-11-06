@@ -2,5 +2,9 @@
 # Ubuntu's /etc/zsh/zshrc runs its own compinit, which drops .zcompdump into ZDOTDIR. .zshrc runs compinit with a cache path.
 skip_global_compinit=1
 export ZDOTDIR="${ZDOTDIR:-$HOME/.config/zsh}"
-emulate sh -c '. "$HOME/.profile"'
+# a missing ~/.profile (a moved checkout leaves the link dangling) must not end every non-interactive zsh: under
+# `emulate sh`, a failed `.` exits the shell
+if [[ -f $HOME/.profile ]]; then
+    emulate sh -c '. "$HOME/.profile"'
+fi
 typeset -U path PATH

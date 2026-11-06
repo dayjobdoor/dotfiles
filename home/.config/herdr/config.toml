@@ -6,6 +6,7 @@ name = "kanagawa"
 
 [terminal]
 default_shell = "zsh"
+# a login shell in every pane would run .zprofile again (which starts herdr) and the .zlogin banners
 shell_mode = "non_login"
 
 [ui]

@@ -42,8 +42,14 @@ if command -v tree >/dev/null 2>&1; then
 fi
 
 if command -v openssl >/dev/null 2>&1; then
+    # sec NAME: append NAME=<random> to $ENV_FILE (default .env). A new file is private, and a name that is
+    # already there is left alone, because a second line would shadow the first without any message
     function sec() {
-        ENV_FILE="${ENV_FILE:-.env}"
-        echo "${1:-SECRET}=$(openssl rand -base64 32)" >> "${ENV_FILE}"
+        local name=${1:-SECRET} file=${ENV_FILE:-.env}
+        if [[ -f $file ]] && grep -q "^${name}=" "$file"; then
+            print -u2 "sec: $name is already in $file"
+            return 1
+        fi
+        (umask 077; print -r -- "$name=$(openssl rand -base64 32)" >> "$file")
     }
 fi

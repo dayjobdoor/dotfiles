@@ -1,4 +1,6 @@
-command = $(command -v zsh) -l
+# ghostty enables its zsh shell integration (cwd for new tabs, prompt jumping, close without asking) only when the
+# first word of `command` names zsh; a `$(command -v zsh)` there hides it
+command = zsh -l
 
 theme = Kanagawa Dragon
 

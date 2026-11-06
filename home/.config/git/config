@@ -1,7 +1,4 @@
-# identity and signing keys live in the per-machine ~/.config/git/user.conf, not in this file
-[include]
-	path = ~/.config/git/user.conf
-
+# identity and signing keys live in the per-machine ~/.config/git/user.conf, included at the end of this file
 [alias]
 	t = tag
 	s = status
@@ -95,9 +92,15 @@
 [branch]
 	autosetuprebase = always
 
+# a bare `helper =` resets the helpers that the system config set, so gh is the only one asked. The absolute shim
+# path does not depend on the PATH of whatever runs git
 [credential "https://github.com"]
 	helper = 
 	helper = !$HOME/.local/share/mise/shims/gh auth git-credential
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !$HOME/.local/share/mise/shims/gh auth git-credential
+
+# last, so a value in user.conf wins over the shared one above (git applies the last value it reads)
+[include]
+	path = ~/.config/git/user.conf

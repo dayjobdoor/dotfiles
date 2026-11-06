@@ -1,8 +1,6 @@
 # Module full: the whole personal toolbox. Requires agent (npm: tools use bun).
 
 [settings]
-# cargo: tools install from cargo-binstall's prebuilt binaries instead of compiling
-cargo.binstall = true
 # the Rust toolchains and cargo's home live under XDG data, not ~/.cargo and ~/.rustup
 rust.cargo_home = "~/.local/share/cargo"
 rust.rustup_home = "~/.local/share/rustup"
@@ -16,7 +14,7 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:moreutils" = "latest"
 "apt:autoconf" = "latest"
 "apt:lsb-release" = "latest"
-# libraries that building ruby and its native gems links against (ruby itself comes from mise below, not apt)
+# development libraries for compiling native extensions (ruby itself comes from mise below, not apt)
 "apt:libdb-dev" = "latest"
 "apt:libgdbm-dev" = "latest"
 "apt:libgmp-dev" = "latest"
@@ -25,6 +23,7 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:libstd-rust-dev" = "latest"
 "apt:libncurses-dev" = "latest"     # libncurses5-dev is gone in 26.04
 "apt:libffi-dev" = "latest"
+# network and system utilities
 "apt:net-tools" = "latest"
 "apt:nmap" = "latest"
 "apt:rsyslog" = "latest"
@@ -215,18 +214,18 @@ auto-doc = "latest"
 "github:projectdiscovery/katana" = "latest"      # crawling
 "github:koki-develop/clive" = "latest"           # auto command
 "github:smallstep/cli" = "latest"                # auth
-"github:fatedier/frp" = "latest"                 # ssh
+"github:fatedier/frp" = "latest"                 # reverse proxy
 "github:jonaslu/ain" = "latest"                  # curl 
 "github:reviewdog/reviewdog" = "latest"          # review
 "github:syncthing/syncthing" = "latest"          # file sync
 "github:ankitpokhrel/jira-cli" = "latest"
 "github:wtfutil/wtf" = "latest"                  # tui dashboard
 "github:sheepla/whois-cli" = "latest"            # whois
-"github:librespeed/speedtest-cli" = "latest"     # st
+"github:librespeed/speedtest-cli" = "latest"     # speed test
 "github:pranshuparmar/witr" = "latest"
 "github:gcla/termshark" = "latest"               # wireshark TUI
 "github:go-gitea/gitea" = "latest"
-"github:agent0ai/spynel" = "latest"              # plan
+"github:agent0ai/spynel" = "latest"              # agents
 # "github:daichirata/hammer" = "latest" # gcloud
 # "github:gabe565/moreutils-go" = "latest" #moreutils
 # "github:modu-ai/moai-adk" = "latest" # agent
@@ -245,7 +244,7 @@ auto-doc = "latest"
 # =============================================================================
 # Rust: toolchain and Rust-built CLIs
 # =============================================================================
-rust = "stable"
+rust = "stable"           # a rustup channel rather than "latest"
 cargo-binstall = "latest"
 sentry = "latest"         # getsentry/sentry-cli (Rust)
 wasm-tools = "latest"
@@ -258,7 +257,7 @@ zellij = "latest"
 
 # search / view / edit
 xh = "latest"
-# ttyd = "latest"
+# ttyd = "latest" # github:tsl0922/ttyd below is used
 scooter = "latest"
 hyperfine = "latest"
 
@@ -286,7 +285,7 @@ ast-grep = "latest"
 
 # github (Rust)
 # "github:Dicklesworthstone/pi_agent_rust" = "latest"
-# "github:sharkdp/hyperfine" = "latest"
+# "github:sharkdp/hyperfine" = "latest" # hyperfine above is used
 "github:tsl0922/ttyd" = "latest"
 "github:vercel-labs/opensrc" = "latest"          # context
 "github:vercel-labs/agent-browser" = "latest"    # test
@@ -308,18 +307,18 @@ ast-grep = "latest"
 "github:pemistahl/grex" = "latest"
 "github:tursodatabase/agentfs" = "latest"        # fs
 "github:nolabs-ai/nono" = "latest"               # scan
-"github:gleam-lang/gleam" = "latest"             # web
+"github:gleam-lang/gleam" = "latest"             # language
 "github:agavra/tuicr" = "latest"                 # code review
 "github:superradcompany/microsandbox" = "latest" # vm
 
 # "cargo:can1357/pon" = "latest"
 
-# "cargo:denisidoro/navi" = "latest" # file 
+# "cargo:denisidoro/navi" = "latest" # cheat sheets
 # "cargo:denoland/celld" = "latest" # self-host durable objects
-# "cargo:orhun/kmon" = "latest" 
+# "cargo:orhun/kmon" = "latest"
 # "cargo:cloudflare/boringtun" = "latest" # tunnel
 # "cargo:orhun/duckduckgo-cli" = "latest" # web; npm:duckduckgo-cli is used
-# "cargo:choose" = "latest" 
+# "cargo:choose" = "latest"
 # "cargo:alacritty" = "latest"
 # "cargo:gitlogue" = "latest"
 # "cargo:gittype" = "latest"
@@ -396,7 +395,7 @@ yt-dlp = "latest"
 # =============================================================================
 # build
 ninja = "latest"
-# cmake = "latest"
+# cmake = "latest" # apt:cmake above is used
 # make = "latest"
 # bpkg = "latest"
 

@@ -11,9 +11,9 @@ trim_trailing_whitespace = true
 [*.{py,pyi,php,java,rs,go,sh}]
 indent_size = 4
 
-# Shell scripts without an extension (*.sh is covered above). This section is for editors: `mise run lint` only
+# Shell scripts and zsh startup files without an extension (*.sh is covered above). This section is for editors: `mise run lint` only
 # reports shfmt -i 4 differences, and `mise run lint:fix` rewrites them
-[{.githooks/*,home/.profile,home/.bash_profile,home/.bashrc,home/.local/bin/*,desktop/.xsession,mise-tasks/**,mise-config/tasks/**,mise-config/hooks/*}]
+[{.githooks/*,home/.profile,home/.bash_profile,home/.bashrc,home/.zshenv,home/.config/zsh/*,home/.local/bin/*,desktop/.xsession,mise-tasks/**,mise-config/tasks/**,mise-config/hooks/*}]
 indent_size = 4
 
 [Makefile]

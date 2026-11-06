@@ -52,7 +52,8 @@ async function readRepoFile(source) {
 
 // The registry packages are pinned in LOCK_FILE: the release (that of the agentos-core that package.json pins) and,
 // per package, the URL and digest its manifest listed when `--lock` last ran. The manifest comes from the same
-// server as the packages, so its digest alone detects a corrupt download but not a republished release.
+// server as the packages, so at `--lock` time its digest detects a corrupt download but not a release that was
+// republished before then. Once locked, a republished package fails the digest check.
 const LOCK_FILE = "agentos/software.lock.json";
 const RELOCK = "after reviewing what changed, run `mise run agentos:lock`";
 const CORE = JSON.parse(await readFile(join(REPO_DIR, "agentos/package.json"), "utf8")).dependencies["@rivet-dev/agentos-core"];
@@ -88,7 +89,8 @@ const pinned = (lock) => Object.keys(SOFTWARE).map((name) => ({ url: lock.packag
 const exportIndex = process.argv.indexOf("--export");
 if (exportIndex !== -1) {
   const out = process.argv[exportIndex + 1];
-  if (!out) throw new Error("usage: boot.mjs --export <path>");
+  // `--export --lock` would otherwise write a file named --lock
+  if (!out || out.startsWith("-")) throw new Error("usage: boot.mjs --export <path>");
   // Checks the lock against SOFTWARE and package.json only: export has no network and no node_modules.
   const lock = await readLock();
   await mkdir(dirname(out), { recursive: true });
@@ -105,7 +107,8 @@ if (process.argv.includes("--lock")) {
   const { resolveRegistrySoftware } = await import("@rivet-dev/agentos-core");
   const names = Object.keys(SOFTWARE).sort();
   const resolved = await Promise.all(names.map((name) => resolveRegistrySoftware(name, { version: CORE })));
-  const packages = Object.fromEntries(resolved.map(({ name, digest, url }) => [name, { digest, url }]));
+  // keyed by the name that was asked for: readLock rejects a lock whose keys differ from SOFTWARE, whatever the registry calls the package
+  const packages = Object.fromEntries(resolved.map(({ digest, url }, i) => [names[i], { digest, url }]));
   await writeFile(join(REPO_DIR, LOCK_FILE), `${JSON.stringify({ core: CORE, packages }, null, 2)}\n`);
   console.log(`agentos: wrote ${LOCK_FILE} (${names.length} packages, agentos-core ${CORE})`);
   process.exit(0);
@@ -221,8 +224,12 @@ try {
   if (e.errno !== "ETIMEDOUT") throw e;
   timedOut = true;
 } finally {
-  await vm?.dispose();
-  await sidecar.dispose();
+  // the sidecar goes down even when the VM's dispose throws
+  try {
+    await vm?.dispose();
+  } finally {
+    await sidecar.dispose();
+  }
 }
 
 if (timedOut) fail(["registry download timed out (slow link); run `mise run agentos:boot` again"]);

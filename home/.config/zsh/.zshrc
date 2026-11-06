@@ -48,7 +48,16 @@ unset _djd_plugins _djd_p
 mkdir -p $XDG_CACHE_HOME/zsh
 zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
 zstyle ':completion:*' use-cache on
-autoload -Uz compinit && compinit -d "$XDG_CACHE_HOME/zsh/zcompdump-${ZSH_VERSION}"
+# a dump younger than a day is trusted (-C skips the scan of every fpath file, about 40 ms); `djd apply` and a
+# newer shell version start a fresh dump
+autoload -Uz compinit
+_djd_zcompdump=$XDG_CACHE_HOME/zsh/zcompdump-${ZSH_VERSION}
+if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
+    compinit -C -d $_djd_zcompdump
+else
+    compinit -d $_djd_zcompdump
+fi
+unset _djd_zcompdump
 
 zstyle ':completion:*' matcher-list 'm:{:a-z:}={:A-Z:}'
 zstyle ':completion:*' format '%B%F{blue}%d%f%b'
@@ -62,10 +71,20 @@ chpwd() {
     (( ZSH_SUBSHELL )) || ls -la
 }
 
+# mise first: its hook runs at once and puts the installed tools' own directories before the shims, so
+# $commands[tool] below is a path inside the installed tool's own directory, not the shim. The cache key carries
+# the resolved path (`:A`, so mise's `latest` link counts as the version behind it), and an upgrade that prunes
+# the old version regenerates the script instead of breaking the prompt.
+# Not cached: the output of `mise activate` embeds the current PATH, so a cached copy would reset PATH for
+# every later shell. None of the cached inits below changes PATH.
+if (( $+commands[mise] )); then
+    eval "$(mise activate zsh)"
+fi
+
 # Tool init scripts are cached (omp completions alone cost ~650ms per shell).
-# `djd apply` clears the cache, so upgraded tools regenerate theirs on the next shell.
+# `djd apply` clears the cache too, so tools that moved without a new path regenerate theirs on the next shell.
 _djd_init() {
-    local file=$XDG_CACHE_HOME/zsh/init/$1.zsh
+    local file=$XDG_CACHE_HOME/zsh/init/$1-${${commands[$1]:A}//[^[:alnum:]]/_}.zsh
     (( $+commands[$1] )) || return 0
     if [[ ! -s $file ]]; then
         mkdir -p ${file:h}
@@ -74,20 +93,16 @@ _djd_init() {
     fi
     source $file
 }
+[[ $CPUTYPE == x86_64 ]] && export DJD_ARCH=x86_64 # the arch badge of starship.toml
 _djd_init starship starship init zsh --print-full-init
-_djd_init zoxide zoxide init zsh --hook prompt
+# --hook pwd runs zoxide on a directory change only, where --hook prompt starts it before every prompt
+_djd_init zoxide zoxide init zsh --hook pwd
 _djd_init fzf fzf --zsh
 # after fzf: both bind Ctrl-R, and the later one wins
 _djd_init atuin atuin init zsh
 _djd_init uv uv generate-shell-completion zsh
 _djd_init omp omp completions zsh
 _djd_init mise mise completion zsh
-# mise last so its tool paths win (mise doctor: tool paths first). Not cached: its output embeds the
-# current PATH, so a cached copy would reset PATH for every later shell.
-if (( $+commands[mise] )); then
-    eval "$(mise activate zsh)"
-fi
-
 if [ -f "${ZDOTDIR}/.functions" ]; then
     . "${ZDOTDIR}/.functions"
 fi
