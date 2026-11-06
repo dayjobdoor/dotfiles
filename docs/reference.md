@@ -31,12 +31,12 @@ mise-config/            linked as ~/.config/mise, the global config
   config.toml           base module: settings, core tools, base apt packages, locale, login shell, zsh plugin clones, dotfile group home
   config.<module>.toml  the modules agent, server, desktop, full, and secrets
   tasks/djd/            the djd commands, as global file tasks
-  hooks/                dotfile-conflicts, server-pre-dotfiles, sshd-keys-only, and desktop-final: hook scripts that are too long for an inline [bootstrap.hooks] string, and the helpers they share
+  hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, and desktop-final: hook scripts that are too long for an inline [bootstrap.hooks] string, and the helpers they share
 home/                   dotfile group home, symlinked file by file into ~
 agent/                  dotfile group agent: the global AGENTS.md of pi and omp
 desktop/                dotfile group desktop: .xsession, fcitx5, ghostty, and zed
 agentos/                agentOS export and boot check
-tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and agentos-bundle.sh
+tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, server-hooks.sh, and agentos-bundle.sh
 .agents/                coding-agent skills, one today (i-have-adhd)
 skills-lock.json        source and hash of each skill in .agents/
 cloud-init/             cloud-init files for incus, multipass, and OrbStack
@@ -56,7 +56,7 @@ The selection is mise's `MISE_ENV`. A project that selects its own environment (
 | Module | apt packages | mise tools | Runs in |
 | --- | --- | --- | --- |
 | base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip zip tree sqlite3 openssh-client gnupg fastfetch make` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
-| `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | sandbox image, desktop image, VMs |
+| `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | sandbox image, desktop image |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
 | `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool` | `zed` and `zen`, both from GitHub releases, and `hackgen`, the HackGen NF font from an `http:` URL | desktop image, VMs |
 | `full`, which requires `agent` | 33 packages, counted in the section below | 181 tools | opt-in, and the weekly CI |
@@ -96,7 +96,8 @@ Base:
 - The sshd drop-in `/etc/ssh/sshd_config.d/10-djd.conf` allows keys only and denies root login. The `pre-dotfiles` hook `hooks/server-pre-dotfiles` checks it.
 - ufw denies incoming traffic, limits 22/tcp, and allows 3389/tcp from private networks only. No mDNS rule exists, because `before.rules` of ufw already accepts multicast.
 - `/etc/docker/daemon.json` binds published ports to `127.0.0.1` by default, through `ip` and `default-network-opts`. docker restarts when the file changes.
-- The `post-packages` hook adds the user to the `docker` group.
+- The `post-packages` hook adds the user to the `docker` group, and refuses the apply before the drop-in is written when the user has no authorized key, when it runs as root, or when sshd listens on a port other than 22: each would lock the user out once passwords and root login are off and the firewall allows port 22 only. `DJD_SKIP_SSH_CHECKS=1` skips the refusals.
+- `djd module remove server` deletes the sshd drop-in and `daemon.json`, so password logins and published ports on every address return. It leaves the packages and the ufw rules, so SSH stays reachable, and it prints a warning.
 
 `desktop`:
 
@@ -105,10 +106,11 @@ Base:
 - Audio over RDP comes from the package `pipewire-module-xrdp`. An XDG autostart entry of that package loads `xrdp-sink` and `xrdp-source` into the session's PipeWire and makes them the defaults through `pactl`, from `pulseaudio-utils`.
 - The four required apps. `ghostty` comes from the Ubuntu archive. `brave-browser` comes from Brave's apt repository, declared in `[bootstrap.apt.sources.brave-browser]` with `suites = "stable"` and three pinned key fingerprints. `zed` and `zen` are `github:` tools at `latest`, with a per-platform `asset_pattern`. [architecture.md](architecture.md#the-desktop-apps-each-carry-a-trust-anchor) explains what verifies each one.
 - Each app has an XFCE menu entry. Brave and ghostty use the entries of their packages. The `postinstall` of `zed` and `zen` writes `~/.local/share/applications/dev.zed.Zed.desktop` and `zen.desktop` with `Exec` on the mise shim, and installs the icon. `filter_bins = "zen"` keeps `zen-bin`, `updater`, `pingsender`, and `gfxtest` off `PATH`.
+- The `postinstall` of `zen` also writes `distribution/policies.json` with `DisableAppUpdate` and `DisableTelemetry`, and the module's `[env]` sets `ZED_UPDATE_EXPLANATION` for Zed, so neither app replaces files in the mise install directory ([architecture.md](architecture.md) and [SECURITY.md](../SECURITY.md) give the reasons).
 - The Docker image, not the module, writes a user-level `~/.local/share/applications/brave-browser.desktop` that adds `--no-sandbox` to every `Exec` line.
 - `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless and opens a window for ghostty and Zed inside the RDP session, and `tests/vm-checks.sh` runs it in the VM without the variable.
 - HackGen NF is the `http:hackgen` tool, pinned to a version and a SHA-256. Its `postinstall` copies the four `.ttf` files to `~/.local/share/fonts/HackGen` and runs `fc-cache -f`, and the install fails without `fc-cache`. The sandbox image has none, and the desktop module declares no `fontconfig` package, so it relies on a dependency of the desktop packages (inference, not checked). `hooks/desktop-final` makes no download, and no `.version` stamp file exists any more.
-- The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon, which would claim the pulse socket next to pipewire-pulse. It sets `security_layer=tls` in `/etc/xrdp/xrdp.ini` and `AllowRootLogin=false` in `/etc/xrdp/sesman.ini`, and it prints a reminder that xrdp keeps the old values until it restarts. Never write `security_layer=hybrid` there. See [RDP security](#rdp-security-and-known-limits).
+- The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon, which would claim the pulse socket next to pipewire-pulse. It sets `security_layer=tls` in `/etc/xrdp/xrdp.ini` and `AllowRootLogin=false` in `/etc/xrdp/sesman.ini`, and it restarts a running xrdp once per change, because the daemon keeps the values it started with (with an RDP session open it prints the restart command instead, and the next apply tries again; `djd doctor` reads the files, and `tests/vm-checks.sh` compares the daemon's start time). Never write `security_layer=hybrid` there. See [RDP security](#rdp-security-and-known-limits).
 - `/etc/apt/apt.conf.d/90djd-conffiles` sets `--force-confdef` and `--force-confold` for every apt run on the machine, so `djd update` keeps the edited xrdp conffiles and never stops at dpkg's conffile prompt. A new maintainer version lands beside the file as `*.dpkg-dist`.
 - The dotfile `desktop/.config/zed/settings.json` turns Zed's telemetry and auto-update off. Zed may rewrite the file through its symlink.
 
@@ -183,14 +185,14 @@ Only `djd module` and `djd secret` declare arguments, so only their `--help` lis
 | # | Part | Hook around it | Declared by | The hook does |
 | --- | --- | --- | --- | --- |
 | 1 | `files` with `phase = "pre-packages"` | | | |
-| 2 | `packages` | `post-packages`, right after | `server` | Adds the user to the `docker` group. |
+| 2 | `packages` | `post-packages`, right after | `server` | Runs `hooks/server-post-packages`. It adds the user to the `docker` group, then refuses the apply, before step 3 writes the sshd drop-in, when `~/.ssh/authorized_keys` (or `authorized_keys2`) holds no key, when the apply runs as root, or when sshd listens on a port other than 22. `DJD_SKIP_SSH_CHECKS=1` skips the refusals. |
 | 3 | the other `files`, then `services`, then `firewall` | | | |
 | 4 | `repos` | | | |
 | 5 | `dotfiles` | `pre-dotfiles`, before | base, `agent`, `desktop` | Run `hooks/dotfile-conflicts <group>` for the dotfile group `home`, `agent`, or `desktop`. It deletes a real file that equals its `/etc/skel` copy, and moves any other real file that a dotfile would replace to `<file>.djd-backup-<time>`. |
 | 5 | `dotfiles` | `pre-dotfiles`, before | `server` | Runs `hooks/server-pre-dotfiles`, which fails the apply unless the sshd drop-in is in effect (`hooks/sshd-keys-only` makes the check, and `djd doctor` shares it). It runs after the base and `agent` hooks, so an apply that fails here can leave files moved aside. |
 | 6 | `user` (the login shell) | `pre-user`, before | base | Switches the login shell to zsh through sudo. |
 | 7 | `tools` | | | |
-| 8 | `final-hook` | `final` | `desktop` | Runs `hooks/desktop-final`. |
+| 8 | `final-hook` | `final` | `desktop` | Runs `hooks/desktop-final`. It purges the packages that break xrdp sessions, makes xrdp TLS-only without root logins, and restarts a running xrdp once per change (not while an RDP session is open, when it says so and the next apply tries again). |
 
 A standalone `mise dot apply` also runs the `pre-dotfiles` and `post-dotfiles` hooks. mise runs the hooks of every selected module in order, base first, and only when their part runs, so `djd apply --dry-run`, `--skip dotfiles`, and `--only` without `dotfiles` move no file. mise runs hooks and the `bootstrap` task on every run, so a hook must be safe to repeat. [architecture.md](architecture.md#hooks-live-in-the-module-that-needs-them) gives the reasons for each hook.
 
@@ -203,11 +205,11 @@ The sshd check of `hooks/sshd-keys-only` has a scope. On the stock layout it nee
 | `~/.profile` | bash login shells, zsh through `.zshenv`, and agentOS when sourced explicitly | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `PYTHON_HISTORY` and `NODE_REPL_HISTORY`. less keeps its history under the XDG state directory by its own rule, so `.profile` does not set `LESSHISTFILE`. Then reads `~/.config/djd/profile.local`, which it tests with `-f` because the agentOS shell says `[ -r <missing file> ]` is true. It is POSIX and has no side effects. |
 | `~/.zshenv` | every zsh | Sets `skip_global_compinit=1`, so that the `compinit` of `/etc/zsh/zshrc` does not drop `.zcompdump` into `ZDOTDIR`. Sets `ZDOTDIR=~/.config/zsh` and sources `.profile`. |
 | `~/.config/zsh/.zshenv` | every zsh that starts with `ZDOTDIR` already exported, which is a nested shell | Sources `~/.zshenv`, so nested shells load `.profile` too. |
-| `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal. |
-| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion, starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), the zsh plugins from `~/.local/share/zsh/plugins` through zsh-defer, `mise activate`, and `.functions`, and reads `$ZDOTDIR/.zshrc.local`. It skips a missing plugin clone without a message. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
-| `~/.config/zsh/.zlogin` | zsh login shells | Prints an interactive banner with fortune and cowsay, when installed. Prints a second banner with figlet and lolcat, when installed. A login shell that runs a command prints nothing. |
-| `~/.config/zsh/.zlogout` | interactive zsh login shells, on exit | Runs fastfetch, or prints a short banner when it is missing. `zsh -lc` does not read it. |
-| `~/.bash_profile` and `~/.bashrc` | bash | Source `.profile`, then run the interactive-only setup: history (appended, not overwritten), starship, zoxide, omp completions, and `mise activate` last, because `starship init bash` overwrites `PROMPT_COMMAND` and would drop mise's hook. |
+| `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal, nor for `zsh -lic cmd`. |
+| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion (a dump younger than a day is reused with `compinit -C`), `mise activate` first, so that the tool inits after it find the installed binaries and not the shims, then starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), the zsh plugins from `~/.local/share/zsh/plugins` through zsh-defer, and `.functions`, and reads `$ZDOTDIR/.zshrc.local`. The cached tool inits are keyed by the resolved binary path, so an upgrade regenerates them. It exports `DJD_ARCH=x86_64` on x86_64, for the arch badge of starship. It skips a missing plugin clone without a message. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
+| `~/.config/zsh/.zlogin` | zsh login shells | Prints an interactive banner with fortune and cowsay, when installed. Prints a second banner with figlet and lolcat, when installed. A login shell that runs a command (`zsh -lc`, `zsh -lic`) prints nothing. |
+| `~/.config/zsh/.zlogout` | interactive zsh login shells, on exit | Runs fastfetch, or prints a short banner when it is missing. `zsh -lc` does not read it, and `zsh -lic cmd` reads it but prints nothing. |
+| `~/.bash_profile` and `~/.bashrc` | bash | Source `.profile`, then run the interactive-only setup: history (appended, not overwritten), starship, zoxide, omp completions, and `mise activate` before them, so that the cached inits are keyed by the installed binary's path. starship's init keeps the `PROMPT_COMMAND` it finds, so mise's hook survives. `.bashrc` exports `DJD_ARCH` like `.zshrc`. |
 
 ## Environment variables
 
@@ -219,8 +221,9 @@ The tables group the variables by where they matter. The scope names are install
 | --- | --- | --- | --- |
 | `DJD_DIR` | login, agentOS | `~/.dotfiles` | Path of the checkout, which `.profile` always exports as `$HOME/.dotfiles`. It is not an override: `install.sh` and the djd tasks always use `~/.dotfiles`, because mise reads `~/.config/mise` and `dotfiles.root` there. |
 | `DJD_REPO` | install | the GitHub URL of this repository | Repository that `install.sh` clones. |
-| `MISE_VERSION` | install | the `min_version` of `mise-config/config.toml`, with a `v` prefix | mise release that `install.sh` installs when mise is missing. A value in the environment overrides the `min_version`. Without both, `install.sh` stops. |
-| `DJD_BOOTSTRAP_FLAGS` | install | empty | Extra flags that `djd apply` passes to `mise bootstrap`. The Docker build passes `--skip tools,final-hook,dotfiles`, `--only tools,final-hook`, and `--only dotfiles`. |
+| `DJD_SKIP_SSH_CHECKS` | install, tasks | unset | When non-empty, the server module's `post-packages` hook skips its refusals (no authorized key, root, a port other than 22). For a machine that is reached through a console, `incus exec` or `multipass exec`. `test:vm` sets it. |
+| `MISE_VERSION` | install | the `min_version` of `mise-config/config.toml`, with a `v` prefix | mise release that `install.sh` installs when mise is missing or older than `min_version`. A value in the environment overrides the release to install, with or without the `v`. Without a `min_version`, `install.sh` stops. |
+| `DJD_BOOTSTRAP_FLAGS` | install | empty | Extra flags that `djd apply` passes to `mise bootstrap`. The Docker build passes `--skip tools,dotfiles`, `--only tools`, and `--only dotfiles`. |
 | `MISE_ENV` | install, shim | unset | The module selection, which mise reads from `miserc.local.toml`. The `djd` wrapper, and so `install.sh`, and `djd module` unset a value of your own. A shimmed process passes it to its children, where it outranks a project's `.miserc.toml` (see [Modules](#modules)). |
 | `LC_ALL` | install | `C.UTF-8` | The `djd` wrapper forces it, because mise matches the English ufw output. `tests/vm-checks.sh` sets it too. |
 
@@ -230,7 +233,8 @@ The tables group the variables by where they matter. The scope names are install
 | --- | --- | --- | --- |
 | `LANG` | login, image | `C.UTF-8` | `.profile` keeps a value that is already set. The images set `LANG=C.UTF-8` themselves, because `docker run` and `docker exec` read no `.profile`. `/etc/locale.conf` sets the system locale, and the `desktop` module changes it to `ja_JP.UTF-8`. |
 | `TZ` | login | `Asia/Tokyo` | Time zone of login shells. `.profile` keeps a value that is already set. `docker exec` and shims do not read it, so a plain `docker run` of the sandbox image reports `UTC`. |
-| `DJD_NO_MUX` | login, image | unset | When set, `.zprofile` does not start herdr. The Docker images set it. |
+| `DJD_NO_MUX` | login, image | unset | When non-empty, `.zprofile` does not start herdr. The Docker images set it. |
+| `DJD_ARCH` | interactive shell | unset | `.zshrc` and `.bashrc` set it to `x86_64` on x86_64 hosts. The `env_var.DJD_ARCH` module of `starship.toml` shows it as the arch badge. |
 
 ### Tokens
 
@@ -257,7 +261,7 @@ The tables group the variables by where they matter. The scope names are install
 | `PASSWORD` | compose | required | RDP password of the desktop container. Set it in `.devcontainer/.env`. |
 | `TUNNEL_TOKEN` | compose | none | Token of the optional cloudflared service, which is commented out in `compose.yaml`. When you enable it, the token goes in `environment` and not on the command line. |
 
-A value that you export in your shell wins over `.devcontainer/.env` for `RDP_PORT` and `PASSWORD`. `docker compose config` with `PASSWORD=fromshell` rendered the shell value. These names are generic, so a stray export silently becomes the RDP password or port. `PASSWORD` and `TUNNEL_TOKEN` are secrets.
+A value that you export in your shell wins over `.devcontainer/.env` for `RDP_PORT` and `PASSWORD`. `PASSWORD` feeds the `djd_rdp_password` secret, which `docker compose config` does not render, so this was checked by reading `/run/secrets/djd_rdp_password` in a throwaway compose project whose `.env` held another value: the exported value was the one in the file. These names are generic, so a stray export silently becomes the RDP password or port. `PASSWORD` and `TUNNEL_TOKEN` are secrets.
 
 Precedence in login shells and tools:
 
@@ -274,7 +278,7 @@ The shell files and tools put their files in these places. [architecture.md](arc
 | Kind | Location | Written by |
 | --- | --- | --- |
 | Configuration | `~/.config`, with `~/.config/zsh` as `ZDOTDIR`, `~/.config/npm/npmrc` for npm, and `~/.config/djd` for `profile.local`, `bashrc.local`, and `age.txt` | the dotfile deployment, `djd secret`, npm |
-| History | `$XDG_STATE_HOME`: `zsh/history`, `bash/history`, `lesshst`, `python_history`, `node_repl_history`, and `djd/sshd-dropin`, the stamp that makes `hooks/server-pre-dotfiles` reload sshd only when the drop-in changed | `.zshrc`, `.bashrc`, `.profile`, less, `hooks/server-pre-dotfiles` |
+| History | `$XDG_STATE_HOME`: `zsh/history`, `bash/history`, `lesshst`, `python_history`, `node_repl_history`, `djd/sshd-dropin`, the stamp that makes `hooks/server-pre-dotfiles` reload sshd only when the drop-in changed, and `djd/xrdp-restart`, the stamp that makes `hooks/desktop-final` restart xrdp once per change | `.zshrc`, `.bashrc`, `.profile`, less, `hooks/server-pre-dotfiles`, `hooks/desktop-final` |
 | Cache | `$XDG_CACHE_HOME`: `zsh/zcompdump-<version>`, `zsh/zcompcache`, `zsh/init/`, `bash/init/`, `npm/`, `bun/`, and `fast-syntax-highlighting/` (or `fsh/`, when the first is not writable) | `.zshrc`, `.bashrc`, npm, bun, fast-syntax-highlighting |
 | Data | `$XDG_DATA_HOME`: `mise/` with the shims, `zsh/plugins/` with the zsh plugin clones, `fonts/`, `applications/` and `icons/` (the Zed and Zen menu entries, and in the Docker image Brave's), and `cargo/` and `rustup/` (the `full` module) | mise, the `postinstall` of hackgen, zed, and zen, the Dockerfile |
 | Executables | `~/.local/bin`, which holds `djd` and the mise binary that `install.sh` installs | the dotfile deployment, `install.sh` |
@@ -389,7 +393,7 @@ A script sent an X.224 request for TLS, then pinned each version.
 | `TerminalServerUsers` | `tsusers`, a group that does not exist, with `AlwaysGroupCheck=false`, so everyone may log in. |
 | `MaxSessions`, `KillDisconnected` | 50, and `false`: disconnected sessions live on, so agent work survives. |
 | Sudo | `ubuntu` has passwordless sudo, so one guessed password is root in the container. |
-| Password in argv | `docker-init -- djd-desktop-entrypoint ubuntu <password>` shows in `/proc/1/cmdline` of the container and in `docker inspect`. |
+| Password in argv | Only when it is passed as an argument, `djd-desktop-entrypoint ubuntu <password>`, which shows in `/proc/1/cmdline` of the container and in `docker inspect`. `compose.yaml` passes it as the `djd_rdp_password` secret instead, mounted at `/run/secrets/djd_rdp_password`, which neither shows. Inside the container, a process that runs as root can still read the file. |
 | Listener | Only `xrdp`, on `[::]:3389` inside the container. `compose.yaml` publishes it on IPv4 loopback only. |
 | `AUTHFAIL` log lines | They go to `/var/log/xrdp-sesman.log`, where a log watcher could read them. |
 

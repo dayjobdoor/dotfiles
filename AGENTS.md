@@ -4,23 +4,23 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 
 ## Rules
 
-- Scope is Ubuntu 26.04 (amd64, arm64). No macOS, WSL or other distros.
+- Scope is Ubuntu 26.04 (amd64, arm64). No macOS, WSL or other distros as targets; a Mac appears only as the host of Docker, act and the VM tools.
 - Never run `install.sh`, `djd`, `mise bootstrap`, `mise dot`, `mise trust` or `mise run agentos:boot` on a machine you can't throw away. Test in Docker or a VM with the commands below.
 - Use absolute paths inside this checkout. `djd`, `install.sh` and the djd tasks act on `~/.dotfiles`, never on the current directory.
 - No secrets in the repo. Follow [SECURITY.md](SECURITY.md); per-machine values go in the local override files it lists.
 - Test assertions: `! cmd` is exempt from `set -e`, and zsh has no `pipefail`, so `cmd | grep -q` hides the exit status of `cmd`. Write `if cmd; then exit 1; fi` and use here-strings. Make each new check fail once on a broken copy before you trust it.
-- Done means `mise run lint` and the narrowest test below pass, and every hit of `git grep -n <changed name> -- '*.md' llms.txt` is updated. `lint:docs` checks only code spans, so prose can drift.
+- Done means `mise run lint` and the narrowest test below pass, and every hit of `git grep -n <changed name> -- '*.md' llms.txt` is updated. `lint:docs` checks links, anchors and the repo paths, commands and `DJD_` variables in code spans, but not prose, so prose can drift.
 
 ## Verify
 
-CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`, `agentos:boot`). Tests that install or apply anything run in Docker or a throwaway incus, multipass or OrbStack VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:sandbox` (`mise run test:offline djd-module`, about 1 s; no name runs all four, about 40 s). A whole CI job runs with act (`mise run ci sandbox`).
+CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`, `agentos:boot`). Tests that install or apply anything run in Docker or a throwaway incus, multipass or OrbStack VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:sandbox` (`mise run test:offline djd-module`, about 1 s; no name runs all five, about 40 s). A whole CI job runs with act (`mise run ci sandbox`).
 
 Without trusting the repo on the host, the task files run directly, and lint and agentOS run inside the sandbox image. `tests/tree.sh` streams only tracked and unignored files as a tar archive (nothing is mounted), so ignored files such as `age.txt` stay on the host:
 
 ```sh
 export GITHUB_TOKEN=   # empty builds anonymously; or a token with no scopes (SECURITY.md#github-tokens). Never `gh auth token`
 bash mise-tasks/lint/docs   # needs only bash; docs links, anchors, paths and commands
-mise-tasks/test/offline     # the four offline tests on an existing djd:sandbox, about 40 s
+mise-tasks/test/offline     # the five offline tests on an existing djd:sandbox, about 40 s
 mise-tasks/build sandbox && mise-tasks/test/_default
 mise-tasks/build desktop && mise-tasks/test/desktop
 mise-tasks/test/vm   # incus, multipass or OrbStack
@@ -33,7 +33,7 @@ tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:sandbox zsh -lc 'mkdir /t
 | --- | --- |
 | apt packages, tools, files every machine needs | `mise-config/config.toml` |
 | agent runtimes and CLIs, their env, the global AGENTS.md of pi and omp | `mise-config/config.agent.toml`, `agent/` |
-| ssh, firewall, docker | `mise-config/config.server.toml`, `mise-config/hooks/server-pre-dotfiles` and `sshd-keys-only` |
+| ssh, firewall, docker | `mise-config/config.server.toml`, `mise-config/hooks/server-post-packages`, `server-pre-dotfiles` and `sshd-keys-only` |
 | XFCE, xrdp, Japanese input, ghostty, brave, zen, zed, HackGen NF | `mise-config/config.desktop.toml`, `mise-config/hooks/desktop-final`, `desktop/` |
 | the Docker images, the desktop entrypoint, compose | `.devcontainer/` (the desktop password and the TLS key are handled in `desktop-entrypoint.sh`) |
 | the opt-in toolbox | `mise-config/config.full.toml` |

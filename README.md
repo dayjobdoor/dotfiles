@@ -27,6 +27,7 @@ What it changes on the machine:
 - A real file that a dotfile would replace is moved to `<file>.djd-backup-<time>`, just before the dotfiles are linked. `djd apply --dry-run` moves nothing.
 - A login zsh on a real terminal starts herdr. Export `DJD_NO_MUX=1` (for example in `~/.config/djd/profile.local`) to skip it.
 - The `server` module's firewall denies every inbound port except SSH (rate-limited) and RDP from private networks. Docker's published ports bypass it (the module makes them bind to `127.0.0.1` by default), and mDNS multicast stays open.
+- The `server` module turns password and root logins off for ssh. Its `post-packages` hook refuses to continue when your user has no key in `~/.ssh/authorized_keys`, when the apply runs as root, or when sshd listens on a port other than 22, because each would lock you out. `DJD_SKIP_SSH_CHECKS=1` skips the refusals on a machine that you reach another way (a console, `incus exec`, `multipass exec`).
 - The `desktop` module sets the system locale to ja_JP.UTF-8.
 - The cloud-init files set the timezone to Asia/Tokyo, and `cloud-init/multipass.yaml` also sets a Japanese keyboard layout (`layout: jp`, `ctrl:nocaps`).
 
@@ -126,13 +127,12 @@ sudo incus admin init --minimal            # once
 sudo adduser "$USER" incus-admin           # once, then log in again
 incus launch images:ubuntu/26.04/cloud djd -c security.nesting=true -c cloud-init.user-data="$(cat cloud-init/vm.yaml)"
 incus exec djd -- cloud-init status --wait
-incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server desktop'
+incus exec djd -- sudo -iu ubuntu sh -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | DJD_SKIP_SSH_CHECKS=1 sh -s -- server desktop'
 incus exec djd -- passwd ubuntu   # RDP login needs a password
-incus exec djd -- systemctl restart xrdp xrdp-sesman   # xrdp reads its TLS-only settings at start
 incus list djd                    # connect an RDP client to this address, port 3389
 ```
 
-The server module opens RDP only to loopback and private networks, and the incus bridge is private.
+`DJD_SKIP_SSH_CHECKS=1` is there because the container has no authorized ssh key, and the server module refuses to turn passwords off for a user without one. The install restarts xrdp itself, so it reads its TLS-only settings. The server module opens RDP only to loopback and private networks, and the incus bridge is private.
 
 If the host runs ufw or Docker, which the `server` module sets up, the container gets no network until the host allows the bridge. The [Incus firewall guide](https://linuxcontainers.org/incus/docs/main/howto/network_bridge_firewalld/) lists the rules. For ufw, run:
 
@@ -149,11 +149,10 @@ multipass ([install it](https://documentation.ubuntu.com/multipass/latest/how-to
 ```sh
 multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml   # waits for the install
 multipass exec djd -- sudo passwd ubuntu   # RDP login needs a password
-multipass exec djd -- sudo systemctl restart xrdp xrdp-sesman   # xrdp reads its TLS-only settings at start
 multipass info djd                         # connect an RDP client to this address, port 3389
 ```
 
-The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack. `mise run test:vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01, with the server and desktop modules installed from `cloud-init/vm.yaml` on `ubuntu:resolute`. That run used an earlier tree, so the recipe and the test are verified on OrbStack but not on this exact commit.
+The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack. `mise run test:vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01, with the server and desktop modules installed into a machine that `cloud-init/vm.yaml` configured, on `ubuntu:resolute`. That run used an earlier tree, so the recipe and the test are verified on OrbStack but not on this exact commit.
 
 ## agentOS
 
@@ -178,7 +177,7 @@ rm ~/.config/mise                        # the link to this repository's mise co
 rm -rf ~/.dotfiles                       # a clone; check `git -C ~/.dotfiles status` and push first. If it is a link to your own checkout, use `rm ~/.dotfiles` instead
 ```
 
-`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back.
+`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` deletes the sshd drop-in and `daemon.json`, so password logins and published ports on every address return, while the ufw rules stay (SSH included); `djd module remove` prints that warning.
 
 ## Fork
 
@@ -192,17 +191,18 @@ Replace `dayjobdoor` with your GitHub user (`git grep -l dayjobdoor` lists the f
 ## Development
 
 ```sh
+export GITHUB_TOKEN=                  # test, test:desktop and ci stop without it: a token with no scopes, or empty for none (SECURITY.md#github-tokens)
 git config core.hooksPath .githooks   # gitleaks on every commit
 mise trust                            # once per clone, by you on a machine you accept it on (AGENTS.md bans it elsewhere)
 make                                  # list tasks
 make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
 make lint:fix                         # rewrite shell and mise TOML formatting
-mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:sandbox, about 40 s and no build (also: make test:offline)
+mise run test:offline [test]          # the five offline tests on the current tree in an existing djd:sandbox with no network, about 40 s and no build (also: make test:offline)
 make test                             # builds the sandbox image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
 make test:vm                          # fresh incus, multipass or OrbStack VM: server + desktop install, hardening, module removal
 make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
-make ci ARGS=--dry-run                # plan every job of every workflow, release ones included
+make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
 `make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Tests that install or apply anything run in Docker or a throwaway VM, never on your machine. `make lint` runs on the host and installs its user-level tools there. `mise run agentos:boot` starts a native sidecar, so [AGENTS.md](AGENTS.md) runs it in the sandbox image. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `lint:docs` in `docs.yaml` instead.

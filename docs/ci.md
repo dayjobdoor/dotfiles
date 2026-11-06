@@ -12,7 +12,7 @@ Facts about the GitHub Actions workflows, the tests they run, and the release ch
 | `push.yaml` | A semver tag push, or a dispatch by `tag.yaml` | none at the top. `build-images` has `contents: read` and `packages: write`, and `merge` has `packages: write`. | Publishes the images to GHCR. |
 | `full-weekly.yaml` | A weekly schedule and `workflow_dispatch` | `contents: read` | Builds the `full` image, runs `djd doctor` in it, then runs `djd update` and `djd doctor` in it. It sits outside the release chain, so a red run never blocks a release. |
 
-`ci.yaml` skips a push or pull request that touches only `docs/**` or Markdown files, except `DESIGN.md` and `agent/**`. The two `agent/**/AGENTS.md` files ship in the images and the sandbox test compares them, so a change there runs CI, tags, and releases. `docs.yaml` takes the other side of that filter, so a docs-only change still gets `lint:docs`, which checks links, anchors, repo paths, commands, `DJD_` variables, and the test list.
+`ci.yaml` skips a push or pull request that touches only `docs/**`, Markdown files, or `llms.txt`, except `DESIGN.md` and `agent/**`. The two `agent/**/AGENTS.md` files ship in the images and the sandbox test compares them, so a change there runs CI, tags, and releases. `lint` checks `DESIGN.md`, so a change to it runs both `ci.yaml` and `docs.yaml`. `docs.yaml` takes the other side of the filter for everything else, so a docs-only change still gets `lint:docs`, which checks links, anchors, repo paths, commands, `DJD_` variables, and the test list.
 
 The weekly schedule catches upstream breakage, because tools track `latest`. Scheduled runs never release, because `tag.yaml` accepts push runs only. Each event has its own concurrency group, so a scheduled run never cancels the push run that a release waits for.
 
@@ -45,10 +45,10 @@ flowchart LR
 | `docs.yaml` | 10 min | not measured |
 | `push.yaml` `build-images` | 45 min | 2 to 5 min |
 | `push.yaml` `merge` | 10 min | not measured |
-| `tag.yaml` release job | 60 min | about 6 min, because it waits for `push.yaml` |
+| `tag.yaml` release job | 60 min | 8 min 9 s in the one run that waited for `push.yaml` (release 0.0.6, 5 November) |
 | `full-weekly.yaml` | 60 min | about 21 min |
 
-The measured values are medians of recent runs, read from the run history up to 1 November 2026. A timeout covers the slowest expected case with room, and it also limits how long a hung job holds its token. `full-weekly.yaml` prints `df -h /` first, because its one red run died with `No space left on device` and left no log.
+The measured values are medians of recent runs, read from the run history up to 1 November 2026, except the `tag.yaml` row. A timeout covers the slowest expected case with room, and it also limits how long a hung job holds its token. `full-weekly.yaml` prints `df -h /` first, because its one red run died with `No space left on device` and left no log.
 
 ## Jobs in ci.yaml
 
@@ -59,8 +59,8 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 `mise run lint` runs six checks in parallel. Each check installs only its own tools. `lint` has no body of its own. It depends on the six `lint:*` tasks.
 
 - `lint:shell` runs shellcheck and `shfmt -i 4` over every file whose first line is a `sh` or `bash` shebang, plus `home/.profile`, `.bash_profile`, and `.bashrc`, and `zsh -n` on each zsh startup file separately. It does not lint the inline `postinstall` scripts in the TOML files. When `shfmt` finds a difference, it prints `lint: shell is not formatted; run mise run lint:fix`.
-- `lint:config` runs `mise fmt` and `mise tasks validate`. It also requires that the `min_version` line of `mise.toml`, the `min_version` line of `mise-config/config.toml`, and every `jdx/mise-action` step (an unquoted `version:` line) name the same mise release, because no bot bumps them. `install.sh` is not a pin, because it reads `min_version`. The check fails and names the source when a pin is missing or reformatted.
-- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, and runs hadolint.
+- `lint:config` runs `mise fmt` and `mise tasks validate`. It skips the gitignored `*.local.toml` files. It also requires that the `min_version` line of `mise.toml`, the `min_version` line of `mise-config/config.toml`, and every `jdx/mise-action` step (an unquoted `version:` line) name the same mise release, because no bot bumps them. `install.sh` is not a pin, because it reads `min_version`. The check fails and names the source when a pin is missing or reformatted.
+- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, and runs hadolint. It fails on a workflow named `*.yml`, because the other checks read `*.yaml` only.
 - `lint:design` lints `DESIGN.md`.
 - `lint:docs` runs the checks in the next list, and also runs alone in `docs.yaml`.
 - `lint:secrets` runs gitleaks over the whole git history. When there is no git directory, it runs over the files, so the secret scan never skips.
@@ -73,7 +73,7 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 - Every repo path in an inline code span exists. A leading `./` is allowed, and a path under a top-level name that existed in the git history but not now is reported. Without a git history, as in the docker lint run, only today's names count.
 - Every `mise run` and `djd` command in a span names a real task or command, and every word after `make` does.
 - Every `DJD_` variable in the docs appears in the code.
-- Every `DJD_` variable in the code appears in some doc. `DJD_BAD` and `DJD_CHECK` (secret names that `test` makes up) and `DJD_COMMANDS` (a Makefile variable) are exempt.
+- Every `DJD_` variable in the code appears in some doc. `DJD_BAD`, `DJD_CHECK` and `DJD_CHECK2` (secret names that `test` makes up) and `DJD_COMMANDS` (a Makefile variable) are exempt.
 - Every `tests/*.sh` is named in `docs/reference.md` and is run by a task under `mise-tasks/`. A bare name inside a quoted or space-delimited list counts as a reference, so a test with a common word for a name could pass trivially.
 
 ### sandbox, on amd64 and arm64
@@ -88,22 +88,25 @@ The `test` task builds the sandbox image and then runs these steps in order. Eac
 | 4 | `.profile` | `~/.profile` alone puts the shims on `PATH`, tested with `env -i`. |
 | 5 | Agent module | A shimmed `node` sees `PI_TELEMETRY=0` and `DO_NOT_TRACK=1` without a login shell. `~/.pi/agent/AGENTS.md` is a link, and its content equals `~/.omp/agent/AGENTS.md`. |
 | 6 | Silent shells | Interactive zsh and bash start silently on a tty. The first zsh start fills the init cache, so the test drops its output. The second zsh start and a bash start must print nothing. |
-| 7 | Login banner | `zsh -lc` output contains no `.zlogin` banner. With the banner tools stubbed to print distinct text, a login shell prints exactly the two banners and the `.zlogout` farewell. |
+| 7 | Login banner | `zsh -lc` and `zsh -lic` output contain no `.zlogin` banner. With the banner tools stubbed to print distinct text, an interactive login shell that reads its commands from stdin prints exactly the two banners and the `.zlogout` farewell. |
 | 8 | Doctor, release and shell | `djd doctor` fails for an `os-release` that is not Ubuntu 26.04 and for a login shell that is not zsh, and passes again after each repair. |
 | 9 | Doctor, sshd | The scenarios in the stub table below. |
 | 10 | Doctor, xrdp | The xrdp scenarios in the stub table below. |
 | 11 | Backup and relink | One container backs up a conflicting file, relinks a moved checkout through `install.sh`, and converges (next list). |
-| 12 | Status | `djd status` exits 0 and prints the revision, which the image carries because it has no `.git`. |
-| 13 | Secrets | A secrets round trip works (the list after the stub table). |
+| 12 | Directory link | A directory link into the checkout (`~/.config/lsd`) is not moved aside by `hooks/dotfile-conflicts`, and no tracked file is renamed. |
+| 13 | Status | `djd status` exits 0 and prints the revision, which the image carries because it has no `.git`. |
+| 14 | `install.sh` | It replaces a mise older than `min_version` (a stub `curl` records `MISE_VERSION`) and leaves the image's own mise alone. |
+| 15 | Secrets | A secrets round trip works (the list after the stub table). |
 
 Step 11 in detail:
 
 - `djd apply --dry-run` leaves a conflicting file in place and creates no backup.
 - A real apply moves the file aside.
+- `~/.dotfiles` is a link to the checkout, and the checkout moves, so the link dangles. `install.sh` removes it and links the new location.
 - A successful apply clears the zsh and bash init caches.
 - Converging means that `djd doctor` and `mise bootstrap plan --detailed-exitcode` both pass.
 
-`djd doctor` must exit non-zero and name the check for each of these stubs, in a throwaway container:
+`djd doctor` must print the line named in the table for each of these stubs, in a throwaway container, and exit non-zero whenever that line is a `FAIL`:
 
 | Stub | Doctor must report |
 | --- | --- |
@@ -116,6 +119,9 @@ Step 11 in detail:
 | an earlier drop-in that changes nothing | `ok sshd` |
 | an `sshd_config` that does not start with the `Include`, with a stub that reports passwords on | `FAIL sshd` |
 | the same file, with a stub that reports passwords off | `ok sshd` |
+| a drop-in with an `Include`, or one this user cannot read (mode 0600), with a stub that reports passwords on | `FAIL sshd`; with the stub reporting off, `ok sshd` |
+| the server module selected but never applied | `FAIL bootstrap` |
+| `XDG_CONFIG_HOME` elsewhere, with the doctor script run directly | `FAIL mise-config` |
 | `security_layer=negotiate` in `xrdp.ini` | `FAIL xrdp-tls`, and `ok xrdp-root-login` |
 | `security_layer=tls` only as a comment | `FAIL xrdp-tls` |
 | `AllowRootLogin=true` in `sesman.ini` | `FAIL xrdp-root-login`, and `ok xrdp-tls` |
@@ -123,13 +129,13 @@ Step 11 in detail:
 
 The real hook cannot see a `Match` for another user or for an address, so the test stops at `Match all` and a harmless `Match`. A real sshd evaluates `Match` blocks only with `-C`, which is why the stub does the same.
 
-The secrets round trip, step 13:
+The secrets round trip, step 15:
 
-- The key has mode 600 and its directory mode 700, and `djd secret keygen` refuses to overwrite it.
-- The module is selected before the first `djd secret set`. Two values are set in a row, and both decrypt through `mise exec`, because a task without `raw=true` stored an empty second value.
+- The key has mode 600 and its directory mode 700, and `djd secret keygen` refuses to overwrite it and leaves it unchanged.
+- The first `djd secret set` runs with the module unselected, the usual case, and the module is selected before the second. Both values decrypt through `mise exec`, because a task without `raw=true` stored an empty second value.
 - The ciphertext lands in `config.secrets.toml` without the plaintext.
 - `djd secret set NAME=value` exits 2 and writes nothing.
-- `djd doctor` reports the secrets module as ok, then as failed for a missing key, for a different key, and for a key with any group or other bit (0400 and 0600 pass).
+- `djd doctor` reports the secrets module as ok, then as failed for a missing key, for a different key, and for a key with any group or other bit (0400 and 0600 pass), and each failure names its own cause.
 
 ### desktop, on amd64 and arm64
 
@@ -141,18 +147,20 @@ The `test:desktop` task builds the desktop image and starts a server container, 
 | 2 | TLS key | The fingerprints of the server, the control, and the certificate that the image was built with all differ. | Every container would otherwise share one key, and anyone who pulls the image holds it. |
 | 3 | Legacy layer | `xfreerdp3 /sec:rdp`, logged in as a throwaway account `probe`, is refused by the server. Its `xrdp.log` says `requested [RDP], selected []`, no `probe` session starts, and the first session stays up. The control accepts the same client (`selected [RDP]`, and the client stays connected). | Without the control, a client that cannot speak the legacy layer would pass the refusal on any server. The second account shows that a wrongly accepted client would start a session of its own. |
 | 4 | Root login | Root gets a password in both containers. The control starts a root `xfce4-session`. The sesman log of the server says `ROOT login attempted, but root login is disabled`, and no root session starts. | The refused client stays at the login screen, so its exit code cannot show a refused root login. |
-| 5 | Audio defaults | `pactl get-default-sink` prints `xrdp-sink` and `pactl get-default-source` prints `xrdp-source`. Then the test kills wireplumber, and a new wireplumber process must appear within 30 s with the same two defaults. | This shows that `~/.xsession` started PipeWire and that the autostart entry of `pipewire-module-xrdp` loaded both devices and made them the defaults through `pactl`. The source check matters, because the container has only one sink and wireplumber would pick it without the script. The defaults live in the metadata of wireplumber. The client has no audio device and plays nothing, so the test proves the setup and not the sound. |
-| 6 | Apps | `tests/desktop-apps.sh` runs as the desktop user with `DJD_APPS_LAUNCH=1`. For each of brave-browser, ghostty, zen, and zed, the command resolves and prints its version, and the menu entry exists with an `Exec` that resolves. Brave runs that `Exec` line, which carries `--no-sandbox` in the image, plus `--headless=new --dump-dom about:blank`, and the output contains `<html`. Zen runs `--headless --screenshot` and writes a PNG. Ghostty and Zed start inside the RDP session, and each shows a window of its own `WM_CLASS` within 30 s. The test logs how long each took. | The VM test runs the same script without the variable. |
-| 7 | Supervisor | `tests/xsession-audio.sh` runs as the desktop user. | See the list below the table. |
-| 8 | Logout | The test ends `xfce4-session`, which also ends the session bus. No `pipewire`, `pipewire-pulse`, or `wireplumber` of the user remains after 30 s. A second login gets the same two audio defaults from daemons with new PIDs. | Before `~/.xsession` ended what it started, the daemons outlived the logout, and the supervisor started a `wireplumber` against the dead bus. |
-| 9 | Container restart | The test restarts the server container, logs in again, and repeats the sink and source checks. | A restart leaves the stale PipeWire socket of the first session in `/run`, and `~/.xsession` must not take it for a live server. The client disconnects first, because it could otherwise reconnect and make the wait pass on its session. |
+| 5 | Password secret | The entrypoint sets the password of `ubuntu` from `/run/secrets/djd_rdp_password` when no argument gives one, and refuses to start with neither. | `compose.yaml` passes the password as a secret, because an argument shows in `docker inspect` and `/proc/1/cmdline`. The image itself has no password for `ubuntu`, which is the control. |
+| 6 | Audio defaults | `pactl get-default-sink` prints `xrdp-sink` and `pactl get-default-source` prints `xrdp-source`. Then the test kills wireplumber, and a new wireplumber process must appear within 30 s with the same two defaults. | This shows that `~/.xsession` started PipeWire and that the autostart entry of `pipewire-module-xrdp` loaded both devices and made them the defaults through `pactl`. The source check matters, because the container has only one sink and wireplumber would pick it without the script. The defaults live in the metadata of wireplumber. The client has no audio device and plays nothing, so the test proves the setup and not the sound. |
+| 7 | Apps | `tests/desktop-apps.sh` runs as the desktop user with `DJD_APPS_LAUNCH=1`. For each of brave-browser, ghostty, zen, and zed, the command resolves and prints its version, and the menu entry exists with an `Exec` that resolves. Brave runs that `Exec` line, which carries `--no-sandbox` in the image, plus `--headless=new --dump-dom about:blank`, and the output contains `<html`. Zen runs `--headless --screenshot` and writes a PNG. Ghostty and Zed start inside the RDP session, and each shows a window of its own `WM_CLASS` within 30 s. The test logs how long each took. | The VM test runs the same script without the variable. |
+| 8 | Supervisor | `tests/xsession-audio.sh` runs as the desktop user. | See the list below the table. |
+| 9 | Logout | The test ends `xfce4-session`, which also ends the session bus. No `pipewire`, `pipewire-pulse`, or `wireplumber` of the user remains after 30 s. A second login gets the same two audio defaults from daemons with new PIDs. | Before `~/.xsession` ended what it started, the daemons outlived the logout, and the supervisor started a `wireplumber` against the dead bus. |
+| 10 | Container restart | The test restarts the server container, logs in again, and repeats the sink and source checks. | A restart leaves the stale PipeWire socket of the first session in `/run`, and `~/.xsession` must not take it for a live server. The client disconnects first, because it could otherwise reconnect and make the wait pass on its session. |
 
 `tests/xsession-audio.sh` runs the real `~/.xsession` against stub daemons, and the sandbox test runs it too, in about 35 s. It checks that:
 
 - The desktop starts without waiting for a server that is still starting.
 - wireplumber starts after the server answers and again after it dies.
 - A wireplumber that keeps dying is given up on after five quick runs, while a 30 s run resets the count.
-- A server that never answers prints one line and starts nothing.
+- The session bus is made with `--exit-with-session`, so it ends with the session.
+- A server that never answers prints one line to stderr and nothing to stdout, and starts nothing.
 - A server that stops answering gets no new wireplumber.
 - A server that already answers is left alone.
 - Nothing the script started outlives the desktop.
@@ -161,7 +169,7 @@ It needs Linux, because it finds leftovers through `/proc`.
 
 ### vm, on amd64 and arm64
 
-The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`. In CI that is an incus system container (`images:ubuntu/26.04/cloud`). It pipes `install.sh` into `sh -s -- server desktop`, as the README does, with the tree under test as the clone source. Then `tests/vm-checks.sh` runs inside it. The script refuses to run unless `DJD_TEST_VM=1`, and exits 2 with a message that names `mise run test:vm`, because it changes the machine: ufw rules, an sshd drop-in, and module removals. Only `test:vm` sets the variable. The checks are:
+The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`. In CI that is an incus system container (`images:ubuntu/26.04/cloud`). It pipes `install.sh` into `sh -s -- server desktop`, as the README does, with the tree under test as the clone source. Both the install and `tests/vm-checks.sh` run with `DJD_SKIP_SSH_CHECKS=1`, because the VM has no authorized key, which the server module's `post-packages` hook would otherwise refuse. Then `tests/vm-checks.sh` runs inside it. The script refuses to run unless `DJD_TEST_VM=1`, and exits 2 with a message that names `mise run test:vm`, because it changes the machine: ufw rules, an sshd drop-in, and module removals. Only `test:vm` sets the variable. The checks are:
 
 - Both cloud-init files pass the cloud-init schema check.
 - `djd doctor` passes, also under a Japanese locale, where a control shows that `ufw` would print its status in Japanese. It reports ok for the sshd and xrdp checks.
@@ -169,6 +177,7 @@ The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`
 - sshd accepts keys only. A drop-in that sorts first with `PasswordAuthentication yes` makes `djd apply` fail and `djd doctor` report `FAIL sshd`. Both succeed again after the file is removed.
 - A container published with `-p 80` listens on `127.0.0.1` only, on the default bridge and on a new network.
 - `ssh.socket`, avahi-daemon, xrdp, and docker are active.
+- The running xrdp started after the last change to `xrdp.ini` and `sesman.ini`, so the hardened settings are in the daemon and not only in the files.
 - The user is in the docker group.
 - `/etc/default/locale` and the generated `ja_JP` locale exist.
 - The HackGen font is installed, which `fc-list` shows as `HackGen35 Console NF`.
@@ -178,7 +187,7 @@ The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`
 
 The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to every user on the runner (`chmod 666`). It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `make test:vm` runs the same checks with multipass or OrbStack. All three get the checkout through `tests/tree.sh`. `DJD_KEEP_VM=1` keeps the VM after a run.
 
-OrbStack was verified on 1 November 2026. `mise-tasks/test/vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) against commit 58eff93. It installed `server` and `desktop` from `cloud-init/vm.yaml` on `ubuntu:resolute`, every check of `tests/vm-checks.sh` passed, and the task printed `vm: ok`. That run predates the `DJD_TEST_VM` guard and the checks added since. This page records no run of the changed tree.
+OrbStack was verified on 1 November 2026. `mise-tasks/test/vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) against commit 58eff93. It installed `server` and `desktop` into a machine that `cloud-init/vm.yaml` configured, on `ubuntu:resolute`, every check of `tests/vm-checks.sh` passed, and the task printed `vm: ok`. That run predates the `DJD_TEST_VM` guard and the checks added since. This page records no run of the changed tree.
 
 ### agentos
 
@@ -221,11 +230,12 @@ The script needs git, curl, jq, rg, fd, yq, tree, sqlite3, unzip, and zip on `PA
 | Script | Proves | Run by | Where |
 | --- | --- | --- | --- |
 | `tests/xsession-audio.sh` | The `~/.xsession` supervisor | `test:offline`, `test:desktop` | Sandbox image, desktop container |
-| `tests/djd-module.sh` | `djd module` with a stub `mise` | `test:offline` | Sandbox image |
-| `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive | `test:offline` | Sandbox image |
-| `tests/agentos-bundle.sh` | The agentOS export and its refusals | `test:offline` | Sandbox image |
+| `tests/djd-module.sh` | `djd module` with a stub `mise`: selection order, the secrets-with-agent warning, empty `MISE_ENV` items, the server-removal warning | `test:offline` | Sandbox image |
+| `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh | `test:offline` | Sandbox image |
+| `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore` | `test:offline` | Sandbox image |
+| `tests/agentos-bundle.sh` | The agentOS export and its refusals, the lock checks, and that each registry command exists | `test:offline` | Sandbox image |
 | `tests/desktop-apps.sh` | The four desktop apps | `test:desktop`, `tests/vm-checks.sh` | Desktop container, VM |
-| `tests/vm-checks.sh` | The server and desktop install | `test:vm` | incus, multipass, or OrbStack |
+| `tests/vm-checks.sh` | The server and desktop install, including that xrdp runs with the hardened settings | `test:vm` | incus, multipass, or OrbStack |
 | `tests/tree.sh` | Helper, not a test | `ci`, `test:vm`, `test:offline`, the no-trust flow in AGENTS.md | Host |
 
 The tasks:
@@ -238,7 +248,7 @@ The tasks:
 | `mise run test:vm` | The VM test. |
 | `mise run lint:docs` | The doc checks, with bash alone. |
 
-`test:offline` streams `tests/tree.sh` into one container per test, creates the Brave apt source first (`tests/djd-module.sh` checks that source only when it exists), and prints `== <test>` before each. The tests therefore run on the current tree and not on the copy that the image holds. All four take about 37 s on an existing image, measured in November 2026. The names are listed in `mise-tasks/test/offline`, twice. They are the choices of the `[test]...` argument and the default list in the `read` line. A new offline test needs its name in both places.
+`test:offline` streams `tests/tree.sh` into one container per test, creates the Brave apt source first (`tests/djd-module.sh` checks that source only when it exists), and prints `== <test>` before each. The containers have no network (`--network none`), so "offline" is enforced, and the tests run on the current tree and not on the copy that the image holds. The first four took about 37 s on an existing image, measured in November 2026; `server-hooks` adds about a second. The names are listed in `mise-tasks/test/offline`, twice. They are the choices of the `[test]...` argument and the default list in the `read` line. A new offline test needs its name in both places.
 
 Where a new test goes:
 
@@ -272,7 +282,7 @@ In the sandbox image, `mise run lint:shell` from an empty mise data directory in
 `mise run ci [job...]` runs the jobs `lint`, `sandbox`, `desktop`, and `agentos` with [act](https://github.com/nektos/act). All four run by default. [How to run CI locally](how-to.md#run-ci-locally) shows the commands.
 
 - `.actrc` maps the `ubuntu-26.04` runners to `ghcr.io/catthehacker/ubuntu:act-24.04`, because catthehacker publishes no 26.04 image.
-- `mise run ci --dry-run` plans every job of `ci.yaml`, `full-weekly.yaml`, `tag.yaml`, and `push.yaml` without running steps. It feeds the release workflows a sample tag push and a sample CI `workflow_run` event.
+- `mise run ci --dry-run` plans every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml`, and `push.yaml` without running steps. It feeds the release workflows a sample tag push and a sample CI `workflow_run` event.
 - act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
 - Lint fails on any `ubuntu-*` runner label that `.actrc` does not map, because act stops at an interactive image prompt for an unmapped label.
 - The `vm` job needs incus. It runs only on GitHub or through `make test:vm`.
@@ -281,23 +291,24 @@ In the sandbox image, `mise run lint:shell` from an empty mise data directory in
 
 `tag.yaml` runs after a CI run from a push to the `main` branch of this repository passes.
 
-- It releases a commit only when the commit contains the newest `X.Y.Z` tag.
+- It releases a commit only when the commit contains the newest `X.Y.Z` tag. For any other commit it prints a `::warning::` and ends green, so a release that was held back shows in the run summary.
 - It bumps the patch number only. A minor or major bump is a manually pushed `X.Y.0` tag. `push.yaml` builds images for that tag. When that tag already points at the commit that CI on `main` finished, `tag.yaml` reuses it, creates the release if none exists, and dispatches `push.yaml` again. The dispatch shares the concurrency group of `push.yaml`, so it cancels the run that the tag push started when that run is still going. When the first run has finished, the dispatch rebuilds the images and overwrites them.
-- It stops with an error that says to run it again when a newer `X.Y.Z` tag appears between its fetch and its check, and it never cancels a release that is running. One pending run waits per group, and a newer pending run replaces an older one. The commits of the replaced run are inside the tag of the newer run.
+- It stops with an error that says to run it again when the patch tag it computed appears on the remote between its fetch and its check. A minor or major tag pushed in that window is not detected. It never cancels a release that is running. The concurrency group sits on the release job, so only runs that pass the job's `if` (a green push run of this repository) queue. One pending run waits per group, and a newer pending run replaces an older one. The commits of the replaced run are inside the tag of the newer run.
+- Tags are strict SemVer without leading zeros (`1.2.08` is not a release tag), because a leading zero breaks the patch arithmetic.
 - It marks a GitHub release `latest` only when its tag is the newest.
 - It writes the release notes itself. They list the commits since the previous `X.Y.Z` tag and the `docker pull` commands for both images, because `--generate-notes` lists only pull requests and the pushes to `main` have none.
 - It creates the release first. Only a new release goes on to publish. A re-run of CI for a commit that already has a release finds it, prints the retry command, and dispatches nothing.
 - It dispatches `push.yaml`, because tags that `GITHUB_TOKEN` pushes start no workflow, and records a UTC timestamp first.
 - It finds the dispatched run by polling `gh run list` up to 12 times, 5 s apart, for a `workflow_dispatch` run of this tag that is not older than the timestamp. It takes the newest. When none appears within a minute, the step fails.
 - It then runs `gh run watch --exit-status --compact --interval 30` on that run, so a failed publish fails `tag.yaml`. The person whose push produced the release gets the notification, because `push.yaml` itself runs as the bot. The job needs `checks: read` for this, because `gh run watch` reads check-run annotations and `GITHUB_TOKEN` lacks that once any permission is set. A newer `gh` may skip a failed annotation fetch, which was not confirmed.
-- It holds its concurrency group while it waits, which takes about 6 minutes. A later release queues behind it, and GitHub keeps only the newest pending run.
+- It holds its concurrency group while it waits, which took 8 minutes in the one measured run. A later release queues behind it, and GitHub keeps only the newest pending run.
 - A failed publish leaves the `tag.yaml` run red. Re-running it does not retry the publish, because the release exists. Retry with:
 
   ```sh
   gh workflow run push.yaml --ref X.Y.Z
   ```
 
-The wait and the smoke test below had not run on GitHub when this page was written. The first real release confirms them. The signs to watch are a found run id, a job that stays green for the whole publish, and a job that goes red when `push.yaml` fails.
+The wait and the smoke test have run on GitHub: release 0.0.6 (5 November 2026) passed the `tag.yaml` step "Trigger GHCR build and wait for it" and the smoke step of all four builds. A failed publish turning the job red has not been seen yet.
 
 `push.yaml` builds each flavor for each platform with no build cache and pushes by digest. A smoke step then pulls the pushed image by digest and runs `docker run --rm "$REGISTRY_IMAGE@$DIGEST" sh -c "$SMOKE"`. `SMOKE` is `djd doctor` for both flavors, so each flavor and each architecture runs it on its own runner. The merge job creates the multi-arch tags only when every leg passed, so a red smoke test moves no tag. For the desktop flavor, doctor with `desktop` selected greps `xrdp.ini` for `security_layer=tls` and `sesman.ini` for `AllowRootLogin=false`. The desktop leg is the one most likely to fail first.
 
@@ -306,7 +317,7 @@ The wait and the smoke test below had not run on GitHub when this page was writt
 | sandbox | `sandbox`, `latest`, and `X.Y` | `X.Y.Z` |
 | desktop | `desktop` and `X.Y-desktop` | `X.Y.Z-desktop` |
 
-A floating tag moves only when the release is the newest `X.Y.Z` tag. A fixed tag is written once per release, because a re-run of CI no longer dispatches `push.yaml`. A retry with the command above rebuilds and overwrites it on purpose.
+A tag push publishes only a commit that is on `main`: the first job of `push.yaml` asks the GitHub compare API and fails for any other commit, because anyone who can push a tag would otherwise publish an unreviewed commit with a `packages: write` token. A floating tag moves only when the release is the newest `X.Y.Z` tag. A fixed tag is written once per release, because a re-run of CI no longer dispatches `push.yaml`. A retry with the command above rebuilds and overwrites it on purpose.
 
 - The merge job writes `description`, `source`, `licenses`, and `version` as index annotations, because GHCR reads the description of a multi-arch package from the index. `docker buildx imagetools create` writes no index annotations unless you pass `--annotation`. A test against a local registry with a docker-container builder confirmed both facts, and the first release confirmed them on GHCR for `sandbox` and `desktop`.
 - The images that `push.yaml` builds carry the commit in `DJD_REVISION`, because `.git` is not copied into them.
@@ -319,7 +330,7 @@ jactionlint audits the workflows, and lint runs it.
 - Checkouts drop the token with `persist-credentials: false`, except in `tag.yaml`, which pushes the tag.
 - Every `uses:` is pinned to a commit.
 - `push.yaml` and `tag.yaml` set `permissions: {}` at the top, and every job sets its own. Values such as `matrix.platform` and the build digest reach scripts through `env:`, not through `${{ }}` in the script.
-- Both `setup-buildx` steps in `push.yaml` set `cache-binary: false`, so a release build installs no binary from the Actions cache.
+- Both `setup-buildx` steps in `push.yaml` set `cache-binary: false`. The input has no effect while no buildx version is pinned; it keeps a pinned binary out of the Actions cache if one is added. The release builds use no layer cache because they set no `cache-from` or `cache-to`.
 - Three findings are ignored inline, each with its reason beside it. One is the guarded `workflow_run` trigger in `tag.yaml`. The other two are the locally built image that two steps of `full-weekly.yaml` run.
 
 [SECURITY.md](../SECURITY.md#github-tokens) lists the token permissions of each workflow.
@@ -328,7 +339,7 @@ jactionlint audits the workflows, and lint runs it.
 
 Repository settings are not in the YAML, and nothing in the repository enforces them. At the time of the review in November 2026, the repository had no rulesets, `main` was not protected, and no release was immutable. These settings are recommendations.
 
-- Add a tag ruleset on `refs/tags/[0-9]*` that blocks update and deletion. Do not block creation, because `tag.yaml` pushes the tag.
+- Add a tag ruleset on `refs/tags/[0-9]*` that blocks update and deletion. Do not block creation, because `tag.yaml` pushes the tag. Whoever may create a tag can still start `push.yaml`, which therefore refuses a tagged commit that is not on `main`.
 - Block force-push and deletion on `main`.
 - Require actions to be pinned to a full-length commit SHA, and turn on immutable releases.
 - Confirm that the default workflow token is read-only. The review could not read that setting.

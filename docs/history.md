@@ -10,7 +10,7 @@ The table comes from the workflows and the run history of budybye/dotfiles, read
 | --- | --- | --- |
 | `test.yaml` runs `make init` on the runners and swallows tool failures with `\|\| echo "mise install failed."`. Runs stayed green while `pipx:marimo`, taskctl, and vegeta failed. | `test` and `vm` fail when any package, tool, or hook fails. | A green run has to mean that the machine converged. |
 | The `lxd` and `rpi` jobs launch `ubuntu:26.04` in LXD with cloud-init and print OS information. | The `vm` job runs the full server and desktop install in that container and checks the result. | The LXD job was the only systemd coverage. Now it asserts the result. |
-| A "clean space" step frees runner disk before the install. | None. | Its own log shows 88 GB free before the cleanup on a 145 GB disk in October 2026. That is enough for `full`. |
+| A "clean space" step frees runner disk before the install. | None. | Its own log shows 88 GB free before the cleanup on a 145 GB disk in October 2026, enough for the images that CI builds. The weekly `full` build died once with `No space left on device`, and `full-weekly.yaml` now prints `df -h /` first. |
 | The daily schedule in `push.yaml` rebuilds the images to warm the BuildKit cache. | CI runs weekly, and releases build without a cache. | The weekly run detects drift without spending runner hours on a cache. A build without a cache gives cache poisoning no path into a published image. |
 | `build-dev` publishes a separate devcontainer image. | None. | The devcontainer builds the same Dockerfile as the sandbox image. |
 | The merge step tags `X.Y.Z`, `X.Y`, the flavor names, and `latest`. | The same scheme. | The scheme works, so it stayed. |
@@ -33,7 +33,7 @@ This repository carried these parts over from budybye/dotfiles:
 
 - The zsh setup.
 - The git config, without the repo-level `[core]` keys, the machine ID, the per-directory identities, the `git-lfs` filter, and the forced tag signing. `git lfs install` adds the filter where git-lfs exists. Tag signing belongs in `user.conf` next to a key.
-- starship, herdr, and a trimmed sheldon plugin list.
+- starship, herdr, and a trimmed plugin list (taken from budybye's sheldon file; here the plugins are pinned `[bootstrap.repos]` entries and sheldon is not used).
 - ghostty, without the macOS keys.
 - The tool list, as the module `full`, and the apt list.
 - The structure of the release workflow.

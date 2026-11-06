@@ -62,9 +62,9 @@ components:
 
 ## Overview
 
-The stack a person or agent sees on a djd machine. ghostty (installed by the desktop module) runs a login zsh with the starship prompt, and a login zsh on a real terminal starts herdr, which hosts pi/omp panes. The desktop module also installs XFCE and xrdp, but nothing sets ghostty as XFCE's default terminal. The Docker images set `DJD_NO_MUX=1`, so a login shell in them does not start herdr.
+The stack a person or agent sees on a djd machine. ghostty (installed by the desktop module) runs a login zsh with the starship prompt, and a login zsh on a real terminal starts herdr, which hosts pi/omp panes. The desktop module also installs XFCE and xrdp, but nothing sets ghostty as XFCE's default terminal. The Docker images set `DJD_NO_MUX=1` in the image environment, so a login shell that inherits it (`docker run`, `docker exec`) does not start herdr.
 
-ghostty, the starship prompt and herdr use Kanagawa Dragon. ghostty overrides the theme's background and foreground with its own navy background and pale yellow-green text. lazygit, lazydocker, micro and lsd keep their own color settings, and fzf and XFCE have no theme in this repo. The look is dark, low-saturation and low-glare, and depth comes from transparency, never shadows.
+ghostty and the starship prompt use Kanagawa Dragon, and herdr uses its built-in `kanagawa` theme (the Wave palette, a sibling in the same family). ghostty overrides the theme's background and foreground with its own navy background and pale yellow-green text. lazygit, lazydocker, micro and lsd keep their own color settings, and fzf and XFCE have no theme in this repo. The look is dark, low-saturation and low-glare, and depth comes from transparency, never shadows.
 
 ## Colors
 
@@ -83,9 +83,9 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 
 ## Typography
 
-One monospace family everywhere: HackGen35 Console NF (Nerd Font patched, Japanese full width at exactly two columns). Ghostty sets 13pt with `font-thicken = true`. TUIs inherit the terminal font. The token says 13px because the spec allows only px, em and rem.
+One monospace family in ghostty, the only themed terminal: HackGen35 Console NF (Nerd Font patched, Japanese full width at exactly two columns). Ghostty sets 13pt with `font-thicken = true`. TUIs inherit the terminal font. The token says 13px because the spec allows only px, em and rem.
 
-Ubuntu has no HackGen package. The desktop module's final hook (`mise-config/hooks/desktop-final`) downloads the pinned HackGen NF release with curl, checks its SHA-256 and installs it to `~/.local/share/fonts/HackGen`. Noto CJK covers anything HackGen lacks. Japanese input is fcitx5-mozc.
+Ubuntu has no HackGen package. The desktop module's module installs the pinned HackGen NF release as the mise tool `http:hackgen` (`mise-config/config.desktop.toml`). mise checks its SHA-256, and the tool's postinstall copies the fonts to `~/.local/share/fonts/HackGen`. Noto CJK covers anything HackGen lacks. Japanese input is fcitx5-mozc.
 
 ## Layout
 
@@ -115,4 +115,4 @@ No rounded corners. herdr draws pane borders and gaps, ghostty balances its wind
 - Do keep every layer on the Kanagawa family, and add a new tool by its kanagawa theme name before defining colors.
 - Do change a color here first, then in the files the Colors table names, so this file stays the source of truth.
 - Don't mix unrelated themes across layers or add shadows and rounded corners.
-- Don't put machine-specific fonts or colors in the repo; per-user overrides belong in the local files listed in SECURITY.md.
+- Don't put machine-specific fonts or colors in the repo; per-user overrides belong in the local files listed in SECURITY.md, but ghostty and herdr read none, so their settings stay the same on every machine.

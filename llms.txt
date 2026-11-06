@@ -20,9 +20,15 @@ Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (contai
 
 - [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise. config.toml is the base module (it also pins the zsh plugins in `[bootstrap.repos]`) and config.<module>.toml (agent, server, desktop, full, secrets) the others. tasks/djd has the djd commands, hooks/ the hook scripts.
 - [home/](home/): dotfiles symlinked into ~
+- [desktop/](desktop/): the desktop module's dotfiles (`.xsession`, ghostty, fcitx5, Zed)
+- [agent/](agent/): the global AGENTS.md of pi and omp
 - [mise-tasks/](mise-tasks/): repo tasks (lint:shell, lint:config, lint:workflows, lint:design, lint:docs, lint:secrets, build, test, test:offline, test:desktop, test:vm, ci)
 - [mise.toml](mise.toml): the short repo tasks (lint, lint:fix, agentos:*, shell, up, down, pre-commit) and mise settings. Each task declares its own tools.
 - [install.sh](install.sh): the installer that `curl | sh` runs
+- [Makefile](Makefile): `make <task>` runs `mise run <task>`, with a few djd exceptions
+- [mise.lock](mise.lock): the pinned versions of the repo tools, with `.mise/locks/` for npm tools
+- [.githooks/](.githooks/): the pre-commit hook that runs gitleaks
+- [.actrc](.actrc): the act runner images for `mise run ci`
 - [.devcontainer/](.devcontainer/): the Dockerfile, the desktop entrypoint, compose.yaml and devcontainer.json
 - [cloud-init/](cloud-init/): cloud-init files for the incus, multipass and OrbStack VMs
 - [tests/](tests/): the offline tests that `mise run test:offline` runs, VM and app checks, and the tree helper
@@ -32,3 +38,5 @@ Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (contai
 - [.github/workflows/](.github/workflows/): CI, docs, tag, release image and weekly full-module workflows
 - [agentos/boot.mjs](agentos/boot.mjs): agentOS export and boot check
 - [agentos/software.lock.json](agentos/software.lock.json): the pinned agentOS registry packages
+- [agentos/gitconfig](agentos/gitconfig): the `~/.gitconfig` of agentOS guests, loaded after the shared git config
+- [.github/dependabot.yml](.github/dependabot.yml): Dependabot for the pinned actions and the agentos-core package

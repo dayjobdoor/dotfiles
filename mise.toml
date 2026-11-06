@@ -57,7 +57,7 @@ description = "Start the desktop container (RDP on 127.0.0.1:33389; PASSWORD in 
 run = "docker compose -f .devcontainer/compose.yaml up -d --build desktop"
 
 [tasks.down]
-description = "Stop the desktop container"
+description = "Stop and remove the desktop container"
 run = "docker compose -f .devcontainer/compose.yaml down"
 
 [settings]
