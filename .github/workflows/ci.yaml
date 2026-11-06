@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 # Every job runs the same mise task a developer runs locally (`make test` = `mise run test`);
-# `mise run ci <job>` runs the lint, sandbox, desktop and agentos jobs on your machine with act.
+# `mise run ci <job>` runs the lint, sandbox and desktop jobs on your machine with act.
 jobs:
   lint:
     runs-on: ubuntu-26.04
@@ -43,6 +43,7 @@ jobs:
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           version: 2026.10.23
+          install: false
       - name: Lint (shell, mise configs, workflows, Dockerfile, DESIGN.md, docs links, secrets)
         run: mise run lint
 
@@ -123,19 +124,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mise trust mise.toml && mise run test:vm
-
-  agentos:
-    runs-on: ubuntu-26.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-        with:
-          version: 2026.10.23
-          install: false
-      - name: Boot agentOS with the exported dotfiles
-        env: # installs from mise.lock, as in the lint job
-          MISE_LOCKED: "true"
-        run: mise trust mise.toml && mise run agentos:boot

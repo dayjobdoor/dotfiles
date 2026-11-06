@@ -15,7 +15,6 @@
 **/age.txt
 .secrets
 .vars
-dist
 **/node_modules
 **/.DS_Store
 .jj

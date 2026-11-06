@@ -16,5 +16,4 @@
 # age identities (mise defaults to ~/.config/mise/age.txt, which links to mise-config/ in this repo)
 age.txt
 .DS_Store
-dist/
 node_modules/

@@ -1,7 +1,7 @@
-# Repo development: lint, image builds and tests, local CI. `make <task>` runs `mise run <task>`.
-# Longer tasks are files in mise-tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
-# Each task names the tools it needs (`tools`, or a `#MISE tools=` header in a file task), so `mise run <task>`
-# installs only those and the agentos job does not fetch the linters. mise.lock pins their versions.
+# Repo development: lint, secret scan, image builds, the desktop container, tests and local CI. `make <task>` runs
+# `mise run <task>`. Longer tasks are files in mise-tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
+# A task that needs tools names them (`tools`, or a `#MISE tools=` header in a file task), so `mise run <task>`
+# installs only those and a job does not fetch unrelated tools. mise.lock pins their versions.
 min_version = "2026.10.23"
 
 [tasks.lint]
@@ -23,30 +23,6 @@ depends = ["lint:shell --fix", "lint:config --fix"]
 description = "Scan staged changes for secrets"
 tools.gitleaks = "latest"
 run = "gitleaks git --pre-commit --staged --redact --no-banner"
-
-[tasks."agentos:export"]
-description = "Write the agentOS bundle (dotfiles + locked registry packages)"
-tools.node = "lts"
-sources = [
-  "home/.config/git/*",
-  "agentos/boot.mjs",
-  "agentos/gitconfig",
-  "agentos/package.json",
-  "agentos/software.lock.json",
-  "home/.profile",
-]
-outputs = ["dist/agentos/bundle.json"]
-run = "node agentos/boot.mjs --export dist/agentos/bundle.json"
-
-[tasks."agentos:boot"]
-description = "Boot an agentOS VM with the bundle and assert it works"
-tools.node = "lts"
-run = ["npm ci --prefix agentos", "node agentos/boot.mjs"]
-
-[tasks."agentos:lock"]
-description = "Pin the agentOS registry packages: rewrite agentos/software.lock.json from the live release manifest"
-tools.node = "lts"
-run = ["npm ci --prefix agentos", "node agentos/boot.mjs --lock"]
 
 [tasks.shell]
 description = "Open a shell in the sandbox image"
