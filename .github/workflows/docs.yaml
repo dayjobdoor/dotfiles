@@ -1,5 +1,6 @@
 name: Docs
-# ci.yaml skips Markdown-only pushes, so docs-only changes get this check instead. It never releases:
+# ci.yaml skips pushes that touch only Markdown or llms.txt, so docs-only changes get this check instead. DESIGN.md
+# changes run both, because lint also checks that file. It never releases:
 # tag.yaml listens to CI alone.
 on:
   push:

@@ -16,7 +16,7 @@ while IFS= read -r -d '' f; do
     case $first in
     '#!/bin/sh' | '#!/bin/bash' | '#!/usr/bin/env sh' | '#!/usr/bin/env bash') shell+=("${f#./}") ;;
     esac
-done < <(find . \( -name .git -o -name node_modules -o -name dist \) -prune -o -type f -print0)
+done < <(find . \( -name .git -o -name .jj -o -name node_modules -o -name dist \) -prune -o -type f -print0)
 shellcheck "${shell[@]}"
 # printer flags make shfmt ignore .editorconfig, so -i 4 holds for every script in the list
 if [ "$fix" = true ]; then

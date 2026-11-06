@@ -4,10 +4,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# the globs below match .yaml only, and GitHub runs .yml too: refuse the other extension instead of skipping it
+for stray in .github/workflows/*.yml; do
+    if [ -e "$stray" ]; then
+        echo "lint: $stray would escape these checks; name it .yaml" >&2
+        exit 1
+    fi
+done
 jactionlint .github/workflows/*.yaml .github/dependabot.yml
 # act stops at an interactive image prompt for any runner label .actrc does not map
 while IFS= read -r label; do
-    grep -q -- "^-P $label=" .actrc || {
+    grep -q -- "^-P ${label//./\\.}=" .actrc || {
         echo "lint: runner $label is not mapped in .actrc" >&2
         exit 1
     }

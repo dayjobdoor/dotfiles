@@ -1,2 +1,4 @@
+# act reads only the lines that start with `-`. catthehacker publishes no 26.04 image yet, so both runner labels
+# use its 24.04 one; the workflows' own runner label stays ubuntu-26.04 (docs/ci.md)
 -P ubuntu-26.04=ghcr.io/catthehacker/ubuntu:act-24.04
 -P ubuntu-26.04-arm=ghcr.io/catthehacker/ubuntu:act-24.04

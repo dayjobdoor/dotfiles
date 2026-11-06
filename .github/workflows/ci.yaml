@@ -2,11 +2,11 @@ name: CI
 on:
   push:
     branches: [main]
-    # Markdown-only changes skip CI, except DESIGN.md (lint checks it) and agent/** (its AGENTS.md files ship in the
+    # Markdown-only changes (llms.txt included) skip CI, except DESIGN.md (lint checks it) and agent/** (its AGENTS.md files ship in the
     # images and the sandbox test compares them)
-    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md", "agent/**"]
+    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "agent/**"]
   pull_request:
-    paths: ["**", "!docs/**", "!**/*.md", "DESIGN.md", "agent/**"]
+    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "agent/**"]
   # tools track `latest`, so a quiet repository still breaks upstream; this run catches it.
   # Scheduled runs never tag a release (tag.yaml accepts push runs only).
   schedule:
@@ -64,7 +64,7 @@ jobs:
         with:
           version: 2026.10.23
           install: false
-      - name: Build the sandbox image, doctor, tools on PATH, backup, idempotent apply
+      - name: Build the sandbox image; offline tests, doctor, tools on PATH, shell startup, backup, secrets, idempotent apply
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mise trust mise.toml && mise run test

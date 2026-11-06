@@ -8,11 +8,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# usage hands variadic args over as one shell-quoted string; its choices limit the words to known jobs
-eval "selected=(${usage_job:-})"
+# usage hands variadic args over as one shell-quoted string; its choices limit the words to plain job names
+read -ra selected <<<"${usage_job:-}"
 [ ${#selected[@]} -gt 0 ] || selected=(lint sandbox desktop agentos)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+# the scratch repository below must not pick up the host's git config (a signing key, hooks, an excludesfile)
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # act copies the working directory into its containers; hand it tracked and unignored files only
 tests/tree.sh | tar -xf - -C "$work"
 git -C "$work" init -q
@@ -37,6 +39,7 @@ if [ "${usage_dry_run:-false}" = true ]; then
     printf '{"workflow_run": {"conclusion": "success", "event": "push", "head_branch": "main",
         "head_repository": {"full_name": "dayjobdoor/dotfiles"}}}\n' >"$work/run.json"
     act push -n -W .github/workflows/ci.yaml -s GITHUB_TOKEN
+    act push -n -W .github/workflows/docs.yaml -s GITHUB_TOKEN
     act workflow_dispatch -n -W .github/workflows/full-weekly.yaml -s GITHUB_TOKEN
     act workflow_run -n -W .github/workflows/tag.yaml -e "$work/run.json" -s GITHUB_TOKEN
     act push -n -W .github/workflows/push.yaml -e "$work/tag.json" -s GITHUB_TOKEN

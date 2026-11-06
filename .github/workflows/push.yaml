@@ -55,10 +55,26 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -eu
-          if [[ ! "${RELEASE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "${RELEASE_TAG}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "Release ref is not strict SemVer: ${RELEASE_TAG}" >&2
             exit 1
           fi
+
+      # anyone who can push a tag, or dispatch this workflow on one, would otherwise publish any commit with this
+      # job's packages: write token. A release is a commit that is on main; tag.yaml dispatches only for such commits
+      - name: Require the tagged commit to be on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${GITHUB_SHA}" --jq .status)
+          case "$status" in
+            identical | behind) ;;
+            *)
+              echo "Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on main (compare status: ${status})" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,6 +122,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # the job's packages: write token reaches the tools layer, the one exception to "a token needs no scope"
+          # (SECURITY.md, "The release build")
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
@@ -153,7 +171,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -eu
-          if [[ ! "${RELEASE_TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "${RELEASE_TAG}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "Release ref is not strict SemVer: ${RELEASE_TAG}" >&2
             exit 1
           fi
@@ -187,7 +205,7 @@ jobs:
           # a re-run of an older release, or one that finishes after a newer one, must not move the
           # floating tags (sandbox, latest, X.Y, desktop, X.Y-desktop) back
           newest=$(git ls-remote --tags --refs "https://github.com/${GITHUB_REPOSITORY}.git" |
-            sed 's#.*refs/tags/##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+            sed 's#.*refs/tags/##' | grep -E '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -n1)
           minor="${GITHUB_REF_NAME%.*}"
 
           # Publish sandbox last so the latest tag is the newest manifest in GHCR.

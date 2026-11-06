@@ -22,7 +22,7 @@ for f in $docs; do
             # a here-string, not a pipe: grep -q exiting early would SIGPIPE the producer under pipefail
             # fences skipped like the span extractor below: a `# comment` in a code block is no heading
             slugs=$(awk '/^[ \t]*```/ { fence = !fence; next } !fence && /^#+ /' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g')
-            if ! grep -qx -- "$anchor" <<<"$slugs"; then
+            if ! grep -qxF -- "$anchor" <<<"$slugs"; then
                 echo "lint: $f links to a missing anchor: $link" >&2
                 broken=1
             fi
@@ -66,7 +66,8 @@ tasks="$tasks $(sed -nE 's/^\[tasks\."?([^]"]+)"?\]$/\1/p' mise.toml | tr '\n' '
 while IFS=$'\t' read -r f line span; do
     # 1. repo paths: a token is one when it is no ~, absolute, URL, $, flag, <placeholder> or pattern (* < > { } [ ] | = @)
     # once trailing punctuation, a leading ./ and a trailing / are dropped, and it starts with a top-level name
-    for tok in $span; do
+    read -ra toks <<<"$span" # an array, so a glob character in a span is not expanded
+    for tok in "${toks[@]}"; do
         while [[ $tok =~ [,.\;:\)]$ ]]; do tok=${tok%?}; done
         tok=${tok#./}
         case $tok in '' | '~'* | /* | http* | '$'* | -* | '<'*) continue ;; esac
@@ -79,6 +80,11 @@ while IFS=$'\t' read -r f line span; do
     # 2. commands: every word after `make` is a task (the Makefile's % rule); after `mise run` and `djd`, only
     # the first word that is no flag
     while IFS= read -r cmd; do
+        # a quote that closes the command inside a span, as in `zsh -lc 'djd doctor'`: the one a value does not balance
+        for q in \' \"; do
+            only=${cmd//[^$q]/}
+            if [ $((${#only} % 2)) -eq 1 ] && [[ $cmd == *"$q" ]]; then cmd=${cmd%"$q"}; fi
+        done
         prog=${cmd%% *}
         rest=${cmd#"$prog "}
         [ "$prog" != mise ] || rest=${rest#run }
@@ -99,24 +105,24 @@ while IFS=$'\t' read -r f line span; do
             case $allow_cmds in *" $prog:$name "*) continue ;; esac
             case $ok in *" $name "*) ;; *) fail "$f" "$line" "unknown command: $cmd" ;; esac
         done
-    done < <(grep -oE '(mise run|make|djd) [^&|;]+' <<<"$span" || true)
+    done < <(grep -oE '(^|[^[:alnum:]_.:/-])(mise run|make|djd) [^&|;]+' <<<"$span" | sed -E 's/^[^a-z]//' || true)
 done <<<"$spans"
 
 # 3. DJD_ variables
 code="install.sh home mise-config mise-tasks tests .devcontainer .github Makefile mise.toml"
 # shellcheck disable=SC2086
-known=$(grep -rhoE 'DJD_[A-Z_]+' $code | sort -u)
+known=$(grep -rhoE --exclude=docs 'DJD_[A-Z][A-Z0-9_]*' $code | sort -u)
 for f in $docs; do
     while IFS=: read -r line var; do
         grep -qxF -- "$var" <<<"$known" || fail "$f" "$line" "variable not found in code: $var"
-    done < <(grep -noE 'DJD_[A-Z_]+' "$f" || true)
+    done < <(grep -noE 'DJD_[A-Z][A-Z0-9_]*' "$f" || true)
 done
 
-# the other way round: a variable in code that no doc names. DJD_BAD and DJD_CHECK are secret names that `mise run test`
+# the other way round: a variable in code that no doc names. DJD_BAD, DJD_CHECK and DJD_CHECK2 are secret names that `mise run test`
 # makes up, and DJD_COMMANDS is a Makefile variable.
-allow_vars=" DJD_BAD DJD_CHECK DJD_COMMANDS "
+allow_vars=" DJD_BAD DJD_CHECK DJD_CHECK2 DJD_COMMANDS "
 # shellcheck disable=SC2086
-documented=$(grep -hoE 'DJD_[A-Z_]+' $docs | sort -u)
+documented=$(grep -hoE 'DJD_[A-Z][A-Z0-9_]*' $docs | sort -u)
 # shellcheck disable=SC2086
 while IFS= read -r var; do
     case $allow_vars in *" $var "*) continue ;; esac
@@ -124,11 +130,11 @@ while IFS= read -r var; do
         echo "lint: variable in code but in no doc: $var" >&2
         broken=1
     }
-done < <(grep -rhoE 'DJD_[A-Z][A-Z_]*' $code | sort -u)
+done < <(grep -rhoE --exclude=docs 'DJD_[A-Z][A-Z0-9_]*' $code | sort -u)
 
-# 4. test scripts: each is listed in reference.md and run by a task. A task names a test by its path, or by the
-# bare name in the loops of test and test:offline. ponytail: a bare name that occurs in any task file passes; tighten
-# the pattern if a test gets a common word for a name.
+# 4. test scripts: each is listed in reference.md and run by a task. A task names a test by its path, or by its bare
+# name in a list of test:offline. A bare name that occurs in any task file passes, so tighten the pattern if a test
+# gets a common word for a name.
 for t in tests/*.sh; do
     name=${t##*/}
     grep -qF -- "$name" docs/reference.md || {

@@ -8,6 +8,8 @@ fix=${usage_fix:-false}
 
 # --stdin, because mise only formats configs it would load from the current directory
 for f in mise.toml mise-config/*.toml; do
+    # machine-local overrides are gitignored, and --fix must never rewrite them
+    case "$f" in *.local.toml) continue ;; esac
     formatted=$(mise fmt --stdin <"$f")
     if [ "$fix" = true ]; then
         printf '%s\n' "$formatted" >"$f"

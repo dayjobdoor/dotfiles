@@ -12,12 +12,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
-  # an in-progress release is never cancelled. GitHub keeps one pending run per group and replaces an older
-  # pending run with a newer one; the replaced run's commit is inside the newer run's tag
-  cancel-in-progress: false
-
 jobs:
   release:
     # only CI runs from pushes to this repo's main; a fork PR whose branch is also named main must not get tagged and published
@@ -25,6 +19,13 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
+    # the group is on the job, not the workflow, so only runs that pass the `if` queue. A workflow-level group would
+    # let a run for a red or cancelled CI replace a waiting release, then skip itself. An in-progress release is never
+    # cancelled. GitHub keeps one pending run per group and replaces an older pending run with a newer one; the
+    # replaced run's commit is inside the newer run's tag
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
     runs-on: ubuntu-26.04
     # waits for the push.yaml run, whose build alone may take 45 minutes (5-6 measured)
     timeout-minutes: 60
@@ -50,7 +51,7 @@ jobs:
 
           git fetch --tags origin
 
-          semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+          semver_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           semver_latest() {
             git tag -l '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
               while IFS= read -r candidate; do
@@ -84,7 +85,7 @@ jobs:
             fi
             # a re-run of an older CI run must not release old code as the newest version
             if [ "$latest_tag" != "0.0.0" ] && ! git merge-base --is-ancestor "${latest_tag}^{commit}" "$HEAD_SHA"; then
-              echo "commit ${HEAD_SHA} does not contain ${latest_tag}; not releasing it"
+              echo "::warning::commit ${HEAD_SHA} does not contain ${latest_tag}; not releasing it"
               exit 0
             fi
             IFS='.' read -r major minor patch <<< "$latest_tag"
@@ -137,12 +138,13 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+          semver_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           if [[ ! "${RELEASE_TAG}" =~ ${semver_pattern} ]]; then
             echo "Invalid release tag: ${RELEASE_TAG}" >&2
             exit 1
           fi
-          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # a margin absorbs the clock difference between this runner and GitHub, which stamps createdAt
+          since=$(date -u -d '30 seconds ago' +%Y-%m-%dT%H:%M:%SZ)
           echo "dispatching push.yaml for ${RELEASE_TAG}"
           gh workflow run push.yaml --ref "${RELEASE_TAG}"
 

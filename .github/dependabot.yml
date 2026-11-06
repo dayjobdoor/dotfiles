@@ -12,6 +12,7 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  # an agentos-core bump fails CI until `mise run agentos:lock` rewrites agentos/software.lock.json (docs/how-to.md)
   - package-ecosystem: npm
     directory: /agentos
     schedule:

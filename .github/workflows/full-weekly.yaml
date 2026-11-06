@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# a manual run during the scheduled one would share the runner's disk budget, which the red run already exhausted
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   full:
     runs-on: ubuntu-26.04
