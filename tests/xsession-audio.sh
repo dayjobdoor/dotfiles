@@ -6,10 +6,11 @@
 #
 # Contract
 #   - The desktop starts without waiting for an audio server that is still starting.
-#   - The daemons run on the session's own bus, never on one inherited from the login environment.
+#   - The daemons run on the session's own bus, never on one inherited from the login environment, and the bus is
+#     made with --exit-with-session so that it ends with the session.
 #   - wireplumber and pipewire-pulse start after the server answers. wireplumber starts again after it dies while the
 #     server still runs, and is given up on after five runs in a row that each lasted under 30 s.
-#   - When the server never answers, one line goes to stderr, no daemon starts, and the desktop still starts.
+#   - When the server never answers, one line goes to stderr (and nothing to stdout), no daemon starts, and the desktop still starts.
 #   - A server that already answers (a VM's socket-activated one) gets no second server and no second wireplumber, and
 #     is left running when the session ends.
 #   - When the desktop exits, every process the script started ends and no wireplumber starts after that. While the
@@ -93,7 +94,12 @@ setup() {
     cat >"$root/bin/dbus-launch" <<'EOF'
 #!/bin/sh
 echo "dbus-launch input=${DBUS_SESSION_BUS_ADDRESS:-none}" >>"$STATE/log"
-[ "$1" = --exit-with-session ] && shift
+# the session bus must die with the session: without the flag the bus (and the daemons on it) outlive a logout
+if [ "$1" != --exit-with-session ]; then
+    echo "dbus-launch without --exit-with-session" >>"$STATE/log"
+    exit 97
+fi
+shift
 DBUS_SESSION_BUS_ADDRESS=unix:path=$STATE/bus
 export DBUS_SESSION_BUS_ADDRESS
 exec "$@"
@@ -162,7 +168,7 @@ run_script() {
 # $state/rc.
 login() { (
     set +e
-    run_script "$@" >"$root/out" 2>&1
+    run_script "$@" >"$root/out" 2>"$root/err"
     echo $? >"$state/rc"
 ) & }
 
@@ -238,8 +244,9 @@ EOF
 chmod +x "$root/bin/seq"
 login 600
 wait_for 2 logged 'desktop starts' || fail "the desktop did not start"
-wait_for 5 test -s "$root/out" || fail "the script printed nothing when the server never answered"
-[ "$(wc -l <"$root/out")" -eq 1 ] || fail "expected one line on stderr, got: $(cat "$root/out")"
+wait_for 5 test -s "$root/err" || fail "the script printed nothing to stderr when the server never answered"
+[ "$(wc -l <"$root/err")" -eq 1 ] || fail "expected one line on stderr, got: $(cat "$root/err")"
+[ ! -s "$root/out" ] || fail "the script printed to stdout, which a login does not capture: $(cat "$root/out")"
 [ "$(count 'pipewire-pulse starts')" = 0 ] || fail "pipewire-pulse started although the server never answered"
 [ "$(count 'wireplumber')" = 0 ] || fail "wireplumber started although the server never answered"
 echo "ok one line, nothing started"

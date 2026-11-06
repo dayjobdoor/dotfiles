@@ -113,6 +113,42 @@ sed -i.bak 's|"@rivet-dev/agentos-core": "[^"]*"|"@rivet-dev/agentos-core": "0.0
 rm "$repo/agentos/package.json.bak"
 expect_rejected "lock core differs from package.json" "core is" "0.0.1"
 
+# the lock names exactly the SOFTWARE packages, each with a sha256 digest and an https URL. mutate_lock CODE runs
+# node over the copy's lock with `l` as the parsed file.
+mutate_lock() {
+    node -e '
+const fs = require("node:fs");
+const file = process.argv[1];
+const l = JSON.parse(fs.readFileSync(file, "utf8"));
+eval(process.argv[2]);
+fs.writeFileSync(file, JSON.stringify(l, null, 2) + "\n");
+' "$repo/agentos/software.lock.json" "$1"
+}
+
+fresh_copy
+mutate_lock 'delete l.packages[Object.keys(l.packages)[0]]'
+expect_rejected "lock lacks a package" "SOFTWARE names it"
+
+fresh_copy
+mutate_lock 'l.packages.bogus = { digest: "sha256:" + "0".repeat(64), url: "https://example.com/x" }'
+expect_rejected "lock has an extra package" "SOFTWARE does not"
+
+fresh_copy
+mutate_lock 'const p = l.packages[Object.keys(l.packages)[0]]; p.digest = "sha256:abc"'
+expect_rejected "lock digest malformed" "malformed"
+
+fresh_copy
+mutate_lock 'const p = l.packages[Object.keys(l.packages)[0]]; p.url = "http://example.com/x"'
+expect_rejected "lock url not https" "malformed"
+
+# an option is no output path: `--export --lock` must not write a file named --lock
+fresh_copy
+status=0
+log=$(cd "$repo" && node agentos/boot.mjs --export --lock 2>&1) || status=$?
+[ "$status" -ne 0 ] || fail "--export --lock was accepted"
+[ ! -e "$repo/--lock" ] || fail "--export --lock wrote a file named --lock"
+echo "ok --export refuses an option as its path"
+
 # no node_modules in the copy: without the guard, --lock would stop at the import instead of naming the variable
 fresh_copy
 status=0

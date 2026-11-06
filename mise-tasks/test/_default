@@ -36,7 +36,7 @@ step() { echo "== $*" >&2; }
 doctor_says() {
     rc=0
     out=$(djd doctor 2>&1) || rc=$?
-    if ! grep -q "^$1 $2" <<<"$out"; then
+    if ! grep -qE "^$1 $2([ :]|\$)" <<<"$out"; then
         echo "doctor printed no '$1 $2' line:" >&2
         echo "$out" >&2
         exit 1
@@ -81,8 +81,8 @@ ok interactive shells start silently
 # Stub banner tools, each with its own output, so that a branch of .zlogin that is gone or wired to the wrong
 # tool changes the expected text: fortune | cowsay prints COW, figlet | lolcat prints LOL. fastfetch stands in for
 # the goodbye that .zlogout prints when an interactive login shell exits. A login shell that runs a command
-# (agents, `zsh -lc`) must not mix the banner into the command's output, and an interactive one must still show
-# it (or the stubs would prove nothing). Each banner branch needs both of its tools.
+# (agents, `zsh -lc`, `zsh -lic`) must not mix the banner into the command's output, and an interactive one that
+# reads commands from stdin must still show it (or the stubs would prove nothing). Each banner branch needs both of its tools.
 docker run --rm "$image" bash -c '
     set -e
     mkdir /tmp/stub /tmp/stub-cow
@@ -99,10 +99,12 @@ BYE"
     export PATH=/tmp/stub:$PATH
     [ -z "$(zsh -lc true)" ]
     got=$(zsh -lic true 2>/dev/null)
-    [ "$got" = "$want" ] || { echo "== zsh -lic printed: $got" >&2; exit 1; }
+    [ -z "$got" ] || { echo "== zsh -lic with a command printed: $got" >&2; exit 1; }
+    got=$(echo true | zsh -li 2>/dev/null)
+    [ "$got" = "$want" ] || { echo "== zsh -li printed: $got" >&2; exit 1; }
     # cowsay without fortune and lolcat without figlet: no banner, only the goodbye
     PATH=/tmp/stub-cow:${PATH#/tmp/stub:}
-    got=$(zsh -lic true 2>/dev/null)
+    got=$(echo true | zsh -li 2>/dev/null)
     [ "$got" = BYE ] || { echo "== banner without its tools: $got" >&2; exit 1; }
 '
 ok login banner stays out of command output
@@ -152,6 +154,8 @@ EOF
     printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
     step stock layout
     doctor_says ok sshd
+    # the server module is selected but was never applied in this image, so bootstrap is not converged
+    doctor_says FAIL bootstrap "not converged"
 
     step a Match all block that turns passwords on
     sshd_t no
@@ -177,8 +181,36 @@ EOF
     doctor_says FAIL sshd
     sshd_t no
     doctor_says ok sshd
+
+    # settings the greps cannot see force sshd -T: an Include inside a drop-in, and a drop-in this user cannot read
+    # (cloud-init writes 50-cloud-init.conf with mode 0600). Each is a FAIL only when sshd -T says passwords are on.
+    printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
+    step a drop-in with an Include
+    printf "Include /etc/ssh/extra.conf\n" | sudo tee /etc/ssh/sshd_config.d/99-i.conf >/dev/null
+    sshd_t yes
+    doctor_says FAIL sshd
+    sshd_t no
+    doctor_says ok sshd
+    sudo rm /etc/ssh/sshd_config.d/99-i.conf
+    step a drop-in this user cannot read
+    sudo install -m 0600 /dev/null /etc/ssh/sshd_config.d/50-cloud-init.conf
+    sshd_t yes
+    doctor_says FAIL sshd
+    sshd_t no
+    doctor_says ok sshd
 '
 ok doctor checks sshd only through the hook it shares with apply
+
+# the mise config dir must be the checkout's mise-config. The script runs directly: with another XDG_CONFIG_HOME
+# `djd doctor` would not find its own task.
+docker run --rm "$image" zsh -lc "$doctor_lib"'
+    step the mise config link points elsewhere
+    rc=0
+    out=$(XDG_CONFIG_HOME=/tmp/elsewhere bash ~/.dotfiles/mise-config/tasks/djd/doctor 2>&1) || rc=$?
+    grep -q "^FAIL mise-config" <<<"$out" || { echo "$out" >&2; exit 1; }
+    [ "$rc" != 0 ]
+'
+ok doctor checks the mise config link
 
 # desktop: each xrdp setting has its own line, and a commented-out default is not the setting
 docker run --rm "$image" zsh -lc "$doctor_lib"'
@@ -226,14 +258,21 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
     # the exit status is not the contract: mise itself reports the refusal to overwrite the file on a dry run
     step a dry run moves nothing
     djd apply --dry-run >/dev/null 2>&1 || true
-    [ -f ~/.bashrc ] && [ ! -L ~/.bashrc ]
+    [ -f ~/.bashrc ]
+    [ ! -L ~/.bashrc ]
     grep -qx custom ~/.bashrc
     [ -z "$(find ~ -maxdepth 1 -name "*.djd-backup-*")" ]
 
+    # ~/.dotfiles is a link to the checkout, as `make init` leaves it, and the checkout then moves: the link
+    # dangles, which install.sh has to remove before it can link the checkout again
     mv ~/.dotfiles ~/src
+    ln -s ~/src ~/.dotfiles
+    mv ~/src ~/src2
+    [ -L ~/.dotfiles ]
+    [ ! -e ~/.dotfiles ]
     step install.sh on the moved checkout
-    ~/src/install.sh
-    [ "$(readlink ~/.dotfiles)" = "$HOME/src" ]
+    ~/src2/install.sh
+    [ "$(readlink ~/.dotfiles)" = "$HOME/src2" ]
     test -L ~/.bashrc
     grep -q custom ~/.bashrc.djd-backup-*
     step apply clears the init caches
@@ -244,13 +283,53 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
 '
 ok conflicting file backed up, moved checkout relinked, re-apply converges
 
+# a directory link into the checkout is no conflict: the files seen through it are the repo's own, and moving one
+# aside would rename a tracked file. The hook runs on its own, because a real apply would not get past the link.
+docker run --rm "$image" zsh -lc '
+    set -e
+    rm -rf ~/.config/lsd
+    ln -s ~/.dotfiles/home/.config/lsd ~/.config/lsd
+    [ -f ~/.config/lsd/config.yaml ] && [ ! -L ~/.config/lsd/config.yaml ]
+    ~/.dotfiles/mise-config/hooks/dotfile-conflicts home
+    [ -f ~/.dotfiles/home/.config/lsd/config.yaml ]
+    [ -z "$(find ~/.dotfiles/home ~/.config -name "*.djd-backup-*")" ]
+'
+ok a directory link into the checkout is not moved aside
+
 # the revision comes from the image, which has no .git
 docker run --rm "$image" zsh -lc '
     set -e
+    [ -n "$DJD_REVISION" ]
     out=$(djd status)
-    grep -qF "@ $DJD_REVISION" <<<"$out"
+    grep -qx "checkout: .* @ $DJD_REVISION" <<<"$out"
 '
 ok djd status prints the revision
+
+# install.sh replaces a mise older than the min_version it reads. A stub curl hands `sh` a script that only records
+# MISE_VERSION, and a stub mise stands in for the old one; the control is the image's real mise, which must not be
+# reinstalled.
+docker run --rm "$image" bash -c '
+    set -e
+    min=$(sed -n "s/^min_version = \"\(.*\)\"$/\1/p" ~/.dotfiles/mise-config/config.toml)
+    [ -n "$min" ]
+    mkdir ~/stub
+    printf "#!/bin/sh\necho \"echo version=\\\$MISE_VERSION >>\$HOME/install.log\"\n" >~/stub/curl
+    chmod +x ~/stub/curl
+    export PATH=~/stub:$PATH
+    # control: the real mise is new enough, so nothing is downloaded
+    ~/.dotfiles/install.sh >/dev/null 2>&1 || true
+    [ ! -e ~/install.log ]
+    mv ~/.local/bin/mise ~/.local/bin/mise.real
+    printf "#!/bin/sh\necho 2000.1.1 linux-x64\n" >~/.local/bin/mise
+    chmod +x ~/.local/bin/mise
+    ~/.dotfiles/install.sh >/dev/null 2>&1 || true
+    grep -qx "version=v$min" ~/install.log
+    # an override with or without the v names the same release
+    rm ~/install.log
+    MISE_VERSION=2026.1.2 ~/.dotfiles/install.sh >/dev/null 2>&1 || true
+    grep -qx "version=v2026.1.2" ~/install.log
+'
+ok install.sh replaces a mise older than min_version
 
 # the age key, an encrypted value, and the value coming back through the secrets module. age.strict is off, so
 # a broken decrypt would otherwise just leave the variable unset
@@ -260,14 +339,18 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
     [ "$(stat -c %a ~/.config/djd/age.txt)" = 600 ]
     [ "$(stat -c %a ~/.config/djd)" = 700 ]
     # a pipeline that starts with ! is exempt from set -e, so the refusals are spelled out
+    key_before=$(cat ~/.config/djd/age.txt)
     if djd secret keygen >/dev/null 2>&1; then exit 1; fi
+    [ "$(cat ~/.config/djd/age.txt)" = "$key_before" ]
     step secret set
-    # the module is selected before the first set: with values to redact in the environment, mise stops feeding
-    # stdin to a task that is not raw, so the second set stored an empty value and exited 0
-    printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
+    # the first set runs with the module unselected, the usual case: the task itself has to pass the key and the
+    # experimental flag, or mise cannot encrypt
     printf "s3cret\n" | djd secret set DJD_CHECK >/dev/null
     grep -q DJD_CHECK ~/.dotfiles/mise-config/config.secrets.toml
     if grep -q s3cret ~/.dotfiles/mise-config/config.secrets.toml; then exit 1; fi
+    # the module is selected before the second set: with values to redact in the environment, mise stops feeding
+    # stdin to a task that is not raw, so the second set stored an empty value and exited 0
+    printf "env = [\"agent\", \"secrets\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
     printf "second\n" | djd secret set DJD_CHECK2 >/dev/null
     # NAME=value would put the plaintext in argv; exit 2 is the usage error
     rc=0
@@ -280,17 +363,17 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
 
     step missing key
     mv ~/.config/djd/age.txt ~/age.bak
-    doctor_says FAIL secrets
+    doctor_says FAIL secrets "no age key"
     step a different key
     djd secret keygen >/dev/null
-    doctor_says FAIL secrets
+    doctor_says FAIL secrets "does not decrypt"
     # the right key again, so that only its mode can make doctor fail from here on
     mv ~/age.bak ~/.config/djd/age.txt
     doctor_says ok secrets
     for mode in 640 604 644; do
         step key mode $mode
         chmod $mode ~/.config/djd/age.txt
-        doctor_says FAIL secrets
+        doctor_says FAIL secrets "must not be accessible"
     done
     for mode in 400 600; do
         step key mode $mode
