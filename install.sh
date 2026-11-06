@@ -55,13 +55,21 @@ main() {
         ln -s "$DJD_DIR/mise-config" "$cfg"
     fi
 
+    # the version the applied tree requires, so the pin has one home; MISE_VERSION overrides it (with or without
+    # the leading v)
+    min=$(sed -n 's/^min_version = "\(.*\)"$/\1/p' "$DJD_DIR/mise-config/config.toml")
+    [ -n "$min" ] || die "no min_version in $DJD_DIR/mise-config/config.toml"
+    version=${MISE_VERSION:-$min}
+    version=v${version#v}
+    # an install that predates min_version would make every `djd apply` fail on it, so it is replaced as well
+    install_mise=
     if [ ! -x "$HOME/.local/bin/mise" ]; then
-        # the version the applied tree requires, so the pin has one home; MISE_VERSION overrides it
-        version=${MISE_VERSION:-}
-        if [ -z "$version" ]; then
-            version=$(sed -n 's/^min_version = "\(.*\)"$/v\1/p' "$DJD_DIR/mise-config/config.toml")
-            [ -n "$version" ] || die "no min_version in $DJD_DIR/mise-config/config.toml"
-        fi
+        install_mise=1
+    else
+        have=$("$HOME/.local/bin/mise" --version 2>/dev/null | awk '{ print $1; exit }')
+        [ "$(printf '%s\n%s\n' "$min" "${have:-0}" | sort -V | sed -n 1p)" = "$min" ] || install_mise=1
+    fi
+    if [ -n "$install_mise" ]; then
         # sh has no pipefail: a failed download shows up as a missing binary
         curl -fsSL https://mise.run | MISE_VERSION="$version" sh
         [ -x "$HOME/.local/bin/mise" ] || die "installing mise failed"

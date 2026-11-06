@@ -5,11 +5,14 @@
 # Contract
 #   - add writes the selection in the canonical order whatever order it arrives in, adds agent with full, and
 #     warns about RDP (3389) only when desktop is selected without server.
+#   - add warns when secrets and agent are both selected (the selection is still written), and an empty item in
+#     MISE_ENV is ignored.
+#   - remove of server warns that the hardening is gone.
 #   - add and remove run the apply with MISE_ENV unset, because an inherited MISE_ENV outranks the file.
 #   - remove writes the new selection before it unapplies, deletes the file when nothing is left, refuses to
 #     leave full without agent (exit 2), and unapplies a module even when it was not selected.
 #   - A group that was never applied is not an error; any other `mise dot unapply` failure is.
-#   - add and remove without a module exit 2 and write nothing; list reads MISE_ENV and calls nothing.
+#   - add and remove without a module, or with a word that is no module, exit 2 and write nothing; list reads MISE_ENV and calls nothing.
 #
 # The task is run as a script with the variables mise's #USAGE parsing would hand it, so the argument choices
 # are not covered here. `mise` and `sudo` are stubs on PATH: the real ones would touch the machine.
@@ -91,7 +94,7 @@ want_selection "add desktop server" 'env = ["server", "desktop"]'
 run desktop add agent
 want_rc "add agent to desktop" 0
 want_selection "add agent to desktop" 'env = ["agent", "desktop"]'
-# an inherited MISE_ENV would replace the file the apply just read
+# an inherited MISE_ENV would outrank the selection file that add just wrote
 want_log "apply env" 'unset|run djd:apply|env = ["agent", "desktop"]'
 
 new_home
@@ -109,6 +112,35 @@ want_rc "add desktop server" 0
 no_err "desktop with server" 3389
 run server add desktop
 no_err "desktop added to server" 3389
+
+# decrypted secrets next to the agent tools: allowed, with a warning whichever of the two arrives second
+new_home
+run "" add agent secrets
+want_rc "add agent secrets" 0
+want_err "add agent secrets" "decrypted values"
+want_selection "add agent secrets" 'env = ["agent", "secrets"]'
+run secrets add agent
+want_rc "add agent to secrets" 0
+want_err "add agent to secrets" "decrypted values"
+run secrets add full
+want_err "add full to secrets" "decrypted values"
+new_home
+run "" add secrets
+want_rc "add secrets alone" 0
+no_err "add secrets alone" "decrypted values"
+want_selection "add secrets alone" 'env = ["secrets"]'
+# an empty item in MISE_ENV is no module
+run "server,,secrets" add desktop
+want_rc "empty item in MISE_ENV" 0
+want_selection "empty item in MISE_ENV" 'env = ["server", "desktop", "secrets"]'
+
+# a word that is no module never reaches the selection (usage's choices stop it first; this is the second line)
+new_home
+# shellcheck disable=SC2016 # the literal $(...) is the point: it must not run
+run "" add 'agent$(touch pwned)'
+want_rc "add a bogus module" 2
+want_selection "add a bogus module" none
+[ ! -e "$HOME/pwned" ] || fail "a module name ran as a command"
 
 # full needs agent; removing both at once is fine
 new_home
@@ -130,6 +162,12 @@ want_rc "remove desktop" 0
 want_selection "remove desktop" 'env = ["server"]'
 want_log "remove desktop" 'unset|bootstrap unapply desktop --yes|env = ["server"]'
 want_log "remove desktop" 'unset|run djd:apply|env = ["server"]'
+# removing server takes the hardening away: the remover is told while still logged in
+no_err "remove desktop" "sshd may accept passwords"
+run server remove server
+want_rc "remove server" 0
+want_err "remove server" "sshd may accept passwords"
+want_err "remove server" "firewall stays enabled"
 # a module that is not selected is unapplied anyway: its files may be left over from a run that failed halfway
 new_home
 set_selection 'env = ["server"]'
@@ -179,7 +217,7 @@ want_selection list none
 [ ! -s "$HOME/log" ] || fail "list called: $(cat "$HOME/log")"
 
 # Brave's apt source outlives mise's unapply and would keep feeding apt upgrade. It sits at a fixed path, so
-# this part needs the file to exist (tests the sandbox step creates it); the VM test covers the real removal.
+# this part needs the file to exist (test/offline creates it before this test runs); the VM test covers the real removal.
 if [ -e "$brave" ]; then
     new_home
     run desktop remove desktop

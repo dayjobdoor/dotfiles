@@ -8,11 +8,15 @@ set -euo pipefail
 # sshd_config cloud-init writes when openssh-server is missing, is checked against sshd -T.
 # A Match block defeats "first value wins" for the users it matches, so any Match line also forces sshd -T,
 # evaluated for the current user from a documentation address (TEST-NET-3). That still cannot see a Match for
-# another user or another address, nor a Match in a file outside these two paths.
+# another user or another address, nor a Match in a file outside these two paths. An Include inside a drop-in, and
+# a file this user cannot read (cloud-init's 50-cloud-init.conf is 0600), hide settings from the greps in the same
+# way, so each of them forces sshd -T too.
 first=$(grep -m1 -vE '^[[:space:]]*(#|$)' /etc/ssh/sshd_config || true)
 earlier=$(cd /etc/ssh/sshd_config.d && printf '%s\n' *.conf | LC_ALL=C sort | sed '/^10-djd\.conf$/,$d')
-match=$(grep -rhiE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config /etc/ssh/sshd_config.d || true)
-if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ -n "$earlier" ] || [ -n "$match" ]; then
+match=$(grep -rhiE '^[[:space:]]*(Match|Include)[[:space:]]' /etc/ssh/sshd_config.d || true)
+match+=$(grep -hiE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config || true)
+unreadable=$(find /etc/ssh/sshd_config /etc/ssh/sshd_config.d -type f ! -readable 2>/dev/null || true)
+if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ -n "$earlier" ] || [ -n "$match" ] || [ -n "$unreadable" ]; then
     # sshd -T needs the privilege separation directory, which only a started ssh.service creates
     sudo install -d -m 0755 /run/sshd
     effective=$(sudo sshd -T -C "user=$(id -un),host=localhost,addr=203.0.113.1")

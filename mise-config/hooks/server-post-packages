@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# The server module's post-packages hook (declared in config.server.toml). mise runs it right after the packages
+# and before the files phase writes /etc/ssh/sshd_config.d/10-djd.conf, so a refusal here leaves sshd as it was.
+# sshd is socket-activated: once that drop-in exists, the next connection is keys-only whether or not the rest of
+# the apply succeeds.
+set -euo pipefail
+
+u=$(id -un)
+id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"
+
+# DJD_SKIP_SSH_CHECKS=1 for a machine reached some other way (a VM console, `incus exec`, `multipass exec`)
+[ -z "${DJD_SKIP_SSH_CHECKS:-}" ] || exit 0
+
+refuse() {
+    echo "djd server: $* (DJD_SKIP_SSH_CHECKS=1 skips these checks if you reach this machine another way)" >&2
+    exit 1
+}
+
+# keys-only SSH with no key to log in by, and root login off with root as the only user, are both a lock-out
+[ "$(id -u)" -ne 0 ] || refuse "run the apply as a normal user with sudo: the server module turns root login off"
+has_key=
+for keys in "$HOME/.ssh/authorized_keys" "$HOME/.ssh/authorized_keys2"; do
+    if [ -f "$keys" ] && grep -qvE '^[[:space:]]*(#|$)' "$keys"; then has_key=1; fi
+done
+[ -n "$has_key" ] || refuse "$HOME/.ssh/authorized_keys holds no key, and this module turns password logins off. Add your public key first (ssh-copy-id)"
+
+# the firewall rule that the module adds allows port 22 only
+other_port=$(grep -rhiE '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null |
+    awk '$2 != 22' || true)
+[ -z "$other_port" ] || refuse "sshd listens on a port other than 22 ($other_port), but the firewall rule opens 22 only; change the ssh rule in config.server.toml first"

@@ -88,7 +88,8 @@ port = 3389
 protocol = "tcp"
 source = "fe80::/10"
 
-# post-packages joins the user to docker; pre-dotfiles fails an apply unless the sshd drop-in is in effect.
+# post-packages joins the user to docker and refuses an apply that would lock the user out of ssh, before the
+# drop-in above is written; pre-dotfiles fails an apply unless that drop-in is in effect.
 [bootstrap.hooks]
-post-packages = 'u=$(id -un); id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"'
+post-packages = "~/.config/mise/hooks/server-post-packages"
 pre-dotfiles = "~/.config/mise/hooks/server-pre-dotfiles"

@@ -12,11 +12,15 @@ DJD_DIR="$HOME/.dotfiles"
 # the canonical order, so later modules win key collisions
 order=(agent server desktop full secrets)
 modules=()
-# usage hands variadic args over as one shell-quoted string; its choices limit the words to known modules
-eval "modules=(${usage_module:-})"
+# usage hands variadic args over as one shell-quoted string; its choices limit the words to known modules, and the
+# loop below refuses any other word, so the names are safe as array subscripts
+read -ra modules <<<"${usage_module:-}"
 declare -A on=()
 IFS=, read -r -a current <<<"${MISE_ENV:-}"
-for m in "${current[@]}"; do on[$m]=1; done
+for m in "${current[@]}"; do
+    # an empty item (MISE_ENV=a,,b) is no module, and an empty array subscript is an error
+    [ -z "$m" ] || on[$m]=1
+done
 
 write_selection() {
     local m list=""
@@ -28,6 +32,15 @@ write_selection() {
 }
 
 action=${usage_action?}
+for m in "${modules[@]}"; do
+    case " ${order[*]} " in
+    *" $m "*) ;;
+    *)
+        echo "djd: unknown module $m; the modules are: ${order[*]}" >&2
+        exit 2
+        ;;
+    esac
+done
 if [ "$action" != list ] && [ ${#modules[@]} -eq 0 ]; then
     echo "djd: name at least one module to $action: ${order[*]}" >&2
     exit 2
@@ -42,6 +55,11 @@ add)
     for m in "${modules[@]}"; do on[$m]=1; done
     # npm: tools in full need bun from agent
     if [ -n "${on[full]:-}" ]; then on[agent]=1; fi
+    # config.secrets.toml: everything that runs on the machine sees the decrypted values, and agent runs agents. A
+    # personal workstation may want both, so this warns and does not refuse
+    if [ -n "${on[secrets]:-}" ] && [ -n "${on[agent]:-}" ]; then
+        echo "djd: secrets and agent are both selected: every agent tool on this machine sees the decrypted values. Keep this combination off sandboxes" >&2
+    fi
     # the firewall rules for 3389/tcp live in the server module
     if [ -n "${on[desktop]:-}" ] && [ -z "${on[server]:-}" ]; then
         echo "djd: desktop without server leaves RDP (3389/tcp) open on every interface; the server module adds the firewall rules" >&2
@@ -84,6 +102,11 @@ remove)
         if [ "$m" = desktop ] && [ -e "$brave" ]; then
             sudo rm -f "$brave"
             echo "djd: removed Brave's apt source"
+        fi
+        if [ "$m" = server ]; then
+            # the unapply deletes the sshd drop-in and daemon.json and leaves the firewall rules (tests/vm-checks.sh
+            # asserts both); say what that means before the session that ran this is lost
+            echo "djd: server removed: sshd may accept passwords again and docker may publish ports on every address again. The firewall stays enabled with its rules (SSH included). Check 'sudo sshd -T | grep -i passwordauth' before you log out" >&2
         fi
         echo "djd: packages installed by $m stay; remove them with apt if needed"
     done

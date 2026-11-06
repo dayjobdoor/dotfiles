@@ -72,9 +72,12 @@ vm_sh 'git -c init.defaultBranch=main init -q ~/djd-src && cd ~/djd-src && git a
     git -c user.name=djd -c user.email=djd@localhost commit -qm test'
 
 # single quotes on purpose: these expand inside the VM. install.sh arrives on stdin as from curl, so it clones.
+# DJD_SKIP_SSH_CHECKS: the VM has no authorized key (it is reached through incus, multipass or orb), and the server
+# module's post-packages hook refuses to turn passwords off for a user who has none. vm-checks.sh applies again, so
+# it needs the variable too.
 # shellcheck disable=SC2016
-vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_REPO="file://$HOME/djd-src" sh -s -- server desktop <~/djd-src/install.sh'
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_REPO="file://$HOME/djd-src" sh -s -- server desktop <~/djd-src/install.sh'
 # DJD_TEST_VM: vm-checks.sh refuses to run anywhere else. GITHUB_ACTIONS reaches the VM so that its failures annotate too.
 # shellcheck disable=SC2016
-vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_TEST_VM=1 GITHUB_ACTIONS='"${GITHUB_ACTIONS:-}"' bash ~/.dotfiles/tests/vm-checks.sh'
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_TEST_VM=1 GITHUB_ACTIONS='"${GITHUB_ACTIONS:-}"' bash ~/.dotfiles/tests/vm-checks.sh'
 echo "vm: ok"

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #MISE description="Offline tests (no network, no token) on the current tree inside an existing djd:sandbox, without a build"
-#USAGE arg "[test]..." help="Tests to run; all four by default" { choices "xsession-audio" "tree-check" "agentos-bundle" "djd-module"; }
+#USAGE arg "[test]..." help="Tests to run; all five by default" { choices "xsession-audio" "tree-check" "agentos-bundle" "djd-module" "server-hooks"; }
 #USAGE flag "--image <image>" default="djd:sandbox" help="Image to run them in"
 set -euo pipefail
 trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
 
 cd "$(dirname "$0")/../.."
 image=${usage_image:-djd:sandbox}
-read -ra tests <<<"${usage_test:-xsession-audio tree-check agentos-bundle djd-module}"
+read -ra tests <<<"${usage_test:-xsession-audio tree-check agentos-bundle djd-module server-hooks}"
 
 # The tree is streamed in, so a fix is tested without rebuilding the image. One container per test: they share no
-# state. The apt source that `djd module remove desktop` deletes is created first, because tests/djd-module.sh
+# state, and none has a network, so "offline" is enforced. The apt source that `djd module remove desktop` deletes is created first, because tests/djd-module.sh
 # checks that only when it exists.
 for t in "${tests[@]}"; do
     echo "== $t" >&2
-    tests/tree.sh | docker run --rm -i --init "$image" bash -c \
+    tests/tree.sh | docker run --rm -i --init --network none --hostname localhost "$image" bash -c \
         'mkdir /tmp/w && tar -xf - -C /tmp/w && sudo install -D /dev/null /etc/apt/sources.list.d/mise-brave-browser.sources && bash "/tmp/w/tests/$0.sh"' "$t"
 done
