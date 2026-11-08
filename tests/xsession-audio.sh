@@ -54,6 +54,13 @@ exited() { [ -s "$state/rc" ]; }
 # every stub and the script's own shells carry STATE=<dir> in their environment
 leftovers() { grep -l -a -s -F -- "STATE=$1" /proc/[0-9]*/environ 2>/dev/null | wc -l; }
 none_left() { [ "$(leftovers "$1")" -eq 0 ]; }
+# The supervisor is the shell that starts wireplumber: the stub records its parent ($PPID). A zombie has ended too.
+supervisor_gone() {
+    local pid
+    pid=$(cat "$state/sup.pid")
+    kill -0 "$pid" 2>/dev/null || return 0
+    grep -q '^State:[[:space:]]*Z' "/proc/$pid/status" 2>/dev/null
+}
 all_alive() {
     local pid
     while read -r pid; do kill -0 "$pid" 2>/dev/null || return 1; done <"$state/pids"
@@ -124,6 +131,7 @@ EOF
 #!/bin/sh
 if [ -e "$STATE/up" ]; then
     echo $$ >"$STATE/wp.pid"
+    echo $PPID >"$STATE/sup.pid"
     echo $$ >>"$STATE/pids"
     echo "wireplumber connects bus=${DBUS_SESSION_BUS_ADDRESS:-none}" >>"$STATE/log"
     [ -e "$STATE/long" ] && [ "$(grep -c 'wireplumber connects' "$STATE/log")" = 3 ] && echo $(($(cat "$STATE/now") + 30)) >"$STATE/now"
@@ -201,7 +209,9 @@ echo "== wireplumber is not started again once the server stops answering"
 wait_for 2 test -s "$state/wp.pid" || fail "no wireplumber PID recorded"
 rm -f "$state/up"
 kill "$(cat "$state/wp.pid")"
-sleep 2
+# the supervisor ends after its back-off, when the server no longer answers; one that kept starting wireplumber would
+# log "fails" first (five runs with a back-off each, so the limit is longer than that)
+wait_for 10 supervisor_gone || fail "the supervisor was still running 10 s after wireplumber died with no server"
 [ "$(count 'wireplumber fails')" = 0 ] || fail "wireplumber was started again although the server no longer answered"
 echo "ok the supervisor stops when the server does"
 cleanup
@@ -214,7 +224,7 @@ login 0
 wait_for 12 connected 5 || fail "wireplumber was not started five times"
 elapsed=$(($(date +%s) - started))
 [ "$elapsed" -ge 4 ] || fail "five wireplumber runs took $elapsed s: no back-off between the runs"
-sleep 2
+wait_for 5 supervisor_gone || fail "the supervisor was still running 5 s after the fifth quick death"
 [ "$(count 'wireplumber connects')" = 5 ] || fail "wireplumber was started $(count 'wireplumber connects') times, not given up on after five"
 echo "ok the supervisor gives up after five quick deaths"
 cleanup
@@ -227,7 +237,7 @@ echo 1000 >"$state/now"
 login 0
 # runs 1, 2 quick; run 3 lasts 30 s; runs 4 to 8 quick, and five of those end it
 wait_for 12 connected 8 || fail "wireplumber was given up on early: a 30 s run did not reset the count"
-sleep 2
+wait_for 5 supervisor_gone || fail "the supervisor was still running 5 s after the fifth quick death that followed the 30 s run"
 [ "$(count 'wireplumber connects')" = 8 ] || fail "wireplumber was started $(count 'wireplumber connects') times, not given up on after five quick deaths following a 30 s run"
 echo "ok a long run resets the count"
 cleanup
@@ -284,7 +294,7 @@ all_alive || fail "a process the script started ended while the desktop still ra
 wait_for 5 exited || fail "the script did not end after the desktop did"
 [ "$(cat "$state/rc")" = 3 ] || fail "the script exited with $(cat "$state/rc"), not the desktop's 3"
 wait_for 5 none_left "$state" || fail "$(leftovers "$state") processes outlived the session"
-sleep 2
+# nothing carrying STATE is left, the supervisor included, so nothing can start wireplumber again
 [ "$(count 'wireplumber connects')" = 1 ] || fail "wireplumber was started again after the session ended"
 echo "ok logout ends the server, the supervisor and its daemons, and nothing respawns"
 cleanup

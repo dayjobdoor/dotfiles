@@ -27,7 +27,7 @@ jobs:
       group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
-    # waits for the push.yaml run, whose build alone may take 45 minutes (5-6 measured)
+    # waits for the push.yaml run; its build job has a 45-minute timeout (2 to 5 minutes measured)
     timeout-minutes: 60
     permissions:
       contents: write # push the tag, create the release
@@ -80,9 +80,6 @@ jobs:
           else
             latest_tag=$(semver_latest)
             [ -z "$latest_tag" ] && latest_tag="0.0.0"
-            if [[ ! "$latest_tag" =~ ${semver_pattern} ]]; then
-              latest_tag="0.0.0"
-            fi
             # a re-run of an older CI run must not release old code as the newest version
             if [ "$latest_tag" != "0.0.0" ] && ! git merge-base --is-ancestor "${latest_tag}^{commit}" "$HEAD_SHA"; then
               echo "::warning::commit ${HEAD_SHA} does not contain ${latest_tag}; not releasing it"

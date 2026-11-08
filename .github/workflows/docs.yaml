@@ -1,7 +1,7 @@
 name: Docs
-# ci.yaml skips pushes that touch only Markdown or llms.txt, so docs-only changes get this check instead. DESIGN.md
-# changes run both, because lint also checks that file. It never releases:
-# tag.yaml listens to CI alone.
+# ci.yaml skips pushes that touch only Markdown or llms.txt, so docs-only changes get these checks instead: the docs
+# links, and a gitleaks scan, because a Markdown file can hold a key as well as any other. DESIGN.md changes run
+# both, because lint also checks that file. It never releases: tag.yaml listens to CI alone.
 on:
   push:
     branches: [main]
@@ -33,3 +33,23 @@ jobs:
           version: 2026.10.23
           install: false
       - run: mise run lint:docs
+
+  secrets:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      # tools install from the URLs and checksums in mise.lock, so this job calls no GitHub API and needs no token
+      MISE_LOCKED: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks scans the whole history
+          fetch-depth: 0
+          persist-credentials: false
+      # mise itself only; `mise run lint:secrets` installs gitleaks at the version pinned in mise.lock
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: 2026.10.23
+          install: false
+      - run: mise run lint:secrets

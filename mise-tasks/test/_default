@@ -54,7 +54,18 @@ doctor_says() {
 EOF
 )
 
-docker run --rm "$image" djd doctor
+# the checks that apply to a plain image (no server, desktop or secrets selected) must each print their ok line:
+# a doctor that skipped one would still exit 0
+out=$(docker run --rm "$image" djd doctor 2>&1) || {
+    printf '%s\n' "$out" >&2
+    exit 1
+}
+for check in ubuntu mise-config login-shell bootstrap dotfiles; do
+    grep -qx "ok $check" <<<"$out" || {
+        printf 'djd doctor printed no "ok %s" line:\n%s\n' "$check" "$out" >&2
+        exit 1
+    }
+done
 # `docker run IMAGE tool` and `docker exec` get no login shell; the image PATH must carry the shims
 docker run --rm "$image" rg --version >/dev/null
 ok tools on PATH without a login shell
@@ -63,8 +74,19 @@ docker run --rm "$image" env -i HOME=/home/ubuntu bash -lc 'rg --version' >/dev/
 ok .profile puts the shims on PATH
 
 # the agent module's [env] reaches a shimmed tool in a plain `docker run`, and pi and omp each get the global AGENTS.md
+# PI_TELEMETRY is 0 and DO_NOT_TRACK is 1, so node prints their concatenation: 01
 docker run --rm "$image" sh -c 'node -p "process.env.PI_TELEMETRY + process.env.DO_NOT_TRACK"' | grep -qx 01
-docker run --rm "$image" zsh -lc 'test -L ~/.pi/agent/AGENTS.md && cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md'
+# both files are links into the checkout's agent/ directory, not empty, and the same text
+docker run --rm "$image" zsh -lc '
+    set -e
+    for t in pi omp; do
+        f=$HOME/.$t/agent/AGENTS.md
+        test -L "$f"
+        test -s "$f"
+        [ "$(readlink -f "$f")" = "$HOME/.dotfiles/agent/.$t/agent/AGENTS.md" ]
+    done
+    cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md
+'
 ok agent env without a login shell, global AGENTS.md for pi and omp
 
 # Every start is interactive, on a tty. Two caches are involved: the first zsh start fills the zsh init cache, so
@@ -154,13 +176,17 @@ EOF
     printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
     step stock layout
     doctor_says ok sshd
+    # the counter-case: the stock layout needs no sshd -T, so a stub that reports passwords on is never asked
+    step stock layout, stub reporting passwords on
+    sshd_t yes
+    doctor_says ok sshd
     # the server module is selected but was never applied in this image, so bootstrap is not converged
     doctor_says FAIL bootstrap "not converged"
 
     step a Match all block that turns passwords on
     sshd_t no
     printf "Match all\nPasswordAuthentication yes\n" | sudo tee /etc/ssh/sshd_config.d/99-m.conf >/dev/null
-    doctor_says FAIL sshd
+    doctor_says FAIL sshd "not keys-only"
     step a Match block that leaves the three settings alone
     printf "Match User nobody\nX11Forwarding no\n" | sudo tee /etc/ssh/sshd_config.d/99-m.conf >/dev/null
     doctor_says ok sshd
@@ -169,7 +195,7 @@ EOF
     step an earlier drop-in that turns passwords on
     sudo touch /etc/ssh/sshd_config.d/00-x.conf
     sshd_t yes
-    doctor_says FAIL sshd
+    doctor_says FAIL sshd "not keys-only"
     step an earlier drop-in that changes nothing
     sshd_t no
     doctor_says ok sshd
@@ -178,7 +204,7 @@ EOF
     sudo rm /etc/ssh/sshd_config.d/00-x.conf
     printf "PasswordAuthentication yes\n" | sudo tee /etc/ssh/sshd_config >/dev/null
     sshd_t yes
-    doctor_says FAIL sshd
+    doctor_says FAIL sshd "not keys-only"
     sshd_t no
     doctor_says ok sshd
 
@@ -188,14 +214,14 @@ EOF
     step a drop-in with an Include
     printf "Include /etc/ssh/extra.conf\n" | sudo tee /etc/ssh/sshd_config.d/99-i.conf >/dev/null
     sshd_t yes
-    doctor_says FAIL sshd
+    doctor_says FAIL sshd "not keys-only"
     sshd_t no
     doctor_says ok sshd
     sudo rm /etc/ssh/sshd_config.d/99-i.conf
     step a drop-in this user cannot read
     sudo install -m 0600 /dev/null /etc/ssh/sshd_config.d/50-cloud-init.conf
     sshd_t yes
-    doctor_says FAIL sshd
+    doctor_says FAIL sshd "not keys-only"
     sshd_t no
     doctor_says ok sshd
 '
@@ -307,27 +333,45 @@ ok djd status prints the revision
 
 # install.sh replaces a mise older than the min_version it reads. A stub curl hands `sh` a script that only records
 # MISE_VERSION, and a stub mise stands in for the old one; the control is the image's real mise, which must not be
-# reinstalled.
+# reinstalled, and install.sh's own apply then has to succeed (it ends in `exec djd apply`).
 docker run --rm "$image" bash -c '
     set -e
     min=$(sed -n "s/^min_version = \"\(.*\)\"$/\1/p" ~/.dotfiles/mise-config/config.toml)
     [ -n "$min" ]
     mkdir ~/stub
-    printf "#!/bin/sh\necho \"echo version=\\\$MISE_VERSION >>\$HOME/install.log\"\n" >~/stub/curl
+    # install.sh saves the download with `curl ... -o FILE URL` before it runs it; without -o the script goes to stdout
+    cat >~/stub/curl <<"EOF"
+#!/bin/sh
+out=/dev/stdout
+while [ $# -gt 0 ]; do
+    [ "$1" != -o ] || out=$2
+    shift
+done
+echo "echo version=\$MISE_VERSION >>\$HOME/install.log" >"$out"
+EOF
     chmod +x ~/stub/curl
     export PATH=~/stub:$PATH
     # control: the real mise is new enough, so nothing is downloaded
-    ~/.dotfiles/install.sh >/dev/null 2>&1 || true
+    ~/.dotfiles/install.sh >/tmp/install.out 2>&1 || { cat /tmp/install.out >&2; exit 1; }
     [ ! -e ~/install.log ]
     mv ~/.local/bin/mise ~/.local/bin/mise.real
     printf "#!/bin/sh\necho 2000.1.1 linux-x64\n" >~/.local/bin/mise
     chmod +x ~/.local/bin/mise
-    ~/.dotfiles/install.sh >/dev/null 2>&1 || true
+    # the stub leaves the old mise in place, so install.sh dies on its version check right after the stub download.
+    # That is the end the runs below expect, and the message shows it was this check and not an earlier failure.
+    stale() {
+        "$@" >/tmp/install.out 2>&1 || true
+        grep -q "installing mise failed" /tmp/install.out || { cat /tmp/install.out >&2; return 1; }
+    }
+    stale ~/.dotfiles/install.sh
     grep -qx "version=v$min" ~/install.log
-    # an override with or without the v names the same release
+    # an override names the same release with or without the v
     rm ~/install.log
-    MISE_VERSION=2026.1.2 ~/.dotfiles/install.sh >/dev/null 2>&1 || true
-    grep -qx "version=v2026.1.2" ~/install.log
+    MISE_VERSION=2099.1.1 stale ~/.dotfiles/install.sh
+    grep -qx "version=v2099.1.1" ~/install.log
+    rm ~/install.log
+    MISE_VERSION=v2099.1.1 stale ~/.dotfiles/install.sh
+    grep -qx "version=v2099.1.1" ~/install.log
 '
 ok install.sh replaces a mise older than min_version
 

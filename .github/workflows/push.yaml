@@ -123,7 +123,7 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           # the job's packages: write token reaches the tools layer, the one exception to "a token needs no scope"
-          # (SECURITY.md, "The release build")
+          # (SECURITY.md#github-tokens)
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 

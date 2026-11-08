@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 
-# a manual run during the scheduled one would share the runner's disk budget, which the red run already exhausted
+# one full build at a time; a new run waits instead of cancelling the one in progress
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -20,7 +20,7 @@ jobs:
     env:
       MISE_TASK_RUN_AUTO_INSTALL: "false"
     steps:
-      # diagnosis only: the one red run died with "No space left on device" and left no log
+      # print the free disk before the build; the full image has exhausted the runner once ("No space left on device")
       - run: df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -2,8 +2,9 @@
 #MISE description="Fresh Ubuntu VM (incus, multipass or OrbStack): curl | sh install of server + desktop, hardening, module removal"
 # cloud-init, the README's `curl | sh -s -- server desktop` (cloning this tree instead of GitHub), then
 # tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux), multipass and OrbStack (`orb`) found.
-# GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 keeps the VM after the run, to inspect a failure.
-set -euo pipefail
+# GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 (exactly 1) keeps the VM after the run, to inspect a failure.
+# -E: the ERR trap also fires inside vm_create and vm_sh
+set -Eeuo pipefail
 # GitHub lists ::error:: lines as annotations, which `gh run view` shows without the log
 # shellcheck disable=SC2329 # invoked by the ERR trap
 on_err() {
@@ -13,45 +14,54 @@ on_err() {
 trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
 cd "$(dirname "$0")/../.."
-name="djd-test-$$"
+# $$ alone repeats when a PID is reused; $RANDOM makes a leftover from an earlier run unlikely to collide
+name="djd-test-$$-$RANDOM"
+
+# cloud-init gets 15 minutes (a hung first boot would otherwise stall until the CI job limit). The timeout runs
+# inside the VM, so it needs no timeout command on the host. `status --wait` exits non-zero when cloud-init failed,
+# and its long status says why. Each backend defines vm_root, which runs a command as root in the VM.
+cloud_init_wait() {
+    local rc=0
+    vm_root timeout 900 cloud-init status --wait >/dev/null || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        if [ "$rc" -eq 124 ]; then
+            echo "vm: cloud-init did not finish within 900 s" >&2
+        else
+            echo "vm: cloud-init failed (exit $rc)" >&2
+        fi
+        vm_root cloud-init status --long >&2 || true
+        exit 1
+    fi
+}
 
 if command -v incus >/dev/null 2>&1; then
     vm_create() {
         # nesting lets docker (server module) run inside the system container
         incus launch images:ubuntu/26.04/cloud "$name" -c security.nesting=true \
             -c cloud-init.user-data="$(cat cloud-init/vm.yaml)" >/dev/null
-        # all three backends stop here: `status --wait` exits non-zero when cloud-init failed, and its long status says why
-        incus exec "$name" -- cloud-init status --wait >/dev/null ||
-            {
-                incus exec "$name" -- cloud-init status --long >&2
-                exit 1
-            }
+        cloud_init_wait
     }
+    vm_root() { incus exec "$name" -- "$@"; }
     vm_sh() { incus exec "$name" -- sudo -iu ubuntu bash -c "$1"; }
     vm_delete() { incus delete -f "$name" >/dev/null 2>&1 || true; }
 elif command -v multipass >/dev/null 2>&1; then
     vm_create() {
-        # the defaults (1 CPU, 1 GB RAM, 5 GB disk) cannot hold the desktop module
+        # the defaults (1 CPU, 1 GB RAM, 5 GB disk) cannot hold the desktop module. --timeout: seconds that
+        # multipass waits for the launch itself; 900 gives it the same 15 minutes as the cloud-init wait
         multipass launch 26.04 --name "$name" --cpus 4 --memory 8G --disk 40G --timeout 900 \
             --cloud-init cloud-init/vm.yaml >/dev/null
-        multipass exec "$name" -- sudo cloud-init status --wait >/dev/null ||
-            {
-                multipass exec "$name" -- sudo cloud-init status --long >&2
-                exit 1
-            }
+        cloud_init_wait
     }
+    vm_root() { multipass exec "$name" -- sudo "$@"; }
     vm_sh() { multipass exec "$name" -- bash -lc "$1"; }
     vm_delete() { multipass delete --purge "$name" >/dev/null 2>&1 || true; }
 elif command -v orb >/dev/null 2>&1; then
     vm_create() {
         # resolute is the codename of 26.04
         orb create -c cloud-init/vm.yaml ubuntu:resolute "$name" >/dev/null
-        orb -m "$name" -w / sudo cloud-init status --wait >/dev/null ||
-            {
-                orb -m "$name" -w / sudo cloud-init status --long >&2
-                exit 1
-            }
+        cloud_init_wait
     }
+    vm_root() { orb -m "$name" -w / sudo "$@"; }
     # orb starts commands in the host's cwd, where mise would also read the host's mise.toml files
     vm_sh() { orb -m "$name" -w / bash -lc "cd && $1"; }
     vm_delete() { orb delete -f "$name" >/dev/null 2>&1 || true; }
@@ -60,7 +70,7 @@ else
     exit 2
 fi
 
-trap '[ -n "${DJD_KEEP_VM:-}" ] || vm_delete' EXIT
+trap '[ "${DJD_KEEP_VM:-}" = 1 ] || vm_delete' EXIT
 vm_create
 echo "vm: $name is up"
 
@@ -77,7 +87,9 @@ vm_sh 'git -c init.defaultBranch=main init -q ~/djd-src && cd ~/djd-src && git a
 # it needs the variable too.
 # shellcheck disable=SC2016
 vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_REPO="file://$HOME/djd-src" sh -s -- server desktop <~/djd-src/install.sh'
-# DJD_TEST_VM: vm-checks.sh refuses to run anywhere else. GITHUB_ACTIONS reaches the VM so that its failures annotate too.
+# DJD_TEST_VM: vm-checks.sh refuses to run anywhere else. GITHUB_ACTIONS reaches the VM so that its failures annotate
+# too; %q quotes it for the shell inside the VM.
+gha=$(printf '%q' "${GITHUB_ACTIONS:-}")
 # shellcheck disable=SC2016
-vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_TEST_VM=1 GITHUB_ACTIONS='"${GITHUB_ACTIONS:-}"' bash ~/.dotfiles/tests/vm-checks.sh'
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_TEST_VM=1 GITHUB_ACTIONS='"$gha"' bash ~/.dotfiles/tests/vm-checks.sh'
 echo "vm: ok"

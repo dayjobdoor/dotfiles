@@ -77,9 +77,16 @@ grep -qx 'kbdinteractiveauthentication no' <<<"$sshd"
 grep -qx 'permitrootlogin no' <<<"$sshd"
 ok sshd keys only
 # Published ports bypass ufw: the default bridge and new networks (compose's) bind them to 127.0.0.1. Checked
-# by publishing one and reading the listening socket, not the network's option. The EXIT trap removes the
-# container when an assertion fails.
-trap 'sudo docker rm -f djd-check >/dev/null 2>&1 || true; sudo docker network rm djd-net >/dev/null 2>&1 || true' EXIT
+# by publishing one and reading the listening socket, not the network's option. One EXIT trap for the whole run:
+# it removes the container and network when an assertion fails, and the sshd guard drop-in (below) when the run
+# fails or is interrupted while it exists.
+guard=/etc/ssh/sshd_config.d/00-djd-test.conf
+cleanup() {
+    sudo docker rm -f djd-check >/dev/null 2>&1 || true
+    sudo docker network rm djd-net >/dev/null 2>&1 || true
+    sudo rm -f "$guard"
+}
+trap cleanup EXIT
 sudo docker network create djd-net >/dev/null
 for net in bridge djd-net; do
     sudo docker run -d --rm --name djd-check --network "$net" -p 80 busybox sleep 600 >/dev/null
@@ -98,7 +105,6 @@ for net in bridge djd-net; do
     sudo docker rm -f djd-check >/dev/null
 done
 sudo docker network rm djd-net >/dev/null
-trap - EXIT
 ok docker publishes on 127.0.0.1
 # sshd is socket-activated on 26.04: ssh.service stays idle until a connection
 for unit in ssh.socket avahi-daemon xrdp docker; do
@@ -129,8 +135,7 @@ for ini in /etc/xrdp/xrdp.ini /etc/xrdp/sesman.ini; do
 done
 ok xrdp runs with the hardened settings
 bash ~/.dotfiles/tests/desktop-apps.sh
-# plan covers packages, files, services and the firewall; doctor adds the Ubuntu release, the mise link, the login
-# shell, the dotfiles, and the sshd and xrdp settings that the hooks enforce
+# plan covers packages, files, services and the firewall; doctor (above) covers the rest
 plan=$(mise bootstrap plan --detailed-exitcode 2>&1) || {
     printf '%s\n' "$plan" >&2
     exit 1
@@ -138,15 +143,16 @@ plan=$(mise bootstrap plan --detailed-exitcode 2>&1) || {
 ok converged
 
 # sshd keeps the first value it reads, so a drop-in that sorts before ours can turn passwords back on. apply
-# and doctor must both refuse that. The file goes before any assertion, so that a red run leaves the machine
-# as it was; the VM is only kept with DJD_KEEP_VM. The running daemon is not asserted: the hook does not restart it.
-guard=/etc/ssh/sshd_config.d/00-djd-test.conf
+# and doctor must both refuse that. The drop-in goes in with the EXIT trap (cleanup) already set, so a red or
+# interrupted run does not leave it behind; the VM is only kept with DJD_KEEP_VM=1. The running daemon is not
+# asserted: the hook does not restart it.
 echo 'PasswordAuthentication yes' | sudo tee "$guard" >/dev/null
 apply_rc=0
 apply_out=$(djd apply 2>&1) || apply_rc=$?
 doctor_rc=0
 doctor_out=$(djd doctor 2>&1) || doctor_rc=$?
 sudo rm -f "$guard"
+trap - EXIT
 if [ "$apply_rc" = 0 ]; then
     echo "djd apply accepted a drop-in that turns passwords on" >&2
     exit 1

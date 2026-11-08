@@ -8,7 +8,9 @@
 #   - Files that the repository's own .gitignore lists (age.txt, .env files, *.local.toml, .secrets, credential
 #     files) are not, while they are untracked: they must never reach a container, a VM or act. A file that was
 #     force-added is tracked, and tree.sh sends it; gitleaks is what stops that one.
-#   - The result does not depend on the git configuration of the machine that runs it (a global excludesfile).
+#   - The result does not depend on the machine's git: a global excludesfile named in the git config, or the
+#     default ~/.config/git/ignore, hides nothing and adds nothing. Both are planted here and tree.sh must ignore
+#     them, so deleting a rule from the repository's .gitignore makes this test fail.
 #   - A tracked file that was deleted from the worktree is skipped instead of making tar fail.
 set -euo pipefail
 
@@ -22,9 +24,12 @@ fail() {
     exit 1
 }
 
-# a global excludesfile (ours ignores *.env) would hide a missing rule of the repository's own .gitignore
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
-mkdir -p "$repo/tests" "$repo/mise-config" "$repo/.devcontainer"
+# The setup runs in an empty HOME with no global git config, so the machine's own ignore file cannot reach it.
+# (Ours ignores .env and .env.*, which would hide a missing rule of the repository's .gitignore.)
+export HOME=$work/home GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+unset XDG_CONFIG_HOME
+mkdir -p "$HOME/.config/git"
+mkdir -p "$repo/tests" "$repo/mise-config" "$repo/.devcontainer" "$repo/gh" "$repo/rclone"
 cp "$here/tree.sh" "$repo/tests/tree.sh"
 cp "$here/../.gitignore" "$repo/.gitignore"
 cd "$repo"
@@ -43,15 +48,33 @@ echo secret >.devcontainer/.env
 echo secret >mise-config/miserc.local.toml
 echo secret >mise-config/config.local.toml
 echo secret >.secrets
-echo secret >.env.local
+echo secret >.env.production
+echo secret >.vars
+echo secret >token.local
+echo secret >gh/hosts.yml
+echo secret >rclone/rclone.conf
+echo secret >auth.json
 echo secret >key.pem
+echo secret >id.key
 
-list=$(tests/tree.sh | tar -tf -) || fail "tree.sh failed or its output is not a tar archive"
-for want in tracked.txt new.txt "with space.txt" dangling .gitignore tests/tree.sh; do
-    grep -qxF -- "$want" <<<"$list" || fail "$want is missing from the archive:
+# A hostile machine, planted after the commit so that the setup above is not affected: *.txt is ignored by the
+# default file (~/.config/git/ignore) and, for the second run, by an excludesfile named in the git config. Neither
+# may change the archive. Without this, tree.sh passes here on a machine whose own ignore file hides the same files.
+echo '*.txt' >"$HOME/.config/git/ignore"
+cp "$HOME/.config/git/ignore" "$HOME/hostile-ignore"
+printf '[core]\n\texcludesFile = %s\n' "$HOME/hostile-ignore" >"$HOME/hostile.gitconfig"
+
+check_archive() {
+    local label=$1 want unwanted
+    list=$(tests/tree.sh | tar -tf -) || fail "$label: tree.sh failed or its output is not a tar archive"
+    for want in tracked.txt new.txt "with space.txt" dangling .gitignore tests/tree.sh; do
+        grep -qxF -- "$want" <<<"$list" || fail "$label: $want is missing from the archive:
 $list"
-done
-for unwanted in age.txt .env .devcontainer/.env mise-config/miserc.local.toml mise-config/config.local.toml .secrets .env.local key.pem gone.txt; do
-    if grep -qxF -- "$unwanted" <<<"$list"; then fail "$unwanted is in the archive"; fi
-done
+    done
+    for unwanted in age.txt .env .devcontainer/.env mise-config/miserc.local.toml mise-config/config.local.toml .secrets .env.production .vars token.local gh/hosts.yml rclone/rclone.conf auth.json key.pem id.key gone.txt; do
+        if grep -qxF -- "$unwanted" <<<"$list"; then fail "$label: $unwanted is in the archive"; fi
+    done
+}
+check_archive "default ignore file"
+GIT_CONFIG_GLOBAL=$HOME/hostile.gitconfig check_archive "excludesfile in the git config"
 echo "ok tree.sh archive"

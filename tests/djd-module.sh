@@ -12,7 +12,11 @@
 #   - remove writes the new selection before it unapplies, deletes the file when nothing is left, refuses to
 #     leave full without agent (exit 2), and unapplies a module even when it was not selected.
 #   - A group that was never applied is not an error; any other `mise dot unapply` failure is.
-#   - add and remove without a module, or with a word that is no module, exit 2 and write nothing; list reads MISE_ENV and calls nothing.
+#   - add and remove without a module, or with a word that is no module, exit 2 and say why ("name at least one
+#     module", "unknown module") and write nothing; list reads MISE_ENV and calls nothing.
+#   - remove of desktop deletes Brave's apt source when it exists; the stubbed sudo only logs the removal. The file
+#     is fixed in place, so without it that part fails (test/offline creates it), unless DJD_MODULE_NO_BRAVE=1 says
+#     that this machine has none and the part is skipped.
 #
 # The task is run as a script with the variables mise's #USAGE parsing would hand it, so the argument choices
 # are not covered here. `mise` and `sudo` are stubs on PATH: the real ones would touch the machine.
@@ -139,6 +143,7 @@ new_home
 # shellcheck disable=SC2016 # the literal $(...) is the point: it must not run
 run "" add 'agent$(touch pwned)'
 want_rc "add a bogus module" 2
+want_err "add a bogus module" "unknown module"
 want_selection "add a bogus module" none
 [ ! -e "$HOME/pwned" ] || fail "a module name ran as a command"
 
@@ -203,6 +208,7 @@ set_selection 'env = ["agent"]'
 for action in add remove; do
     run agent "$action"
     want_rc "$action without a module" 2
+    want_err "$action without a module" "name at least one module"
     want_selection "$action without a module" 'env = ["agent"]'
     [ ! -s "$HOME/log" ] || fail "$action without a module called: $(cat "$HOME/log")"
 done
@@ -218,7 +224,11 @@ want_selection list none
 
 # Brave's apt source outlives mise's unapply and would keep feeding apt upgrade. It sits at a fixed path, so
 # this part needs the file to exist (test/offline creates it before this test runs); the VM test covers the real removal.
-if [ -e "$brave" ]; then
+# A missing file is a failure, not a skip: a test that skips itself where the file is expected proves nothing.
+if [ ! -e "$brave" ] && [ "${DJD_MODULE_NO_BRAVE:-}" = 1 ]; then
+    echo "djd-module: skipped Brave's apt source ($brave is absent, DJD_MODULE_NO_BRAVE=1)"
+else
+    [ -e "$brave" ] || fail "$brave is absent: create it (test/offline does), or set DJD_MODULE_NO_BRAVE=1 to skip that part"
     new_home
     run desktop remove desktop
     want_rc "remove desktop with Brave's source" 0
@@ -227,7 +237,5 @@ if [ -e "$brave" ]; then
     run server,desktop remove server
     want_rc "remove server with Brave's source" 0
     no_log "remove server with Brave's source" "sudo|"
-else
-    echo "djd-module: skipped Brave's apt source ($brave is absent)"
 fi
 echo "djd-module: ok"

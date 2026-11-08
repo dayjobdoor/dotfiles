@@ -17,11 +17,14 @@ server="djd-desktop-$$"
 client="djd-rdp-client-$$"
 control="djd-desktop-negotiate-$$"
 secret="djd-desktop-secret-$$"
+secret_file=
 
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
     docker rm -f "$server" "$client" "$control" "$secret" >/dev/null 2>&1 || true
     docker network rm "$net" >/dev/null 2>&1 || true
+    # holds the test password; check_password_secret creates it, and a failed run must not leave it
+    [ -z "$secret_file" ] || rm -f "$secret_file"
 }
 trap cleanup EXIT
 
@@ -95,9 +98,8 @@ audio_pids() {
     docker exec "$server" pgrep -u ubuntu -x 'pipewire|pipewire-pulse|wireplumber' | sort | tr '\n' ' ' || true
 }
 
-# Log Out ends the desktop and the session bus. The daemons that ~/.xsession started used to outlive both, and the
-# supervisor started a wireplumber against the dead bus; the next login found a live server, started nothing, and kept
-# those daemons. After a logout none may be left, and the next login must get new ones.
+# Logging out must end every daemon ~/.xsession started, and the next login must start new ones; a survivor would
+# look like a live server.
 check_logout_cleanup() {
     local before after p
     before=$(audio_pids)
@@ -209,13 +211,13 @@ check_root_refused() {
 # `docker inspect` and /proc/1/cmdline do not show). passwd -S says P once a password is set. The control is the
 # image itself, which has none, and a start with neither an argument nor a secret must refuse.
 check_password_secret() {
-    local file status='' rc=0
-    file=$(mktemp)
-    printf 'djd-test-secret\n' >"$file"
+    local status='' rc=0
+    secret_file=$(mktemp)
+    printf 'djd-test-secret\n' >"$secret_file"
     status=$(docker run --rm --user root --entrypoint passwd "$image" -S ubuntu | awk '{print $2}')
     [ "$status" != P ] || fail "the image already has a password for ubuntu, so the secret check proves nothing"
     docker run -d --name "$secret" --user root --entrypoint djd-desktop-entrypoint \
-        -v "$file:/run/secrets/djd_rdp_password:ro" "$image" ubuntu >/dev/null
+        -v "$secret_file:/run/secrets/djd_rdp_password:ro" "$image" ubuntu >/dev/null
     for _ in $(seq 20); do
         status=$(docker exec "$secret" passwd -S ubuntu | awk '{print $2}')
         [ "$status" = P ] && break
@@ -223,7 +225,7 @@ check_password_secret() {
     done
     [ "$status" = P ] || fail "the entrypoint set no password from /run/secrets/djd_rdp_password"
     docker rm -f "$secret" >/dev/null
-    rm -f "$file"
+    rm -f "$secret_file"
     docker run --rm --user root --entrypoint djd-desktop-entrypoint "$image" ubuntu >/dev/null 2>&1 || rc=$?
     [ "$rc" = 2 ] || fail "the entrypoint started without a password (exit $rc)"
     echo "test:desktop: the RDP password comes from a mounted secret, and its absence is refused"

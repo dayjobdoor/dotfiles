@@ -11,7 +11,7 @@ ghostty|com.mitchellh.ghostty
 zen|zen
 zed|dev.zed.Zed'
 
-# a login shell's PATH is not guaranteed in docker exec or ssh
+# docker exec and a non-login ssh command get no profile PATH: add the mise shims
 export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 dirs=("${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share)
 launch=${DJD_APPS_LAUNCH:-}
@@ -55,8 +55,15 @@ launch_zen() {
     echo "ok zen launches"
 }
 
+# windows_of CLASS: ids of the visible windows of WM_CLASS CLASS, one per line (exit 1 from xdotool is "none").
+# Uses launch_window's $session and $app. A missing display or XAUTHORITY lands in $tmp/$app.xdotool.
+windows_of() {
+    env "${session[@]}" xdotool search --onlyvisible --class "^${1//./\\.}\$" 2>>"$tmp/$app.xdotool" || true
+}
+
 # launch_window APP CLASS ENTRY: ENTRY's Exec runs with the DISPLAY, XAUTHORITY and D-Bus address of the running
-# xfce4-session (what a menu click inherits), and a visible window of WM_CLASS CLASS must appear within 30s.
+# xfce4-session (what a menu click inherits), and a visible window of WM_CLASS CLASS that was not there before the
+# launch must appear within 30s: a window left over from an earlier launch does not count.
 launch_window() {
     local app=$1 class=$2 words sid win='' pid='' launcher start elapsed
     local -a session
@@ -64,12 +71,12 @@ launch_window() {
     sid=$(pgrep -o -u "$(id -u)" -x xfce4-session) || fail "$app: no xfce4-session to show a window in"
     mapfile -t session < <(tr '\0' '\n' <"/proc/$sid/environ" | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS)=' || true)
     printf '%s\n' "${session[@]}" | grep -q '^DISPLAY=' || fail "$app: xfce4-session has no DISPLAY"
+    windows_of "$class" >"$tmp/$app.before"
     start=$SECONDS
     env "${session[@]}" setsid timeout 60 "${words[@]}" >"$tmp/$app.out" 2>"$tmp/$app.err" </dev/null &
     launcher=$!
     for _ in $(seq 30); do
-        # exit 1 is "no window yet"; a missing display or XAUTHORITY lands in $tmp/$app.xdotool instead
-        win=$(env "${session[@]}" xdotool search --onlyvisible --class "^${class//./\\.}\$" 2>>"$tmp/$app.xdotool" | head -n1 || true)
+        win=$(windows_of "$class" | grep -vxFf "$tmp/$app.before" | head -n1 || true)
         [ -z "$win" ] || break
         sleep 1
     done
