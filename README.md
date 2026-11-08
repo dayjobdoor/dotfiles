@@ -7,9 +7,11 @@
 
 Ubuntu 26.04 dotfiles for coding-agent sandboxes, servers and an XFCE desktop over RDP, managed entirely by [mise](https://mise.jdx.dev). One `mise bootstrap` installs apt packages, writes system files, configures the firewall, links dotfiles, sets the login shell and installs tools. `djd` is a small CLI on top.
 
+Jump to: [Install](#install), [Remove](#remove), [Fork](#fork), [Development](#development), [Documentation](#documentation).
+
 - **One tool.** No chezmoi, Ansible or Stow. The repo is the global mise config, and every machine role is a mise config environment.
 - **Modules, not forks.** `agent`, `server`, `desktop`, `full` and `secrets` add up per machine and come off again with `djd module remove`.
-- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, installs the server and desktop modules into a fresh incus system container, and boots the portable subset in [Rivet agentOS](https://rivet.dev/docs/agent-os).
+- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, and installs the server and desktop modules into a fresh incus system container (incus runs Linux containers and VMs).
 - **Public by design.** Secrets are committed only as age ciphertext, workflows are audited by jactionlint and pinned to commits, and gitleaks scans the history in CI and the staged changes in an opt-in pre-commit hook.
 
 ## Install
@@ -24,14 +26,14 @@ What it changes on the machine:
 
 - `TZ` defaults to Asia/Tokyo in `~/.profile`. Override it in `~/.config/djd/profile.local`.
 - zsh becomes the login shell, and the `server` module adds your user to the `docker` group. Both need a new login.
-- A real file that a dotfile would replace is moved to `<file>.djd-backup-<time>`, just before the dotfiles are linked. `djd apply --dry-run` moves nothing.
-- A login zsh on a real terminal starts herdr. Export `DJD_NO_MUX=1` (for example in `~/.config/djd/profile.local`) to skip it.
+- A real file that a dotfile would replace is moved to `<file>.djd-backup-<epoch>-<pid>` (the time in seconds, and the process ID), just before the dotfiles are linked. `djd apply --dry-run` moves nothing.
+- A login zsh on a real terminal starts herdr, a terminal multiplexer (panes and a sidebar) that hosts the pi and omp coding agents. Export `DJD_NO_MUX=1` (for example in `~/.config/djd/profile.local`) to skip it.
 - The `server` module's firewall denies every inbound port except SSH (rate-limited) and RDP from private networks. Docker's published ports bypass it (the module makes them bind to `127.0.0.1` by default), and mDNS multicast stays open.
 - The `server` module turns password and root logins off for ssh. Its `post-packages` hook refuses to continue when your user has no key in `~/.ssh/authorized_keys`, when the apply runs as root, or when sshd listens on a port other than 22, because each would lock you out. `DJD_SKIP_SSH_CHECKS=1` skips the refusals on a machine that you reach another way (a console, `incus exec`, `multipass exec`).
 - The `desktop` module sets the system locale to ja_JP.UTF-8.
 - The cloud-init files set the timezone to Asia/Tokyo, and `cloud-init/multipass.yaml` also sets a Japanese keyboard layout (`layout: jp`, `ctrl:nocaps`).
 
-Unauthenticated GitHub API limits can stop tool installs. mise reads `MISE_GITHUB_TOKEN`, so set it in the environment of the `sh` that runs the installer. A `docker compose` build reads `GITHUB_TOKEN` from the environment instead. The token needs no scope, and [SECURITY.md](SECURITY.md#github-tokens) says why a scoped one is a risk.
+Anonymous GitHub API limits can stop tool installs. mise reads `MISE_GITHUB_TOKEN`, so set it in the environment of the `sh` that runs the installer. A `docker compose` build reads `GITHUB_TOKEN` from the environment instead. The token needs no scope, and [SECURITY.md](SECURITY.md#github-tokens) says why a scoped one is a risk.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | MISE_GITHUB_TOKEN=<token> sh -s -- agent
@@ -62,10 +64,10 @@ docker run --rm -it --init ghcr.io/dayjobdoor/dotfiles:sandbox
 | Module | Adds |
 | --- | --- |
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles |
-| `agent` | node, bun, python, uv, pi, omp, skills, build tools, the global AGENTS.md of pi and omp, telemetry off |
+| `agent` | node, bun, python, uv, build tools, the coding agents pi and omp (oh-my-pi), the `skills` CLI for agent skills, the global AGENTS.md of pi and omp, telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
 | `desktop` | XFCE over xrdp (TLS only, no root login) with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), system locale ja_JP.UTF-8 |
-| `full` | the whole personal toolbox (~180 tools; more than 10 GB of disk); implies `agent`. Its GUI packages install only together with `desktop` |
+| `full` | the whole personal toolbox (181 tools; plan for at least 10 GB of disk, an estimate that [reference.md](docs/reference.md#modules) explains); implies `agent`. Its GUI packages install only together with `desktop` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
 ## djd
@@ -107,7 +109,7 @@ mise run up
 
 | Command | Effect | Files, browser profiles and settings in the container |
 | --- | --- | --- |
-| `mise run up` | builds the image and starts the container | kept while the container stays. A rebuilt image makes compose replace the container, which drops them (compose behavior, not tested here) |
+| `mise run up` | builds the image and starts the container | kept while the container stays. When the image is rebuilt, compose replaces the container, and the new one has none of them (compose behavior, not tested here) |
 | `docker compose -f .devcontainer/compose.yaml stop desktop` | stops the container | kept |
 | `mise run down` | removes the container | deleted |
 
@@ -152,21 +154,11 @@ multipass exec djd -- sudo passwd ubuntu   # RDP login needs a password
 multipass info djd                         # connect an RDP client to this address, port 3389
 ```
 
-The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack. `mise run test:vm` ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01, with the server and desktop modules installed into a machine that `cloud-init/vm.yaml` configured, on `ubuntu:resolute`. That run used an earlier tree, so the recipe and the test are verified on OrbStack but not on this exact commit.
-
-## agentOS
-
-The portable subset runs in a [Rivet agentOS](https://rivet.dev/docs/agent-os) VM. `agentos/boot.mjs` declares it, with `.profile`, the git config with an agentOS override, and WASM registry tools. The registry packages are pinned in `agentos/software.lock.json`, and the boot installs exactly those bytes. `tests/agentos-bundle.sh` checks that the command of every registry package exists in the sandbox image, so a command an agent finds in a guest exists there too. `agentos:boot` starts a native sidecar as your user. Run it in the sandbox image, as [Development](#development) shows, not on a machine you care about.
-
-```sh
-mise run agentos:export   # writes dist/agentos/bundle.json: the five files and the locked package URLs and digests
-mise run agentos:boot     # boots a VM with the network denied and checks the bundle, shell, git config and tools
-mise run agentos:lock     # re-pins the registry packages after a bump of agentos-core
-```
+The default multipass size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop module. [docs/how-to.md](docs/how-to.md#try-it-in-an-orbstack-machine) covers OrbStack and records the one run of `mise run test:vm` on it.
 
 ## Remove
 
-Run these in order. The first needs `djd`, which the second deletes. This exact sequence ran in the sandbox image with only `agent` selected.
+Run these in order. The first command needs `djd`, and the second removes its link, `~/.local/bin/djd`. This exact sequence ran in the sandbox image with only `agent` selected.
 
 ```sh
 djd module remove agent server desktop   # every module `djd module list` shows as selected
@@ -177,13 +169,24 @@ rm ~/.config/mise                        # the link to this repository's mise co
 rm -rf ~/.dotfiles                       # a clone; check `git -C ~/.dotfiles status` and push first. If it is a link to your own checkout, use `rm ~/.dotfiles` instead
 ```
 
-`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` deletes the sshd drop-in and `daemon.json`, so password logins and published ports on every address return, while the ufw rules stay (SSH included); `djd module remove` prints that warning.
+`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. These also stay, and you delete them by hand if you want them gone: `~/.config/djd` (your age key `age.txt`, `profile.local` and `bashrc.local`), `~/.local/state/djd` (the restart and sshd stamps), the zsh plugin clones in `~/.local/share/zsh/plugins`, `~/.cache/zsh` and `~/.cache/bash`, and `/etc/locale.conf`. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` brings back password logins and published ports on every address, and `djd module remove` prints a warning ([reference.md](docs/reference.md#modules) has the details).
 
 ## Fork
 
 Replace `dayjobdoor` with your GitHub user (`git grep -l dayjobdoor` lists the files). These places matter.
 
 - `DJD_REPO` in `install.sh`. A fork's raw `install.sh` still clones the original repository unless this changes. The variable can also be set in the environment for one run.
+
+To install a fork, take `install.sh` from the fork and name the fork's clone URL:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/<you>/dotfiles/main/install.sh | DJD_REPO=https://github.com/<you>/dotfiles.git sh -s -- agent
+```
+
+The fork has no GHCR images until it publishes a release. [Publish the first release](docs/how-to.md#publish-the-first-release) lists the steps.
+
+These places also matter:
+
 - `REGISTRY_IMAGE` in `.github/workflows/push.yaml`, in lowercase.
 - `ssh_import_id` and the install URL in `runcmd` in `cloud-init/multipass.yaml`.
 - The `origin` URL and the dry-run `full_name` that `mise-tasks/ci` sets for act.
@@ -191,21 +194,21 @@ Replace `dayjobdoor` with your GitHub user (`git grep -l dayjobdoor` lists the f
 ## Development
 
 ```sh
-export GITHUB_TOKEN=                  # test, test:desktop and ci stop without it: a token with no scopes, or empty for none (SECURITY.md#github-tokens)
+export GITHUB_TOKEN=                  # build, test, test:desktop and ci stop without it: a token with no scopes, or empty for none (SECURITY.md#github-tokens)
 git config core.hooksPath .githooks   # gitleaks on every commit
 mise trust                            # once per clone, by you on a machine you accept it on (AGENTS.md bans it elsewhere)
 make                                  # list tasks
 make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
 make lint:fix                         # rewrite shell and mise TOML formatting
-mise run test:offline [test]          # the five offline tests on the current tree in an existing djd:sandbox with no network, about 40 s and no build (also: make test:offline)
+mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:sandbox with no network and no build (also: make test:offline)
 make test                             # builds the sandbox image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # desktop image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
 make test:vm                          # fresh incus, multipass or OrbStack VM: server + desktop install, hardening, module removal
-make ci                               # every CI job act can run: lint, sandbox, desktop, agentos (ARGS=sandbox for one)
+make ci                               # every CI job act can run: lint, sandbox, desktop (ARGS=sandbox for one)
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
-`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. Tests that install or apply anything run in Docker or a throwaway VM, never on your machine. `make lint` runs on the host and installs its user-level tools there. `mise run agentos:boot` starts a native sidecar, so [AGENTS.md](AGENTS.md) runs it in the sandbox image. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `lint:docs` in `docs.yaml` instead.
+`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([ci.md](docs/ci.md#workflows)).
 
 ## Documentation
 

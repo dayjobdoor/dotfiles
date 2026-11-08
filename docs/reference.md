@@ -11,6 +11,21 @@ Lookup tables for the repository. [architecture.md](architecture.md) explains th
 | flavor | The set of modules that one Docker image installs, passed as `DJD_MODULES`. `sandbox` is `agent`, `desktop` is `agent desktop`, and the local `full` is `agent full`. |
 | checkout | The git working tree at `~/.dotfiles`, which can be a symlink to a tree elsewhere. `~/.config/mise` links to its `mise-config/`. |
 | image test | A task that builds a Docker image and asserts inside containers of it. `test` tests the sandbox image, and `test:desktop` tests the desktop image. `test:vm` is the VM test. |
+| module | A mise config environment, `mise-config/config.<module>.toml`, that `djd module add` selects. The base config always applies. The modules are `agent`, `server`, `desktop`, `full`, and `secrets`. |
+| hook | A script that mise runs before or after a bootstrap part. The scripts are in `mise-config/hooks/`. |
+| shim | A small executable in `~/.local/share/mise/shims` that runs the version of a tool that mise selects. |
+| drop-in | A small file in a `*.d` directory that adds to or overrides the main config file, such as `/etc/ssh/sshd_config.d/10-djd.conf`. |
+| dotfile group | The files under one top-level directory (`home`, `agent`, or `desktop`) that mise links into `~`, one symlink per file. |
+| drift | A difference between what the config declares and the state of the machine. `mise bootstrap status` and `djd doctor` report it. |
+| converge | To apply the config until no drift is left. `djd apply` converges, and `djd doctor` together with `mise bootstrap plan --detailed-exitcode` tells whether it did. |
+| floating tag | An image tag that moves to each new release, such as `latest`, `sandbox`, or `X.Y`. A fixed tag such as `X.Y.Z` is written once. |
+| digest | The SHA-256 hash that names one exact image or file. |
+| smoke test | A short run that shows the basics work. Here it is `djd doctor` in a pushed image. |
+| attestation | A signed statement about how an image was built. The image index lists it as an `unknown/unknown` entry. |
+| TOFU | Trust on first use. A client accepts a server's certificate the first time and warns when it changes. |
+| NLA | Network Level Authentication. The RDP client proves who the user is before the session starts, through CredSSP. |
+| CredSSP | The Windows protocol that carries the credentials of NLA. The xrdp of this repository offers none. |
+| snakeoil | The self-signed placeholder key and certificate that the Ubuntu `ssl-cert` package makes when it is installed. |
 
 ## Layout
 
@@ -35,9 +50,8 @@ mise-config/            linked as ~/.config/mise, the global config
 home/                   dotfile group home, symlinked file by file into ~
 agent/                  dotfile group agent: the global AGENTS.md of pi and omp
 desktop/                dotfile group desktop: .xsession, fcitx5, ghostty, and zed
-agentos/                agentOS export and boot check
-tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, server-hooks.sh, and agentos-bundle.sh
-.agents/                coding-agent skills, one today (i-have-adhd)
+tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and server-hooks.sh
+.agents/                coding-agent skills for this repository, one directory each
 skills-lock.json        source and hash of each skill in .agents/
 cloud-init/             cloud-init files for incus, multipass, and OrbStack
 .devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
@@ -45,7 +59,7 @@ cloud-init/             cloud-init files for incus, multipass, and OrbStack
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml, docs.yaml
 ```
 
-`tests/tree.sh` writes the tracked and unignored files as a tar stream. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [ci.md](ci.md#test-map) maps each test script to the task that runs it.
+`tests/tree.sh` writes the tracked and unignored files as a tar stream, judged by the repository's own `.gitignore` alone: the git configuration and the global ignore file of the machine have no effect. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [ci.md](ci.md#test-map) maps each test script to the task that runs it.
 
 ## Modules
 
@@ -55,7 +69,7 @@ The selection is mise's `MISE_ENV`. A project that selects its own environment (
 
 | Module | apt packages | mise tools | Runs in |
 | --- | --- | --- | --- |
-| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip zip tree sqlite3 openssh-client gnupg fastfetch make` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
+| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree sqlite3 openssh-client gnupg fastfetch make` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt` | every machine |
 | `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | sandbox image, desktop image |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
 | `desktop` | `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool` | `zed` and `zen`, both from GitHub releases, and `hackgen`, the HackGen NF font from an `http:` URL | desktop image, VMs |
@@ -96,7 +110,7 @@ Base:
 - The sshd drop-in `/etc/ssh/sshd_config.d/10-djd.conf` allows keys only and denies root login. The `pre-dotfiles` hook `hooks/server-pre-dotfiles` checks it.
 - ufw denies incoming traffic, limits 22/tcp, and allows 3389/tcp from private networks only. No mDNS rule exists, because `before.rules` of ufw already accepts multicast.
 - `/etc/docker/daemon.json` binds published ports to `127.0.0.1` by default, through `ip` and `default-network-opts`. docker restarts when the file changes.
-- The `post-packages` hook adds the user to the `docker` group, and refuses the apply before the drop-in is written when the user has no authorized key, when it runs as root, or when sshd listens on a port other than 22: each would lock the user out once passwords and root login are off and the firewall allows port 22 only. `DJD_SKIP_SSH_CHECKS=1` skips the refusals.
+- The `post-packages` hook refuses the apply before the drop-in is written when it runs as root, when the user has no authorized key, or when sshd listens on a port other than 22: each would lock the user out once passwords and root login are off and the firewall allows port 22 only. It adds the user to the `docker` group only after those checks. `DJD_SKIP_SSH_CHECKS=1` skips the refusals.
 - `djd module remove server` deletes the sshd drop-in and `daemon.json`, so password logins and published ports on every address return. It leaves the packages and the ufw rules, so SSH stays reachable, and it prints a warning.
 
 `desktop`:
@@ -108,7 +122,7 @@ Base:
 - Each app has an XFCE menu entry. Brave and ghostty use the entries of their packages. The `postinstall` of `zed` and `zen` writes `~/.local/share/applications/dev.zed.Zed.desktop` and `zen.desktop` with `Exec` on the mise shim, and installs the icon. `filter_bins = "zen"` keeps `zen-bin`, `updater`, `pingsender`, and `gfxtest` off `PATH`.
 - The `postinstall` of `zen` also writes `distribution/policies.json` with `DisableAppUpdate` and `DisableTelemetry`, and the module's `[env]` sets `ZED_UPDATE_EXPLANATION` for Zed, so neither app replaces files in the mise install directory ([architecture.md](architecture.md) and [SECURITY.md](../SECURITY.md) give the reasons).
 - The Docker image, not the module, writes a user-level `~/.local/share/applications/brave-browser.desktop` that adds `--no-sandbox` to every `Exec` line.
-- `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless and opens a window for ghostty and Zed inside the RDP session, and `tests/vm-checks.sh` runs it in the VM without the variable.
+- `tests/desktop-apps.sh` checks all four apps. `mise-tasks/test/desktop` runs it in the image with `DJD_APPS_LAUNCH=1`, which also starts Brave and Zen headless and opens a new window for ghostty and Zed inside the RDP session, and `tests/vm-checks.sh` runs it in the VM without the variable.
 - HackGen NF is the `http:hackgen` tool, pinned to a version and a SHA-256. Its `postinstall` copies the four `.ttf` files to `~/.local/share/fonts/HackGen` and runs `fc-cache -f`, and the install fails without `fc-cache`. The sandbox image has none, and the desktop module declares no `fontconfig` package, so it relies on a dependency of the desktop packages (inference, not checked). `hooks/desktop-final` makes no download, and no `.version` stamp file exists any more.
 - The `final` hook purges light-locker, xscreensaver, im-config, and the pulseaudio daemon, which would claim the pulse socket next to pipewire-pulse. It sets `security_layer=tls` in `/etc/xrdp/xrdp.ini` and `AllowRootLogin=false` in `/etc/xrdp/sesman.ini`, and it restarts a running xrdp once per change, because the daemon keeps the values it started with (with an RDP session open it prints the restart command instead, and the next apply tries again; `djd doctor` reads the files, and `tests/vm-checks.sh` compares the daemon's start time). Never write `security_layer=hybrid` there. See [RDP security](#rdp-security-and-known-limits).
 - `/etc/apt/apt.conf.d/90djd-conffiles` sets `--force-confdef` and `--force-confold` for every apt run on the machine, so `djd update` keeps the edited xrdp conffiles and never stops at dpkg's conffile prompt. A new maintainer version lands beside the file as `*.dpkg-dist`.
@@ -141,9 +155,9 @@ flowchart TD
 
 ### Size of the full module
 
-The `full` module has 33 apt packages. 21 are CLI packages, such as build libraries and network tools. 12 are GUI packages, such as GTK and WebKit development libraries, flatpak, and mpd, and they install only when `desktop` is selected too. The 181 tools were carried over from the repository that this one started from ([history.md](history.md)). ruby comes from mise only, and sqlite3 and fastfetch come from the base apt list. dotnet is commented out because its installer rejects 26.04, and vegeta and taskctl install on amd64 only.
+The `full` module has 33 apt packages. 21 are CLI packages, such as build libraries and network tools. 12 carry `env = "desktop"`, so they install only when `desktop` is selected too. They are GTK and WebKit development libraries, flatpak, and a terminal music stack (`mpd`, `mpc`, `ncmpcpp`). The 181 tools were carried over from the repository that this one started from ([history.md](history.md)). ruby comes from mise only, and sqlite3 and fastfetch come from the base apt list. dotnet is commented out because its installer rejects 26.04, and vegeta and taskctl install on amd64 only.
 
-These commands regenerate the counts. They print 181 tools, 33 apt packages, and 12 GUI packages.
+These commands regenerate the counts. They print 181 tools, 33 apt packages, and 12 packages with `env = "desktop"`.
 
 ```sh
 awk '/^\[tools\]/{t=1;next} /^\[/{t=0} t&&/^"?[a-z]/' mise-config/config.full.toml | wc -l
@@ -151,7 +165,7 @@ awk '/^\[bootstrap.packages\]/{p=1;next} /^\[/{p=0} p&&/^"apt:/' mise-config/con
 grep -c 'env = "desktop"' mise-config/config.full.toml
 ```
 
-The module needs more than 10 GB of free disk. 155 of its tools used 7.5 GB of installs plus 2.5 GB of cache, measured in October 2026 on an arm64 Mac running OrbStack.
+Plan for at least 10 GB of free disk. That figure is an estimate. One install of 155 of the 181 tools used 7.5 GB of installs plus 2.5 GB of cache. It was measured once, in October 2026, on an arm64 Mac running OrbStack. The other 26 tools were not measured.
 
 ## djd commands
 
@@ -160,53 +174,53 @@ The module needs more than 10 GB of free disk. 155 of its tools used 7.5 GB of i
 | Command | Does |
 | --- | --- |
 | `djd apply [flags]` | Runs `mise bootstrap --yes --update` and clears the shell init caches. It moves no file itself. Real files that a dotfile would replace are moved aside by the `pre-dotfiles` hook (see Bootstrap phases and hooks). |
-| `djd update` | Runs `git fetch` and `git merge --ff-only @{u}` when the checkout is a git repository, then `mise self-update`, then `djd apply --upgrade`. A dirty file that the update does not touch stays. |
+| `djd update` | Runs `git fetch` and `git merge --ff-only @{u}`, then `mise self-update`, then `djd apply --upgrade`. It prints a message and skips the pull when `~/.dotfiles` is not a git checkout, when no branch is checked out (a detached HEAD, which a jj colocated checkout always has), or when the branch has no upstream. A dirty file that the update does not touch stays. |
 | `djd status` | Prints the checkout path and commit, the selected modules, and `mise bootstrap status`. |
 | `djd doctor` | Checks Ubuntu 26.04 (`VERSION_ID`), the `~/.config/mise` link, the zsh login shell, `bootstrap status --missing` (which includes a missing or drifted zsh plugin clone), and `dot status --missing`, and lists each dotfile that differs from the checkout. Hooks are imperative and `bootstrap status` cannot see what they enforce, so it also checks them. With `server` selected, it checks that sshd is keys-only through `hooks/sshd-keys-only`, which evaluates `sshd -T -C` for the current user whenever a `Match` line exists. With `desktop` selected, it checks `security_layer=tls` in `xrdp.ini` and `AllowRootLogin=false` in `sesman.ini`, each on its own line. With the `secrets` module selected, it also checks that `~/.config/djd/age.txt` exists, has no group or other permission bits (mode 0600 and 0400 pass), and decrypts every value. Exits with code 1 on any failure. |
-| `djd module list` | Prints each module and whether it is selected. |
-| `djd module add <module>...` | Selects the modules and applies the selection. `full` selects `agent` too. Prints a warning when `desktop` is selected without `server`, because only `server` carries the RDP firewall rules. |
+| `djd module list` | Prints each module and whether it is selected. It rejects module names (exit 2). |
+| `djd module add <module>...` | Selects the modules (a missing or unknown name exits 2 with a message) and applies the selection. `full` selects `agent` too. Prints a warning when `desktop` is selected without `server`, because only `server` carries the RDP firewall rules. |
 | `djd module remove <module>...` | Unselects the modules, unapplies their files and dotfile groups, and applies what remains, so base declarations such as the locale come back. A module that was never applied causes no error. It refuses to remove `agent` while `full` is selected (exit 2). `remove desktop` also deletes `/etc/apt/sources.list.d/mise-brave-browser.sources`, because mise never removes an apt source. The packages stay. |
 | `djd secret keygen` | Creates the age key at `~/.config/djd/age.txt`. |
-| `djd secret set <name>` | Encrypts a prompted value into the secrets module. The task is `raw=true`. Without that, once the secrets module was selected and held a value, `set` stored an empty value and exited 0. |
+| `djd secret set <name>` | Encrypts a prompted value into the secrets module. The task is `raw=true` ([architecture.md](architecture.md#secrets-use-the-age-support-of-mise) says why). |
 
 Only `djd module` and `djd secret` declare arguments, so only their `--help` lists them. `djd apply`, `djd update`, and `djd status` pass extra flags to the mise command they run, as in `djd apply --upgrade`. `djd doctor` ignores them. The `djd` wrapper unsets your own `MISE_ENV`, which would otherwise replace the module selection, and `install.sh` inherits that through the wrapper.
 
 ## Make targets
 
-`make <task>` runs `mise run <task>`, and `make <task> ARGS=<args>` passes arguments. `make build ARGS=desktop` runs `mise run build desktop`. `make help` lists the tasks. Two groups differ.
+`make <task>` runs `mise run <task>`, and `make <task> ARGS=<args>` passes arguments. `make build ARGS=desktop` runs `mise run build desktop`. `make` hands `ARGS` to the recipe as an environment variable, and the shell splits it into words. It never reads `ARGS` as shell syntax, so `ARGS='x; cmd'` passes the two words `x;` and `cmd`. `make help` lists the tasks. Two groups differ.
 
 - `make init` runs `./install.sh $(ARGS)`. It runs before mise exists, so the machine needs make. A fresh Ubuntu cloud image can lack it, and `sudo apt-get install make` adds it. `./install.sh` needs no make, and the base apt list installs make for later runs.
 - `make apply`, `make update`, `make status`, `make doctor`, `make module`, and `make secret` run `djd`, so they keep its locale and its working directory.
 
 ## Bootstrap phases and hooks
 
-`mise bootstrap --help` of mise 2026.10.23 documents the order. It applies the parts that the config declares in this order, and the `--only` and `--skip` flags take the part names. The table lists the parts that this repository uses, with the hooks that run around them.
+`mise bootstrap --help` documents the order (the `min_version` in `mise-config/config.toml` is the release that this repository follows). It applies the parts that the config declares in this order, and the `--only` and `--skip` flags take the part names. The table lists only the parts that this repository uses, with the hooks that run around them. It leaves out `accounts`, `plugins`, `compose`, the shell-activation, macOS and systemd-unit parts, and the `bootstrap` task, because the repository declares none of them. The row numbers are this table's own order, not mise's step numbers.
 
 | # | Part | Hook around it | Declared by | The hook does |
 | --- | --- | --- | --- | --- |
 | 1 | `files` with `phase = "pre-packages"` | | | |
-| 2 | `packages` | `post-packages`, right after | `server` | Runs `hooks/server-post-packages`. It adds the user to the `docker` group, then refuses the apply, before step 3 writes the sshd drop-in, when `~/.ssh/authorized_keys` (or `authorized_keys2`) holds no key, when the apply runs as root, or when sshd listens on a port other than 22. `DJD_SKIP_SSH_CHECKS=1` skips the refusals. |
+| 2 | `packages` | `post-packages`, right after | `server` | Runs `hooks/server-post-packages`. It refuses the apply, before step 3 writes the sshd drop-in, when the apply runs as root, when `~/.ssh/authorized_keys` (or `authorized_keys2`) holds no key, or when sshd listens on a port other than 22. Only after those checks does it add the user to the `docker` group. `DJD_SKIP_SSH_CHECKS=1` skips the refusals, and the hook still adds the user to the group. |
 | 3 | the other `files`, then `services`, then `firewall` | | | |
 | 4 | `repos` | | | |
-| 5 | `dotfiles` | `pre-dotfiles`, before | base, `agent`, `desktop` | Run `hooks/dotfile-conflicts <group>` for the dotfile group `home`, `agent`, or `desktop`. It deletes a real file that equals its `/etc/skel` copy, and moves any other real file that a dotfile would replace to `<file>.djd-backup-<time>`. |
+| 5 | `dotfiles` | `pre-dotfiles`, before | base, `agent`, `desktop` | Run `hooks/dotfile-conflicts <group>` for the dotfile group `home`, `agent`, or `desktop`. It deletes a real file that equals its `/etc/skel` copy, and moves any other real file that a dotfile would replace to `<file>.djd-backup-<epoch>-<pid>`, where `<epoch>` is the time in seconds and `<pid>` is the process ID of the hook. |
 | 5 | `dotfiles` | `pre-dotfiles`, before | `server` | Runs `hooks/server-pre-dotfiles`, which fails the apply unless the sshd drop-in is in effect (`hooks/sshd-keys-only` makes the check, and `djd doctor` shares it). It runs after the base and `agent` hooks, so an apply that fails here can leave files moved aside. |
 | 6 | `user` (the login shell) | `pre-user`, before | base | Switches the login shell to zsh through sudo. |
 | 7 | `tools` | | | |
-| 8 | `final-hook` | `final` | `desktop` | Runs `hooks/desktop-final`. It purges the packages that break xrdp sessions, makes xrdp TLS-only without root logins, and restarts a running xrdp once per change (not while an RDP session is open, when it says so and the next apply tries again). |
+| 8 | `final-hook` | `final` | `desktop` | Runs `hooks/desktop-final`. It purges the packages that break xrdp sessions (it waits up to 120 s for the dpkg lock), makes xrdp TLS-only without root logins, and restarts a running xrdp once per change (not while an RDP session is open, when it says so and the next apply tries again). |
 
 A standalone `mise dot apply` also runs the `pre-dotfiles` and `post-dotfiles` hooks. mise runs the hooks of every selected module in order, base first, and only when their part runs, so `djd apply --dry-run`, `--skip dotfiles`, and `--only` without `dotfiles` move no file. mise runs hooks and the `bootstrap` task on every run, so a hook must be safe to repeat. [architecture.md](architecture.md#hooks-live-in-the-module-that-needs-them) gives the reasons for each hook.
 
-The sshd check of `hooks/sshd-keys-only` has a scope. On the stock layout it needs no sudo. Any `Match` line in `sshd_config` or `sshd_config.d` makes it run `sudo sshd -T -C user=<current user>,host=localhost,addr=203.0.113.1`, which catches `Match all` and `Match User <current user>`. It misses a `Match` for another user or an address, and anything outside `sshd_config` and `sshd_config.d`.
+The sshd check of `hooks/sshd-keys-only` covers the effective settings of the current user, not every possible login. [architecture.md](architecture.md#a-module-is-a-mise-config-environment) gives its scope.
 
 ## Shell startup files
 
 | File | Read by | Does |
 | --- | --- | --- |
-| `~/.profile` | bash login shells, zsh through `.zshenv`, and agentOS when sourced explicitly | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `PYTHON_HISTORY` and `NODE_REPL_HISTORY`. less keeps its history under the XDG state directory by its own rule, so `.profile` does not set `LESSHISTFILE`. Then reads `~/.config/djd/profile.local`, which it tests with `-f` because the agentOS shell says `[ -r <missing file> ]` is true. It is POSIX and has no side effects. |
+| `~/.profile` | bash login shells and zsh through `.zshenv` | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `PYTHON_HISTORY` and `NODE_REPL_HISTORY`. less keeps its history under the XDG state directory by its own rule, so `.profile` does not set `LESSHISTFILE`. Then reads `~/.config/djd/profile.local`. It is POSIX and has no side effects. |
 | `~/.zshenv` | every zsh | Sets `skip_global_compinit=1`, so that the `compinit` of `/etc/zsh/zshrc` does not drop `.zcompdump` into `ZDOTDIR`. Sets `ZDOTDIR=~/.config/zsh` and sources `.profile`. |
 | `~/.config/zsh/.zshenv` | every zsh that starts with `ZDOTDIR` already exported, which is a nested shell | Sources `~/.zshenv`, so nested shells load `.profile` too. |
 | `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal, nor for `zsh -lic cmd`. |
-| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion (a dump younger than a day is reused with `compinit -C`), `mise activate` first, so that the tool inits after it find the installed binaries and not the shims, then starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), the zsh plugins from `~/.local/share/zsh/plugins` through zsh-defer, and `.functions`, and reads `$ZDOTDIR/.zshrc.local`. The cached tool inits are keyed by the resolved binary path, so an upgrade regenerates them. It exports `DJD_ARCH=x86_64` on x86_64, for the arch badge of starship. It skips a missing plugin clone without a message. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
+| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion (a dump younger than a day is reused with `compinit -C`), `mise activate` first, so that the tool inits after it find the installed binaries and not the shims, then starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), the zsh plugins from `~/.local/share/zsh/plugins` through zsh-defer, and `.functions`, and reads `$ZDOTDIR/.zshrc.local`. The cached tool inits are keyed by the tool, its resolved binary path, and a checksum of the init command line, so an upgrade or an edited argument regenerates them. It exports `DJD_ARCH=x86_64` on x86_64, for the arch badge of starship. It skips a missing plugin clone without a message. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
 | `~/.config/zsh/.zlogin` | zsh login shells | Prints an interactive banner with fortune and cowsay, when installed. Prints a second banner with figlet and lolcat, when installed. A login shell that runs a command (`zsh -lc`, `zsh -lic`) prints nothing. |
 | `~/.config/zsh/.zlogout` | interactive zsh login shells, on exit | Runs fastfetch, or prints a short banner when it is missing. `zsh -lc` does not read it, and `zsh -lic cmd` reads it but prints nothing. |
 | `~/.bash_profile` and `~/.bashrc` | bash | Source `.profile`, then run the interactive-only setup: history (appended, not overwritten), starship, zoxide, omp completions, and `mise activate` before them, so that the cached inits are keyed by the installed binary's path. starship's init keeps the `PROMPT_COMMAND` it finds, so mise's hook survives. `.bashrc` exports `DJD_ARCH` like `.zshrc`. |
@@ -219,7 +233,7 @@ The tables group the variables by where they matter. The scope names are install
 
 | Variable | Scope | Default | Effect |
 | --- | --- | --- | --- |
-| `DJD_DIR` | login, agentOS | `~/.dotfiles` | Path of the checkout, which `.profile` always exports as `$HOME/.dotfiles`. It is not an override: `install.sh` and the djd tasks always use `~/.dotfiles`, because mise reads `~/.config/mise` and `dotfiles.root` there. |
+| `DJD_DIR` | login | `~/.dotfiles` | Path of the checkout, which `.profile` always exports as `$HOME/.dotfiles`. It is not an override: `install.sh` and the djd tasks always use `~/.dotfiles`, because mise reads `~/.config/mise` and `dotfiles.root` there. |
 | `DJD_REPO` | install | the GitHub URL of this repository | Repository that `install.sh` clones. |
 | `DJD_SKIP_SSH_CHECKS` | install, tasks | unset | When non-empty, the server module's `post-packages` hook skips its refusals (no authorized key, root, a port other than 22). For a machine that is reached through a console, `incus exec` or `multipass exec`. `test:vm` sets it. |
 | `MISE_VERSION` | install | the `min_version` of `mise-config/config.toml`, with a `v` prefix | mise release that `install.sh` installs when mise is missing or older than `min_version`. A value in the environment overrides the release to install, with or without the `v`. Without a `min_version`, `install.sh` stops. |
@@ -249,7 +263,8 @@ The tables group the variables by where they matter. The scope names are install
 | --- | --- | --- | --- |
 | `DJD_MODULES` | build | `agent` | Build argument of the Dockerfile. It lists the modules that a flavor installs. |
 | `DJD_REVISION` | build, image | `unknown` | Build argument of the Dockerfile. `mise run build` sets it from `git describe --always --dirty` (a build from a modified tree ends in `-dirty`, and it is `unknown` without git), `push.yaml` sets the full commit SHA, and the builds of `compose.yaml` and `devcontainer.json` leave it unset. `djd status` prints it when the checkout has no `.git`. |
-| `DJD_KEEP_VM` | tasks | unset | When set, `test:vm` keeps its VM after the run. |
+| `DJD_KEEP_VM` | tasks | unset | When exactly `1`, `test:vm` keeps its VM after the run. Any other value deletes it. |
+| `DJD_MODULE_NO_BRAVE` | tasks | unset | When `1`, `tests/djd-module.sh` skips the Brave apt source check on a machine that has no such file. Without it, a missing file fails the test. `test:offline` creates the file. |
 | `DJD_APPS_LAUNCH` | tasks | unset | When `1`, `tests/desktop-apps.sh` also starts the four apps. `test:desktop` sets it. |
 | `DJD_TEST_VM` | tasks | unset | `tests/vm-checks.sh` refuses to run unless this is `1` and exits 2. Only `test:vm` sets it, inside the VM. The script changes the machine it runs on. |
 
@@ -258,7 +273,7 @@ The tables group the variables by where they matter. The scope names are install
 | Variable | Scope | Default | Effect |
 | --- | --- | --- | --- |
 | `RDP_PORT` | compose | `33389` | Host port that `compose.yaml` publishes on `127.0.0.1` for RDP. Set it in `.devcontainer/.env`. |
-| `PASSWORD` | compose | required | RDP password of the desktop container. Set it in `.devcontainer/.env`. |
+| `PASSWORD` | compose | required | RDP password of the desktop container. Set it in `.devcontainer/.env`. It must not contain a newline: the entrypoint exits 2 for one, because `chpasswd` reads one `user:password` pair per line. |
 | `TUNNEL_TOKEN` | compose | none | Token of the optional cloudflared service, which is commented out in `compose.yaml`. When you enable it, the token goes in `environment` and not on the command line. |
 
 A value that you export in your shell wins over `.devcontainer/.env` for `RDP_PORT` and `PASSWORD`. `PASSWORD` feeds the `djd_rdp_password` secret, which `docker compose config` does not render, so this was checked by reading `/run/secrets/djd_rdp_password` in a throwaway compose project whose `.env` held another value: the exported value was the one in the file. These names are generic, so a stray export silently becomes the RDP password or port. `PASSWORD` and `TUNNEL_TOKEN` are secrets.
@@ -300,25 +315,6 @@ These files stay outside the XDG directories. A session in the sandbox image in 
 | `~/.viminfo` | A `~/.config/vim/vimrc` with `viminfofile` can move it. The repository does not ship one. |
 
 herdr keeps sockets and logs in `~/.config/herdr`, and micro keeps `buffers/` and `bindings.json` in `~/.config/micro`. Both directories are inside the XDG configuration directory, but they hold state.
-
-## agentOS
-
-`mise run agentos:export` writes `dist/agentos/bundle.json` with two keys, `files` and `software`. `software` holds the locked `{url, digest}` entry of each registry package, and the bundle holds no `environment`. `mise run agentos:boot` builds the same bundle in memory, boots a VM with it through `@rivet-dev/agentos-core` 0.4.6 with the guest network denied, and runs the `CHECKS` in `agentos/boot.mjs`. Every check needs exit 0, the expected stdout, and an empty stderr. Two checks differ. `git commit` prints `fork failed` in the guest and succeeds, and the network check needs a non-zero exit with `Could not resolve host`.
-
-| Works in agentOS | Does not work |
-| --- | --- |
-| `~/.profile` when sourced with `sh -c '. "$HOME/.profile"; ...'`: the XDG directories, `DJD_DIR`, `LANG`, and `TZ` | mise and its shims, zsh, the zsh plugins, starship |
-| `~/.config/git/config`, `ignore`, and `commit.template`, plus `agentos/gitconfig` as `~/.gitconfig`, which sets the pager to `cat`, empties the diff filter, and resets the GitHub credential helpers, because the guest has no delta, gh, or less | apt, systemd, ufw, docker |
-| the registry WASM tools git, curl, jq, ripgrep, fd, yq, tree, sqlite3, unzip, and zip | any Linux ELF binary, and `vim`, because its 0.4.6 package installs no commands |
-
-Verified on 0.4.6, the release that `agentos/package.json` pins:
-
-- `exec` and `execFile` shells read no startup files. `sh -l`, `bash --login`, and `bash -l -i` all skip `/etc/profile` and `~/.profile`, so callers source `~/.profile` themselves.
-- Setting `BASH_ENV` or `ENV` in `environment` breaks every shell with the error `not yet implemented: load config from $ENV/BASH_ENV`. The export therefore sets no `environment`, and the guest keeps the base environment of agentos-core. Its `PAGER` is the agentos-core default, `less`, and git is covered by `agentos/gitconfig`.
-- `[ -r <missing file> ]`, `[ -x ... ]`, and `[ -w ... ]` return true in the guest, while `-f` and `-e` return false. Before `.profile` used `-f`, sourcing it printed `failed to source file` and returned 1 in every guest.
-- Registry packages download on the host from the locked URLs on `releases.rivet.dev`, so the guest needs no network for them. The boot installs the locked bytes, and nothing compares the live registry manifest. The default download timeout of 30 s fails on slow links, so the boot raises it to 5 minutes. A separate 60 s wait for package acquisition has no option in JavaScript, so a slow link can still fail the boot with `acquisition waiter exceeded 60000ms`. The boot then prints `registry download timed out (slow link); run mise run agentos:boot again`. That hint is untested, because no one reproduced a timeout, and it relies on the error carrying `errno: ETIMEDOUT`.
-- `mise run agentos:lock` rewrites `agentos/software.lock.json` from the live manifest of the release that `agentos/package.json` pins. It refuses to run while `AGENTOS_SOFTWARE_REGISTRY_URL` is set. Review the diff, commit it, and run `mise run agentos:boot`.
-- The registry `jq` is jaq, and the registry `yq` is its own build. `yq --version` hangs for about 15 s, so the boot pipes a document through `yq '.a'` instead.
 
 ## RDP security and known limits
 
@@ -404,7 +400,7 @@ Parallel connections multiply the guess rate. That is an inference and was not r
 | Channel | State | Finding | Switch, not applied |
 | --- | --- | --- | --- |
 | clipboard (`cliprdr`) | on, both directions | A process in the session reads what you copy locally, such as a password manager entry. A process in the session can also overwrite your local clipboard, for example to plant a command. xrdp logs nothing for it. | `RestrictInboundClipboard=all` and `RestrictOutboundClipboard=all` in `sesman.ini`, or `cliprdr=false` in `xrdp.ini`. The keys take a comma list of `text`, `file`, and `image`. |
-| drives (`rdpdr`) | on | `xrdp-chansrv` logs `Detected remote drive`, but nothing mounts. `fuse3` and `libfuse3-4` are installed, but `xrdp-chansrv` links no libfuse and has no fuse code, so no drive mounts even with `/dev/fuse` granted. | `rdpdr=false` also closes printer and serial redirection. |
+| drives (`rdpdr`) | on | `xrdp-chansrv` logs `Detected remote drive`, but nothing mounts. `fuse3` and `libfuse3-4` are installed, but `xrdp-chansrv` links no libfuse and has no fuse code, so no drive mounts even with `/dev/fuse` granted. `sesman.ini` sets `FuseMountName=thinclient_drives` and `FileUmask=077` for mapped drives, which would give every process of the user access to them. | `rdpdr=false` also closes printer and serial redirection. |
 | playback (`rdpsnd`) | on | `xrdp-sink` and `xrdp-source` exist and are the defaults. | `rdpsnd=false` |
 | microphone | `xrdp-source` always exists | It carries audio only if the client opts in. A process of the same user can record from it then. Only silence was seen, and real microphone data was not tested. | The microphone path needs `drdynvc` too. |
 | `rail`, `xrdpvr` | on | Not tested. | `rail=false`, `xrdpvr=false`, untested |

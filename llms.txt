@@ -1,42 +1,43 @@
 # dayjobdoor/dotfiles
 
-> Ubuntu 26.04 (amd64, arm64) dotfiles managed entirely by mise: packages, system files, firewall, dotfiles, login shell and tools come from `mise bootstrap`. Modules (agent, server, desktop, full, secrets) are mise config environments; `djd` is the CLI. Ships agent sandbox and XFCE/RDP desktop images and an agentOS export.
+> Ubuntu 26.04 (amd64, arm64) dotfiles managed entirely by mise: packages, system files, firewall, dotfiles, login shell and tools come from `mise bootstrap`. Modules (agent, server, desktop, full, secrets) are mise config environments; `djd` is the CLI. Ships agent sandbox and XFCE/RDP desktop images.
 
-Run `install.sh`, `djd` and `mise bootstrap` only on disposable machines (containers, VMs). Never commit secrets; values go in age ciphertext through `djd secret set`. Start with AGENTS.md if you change the repository, and with README.md if you install it.
+A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise trust` only on a machine that can be thrown away (a container or a VM), as AGENTS.md says. A person installs on a real machine as README.md describes. Never commit secrets; values go in age ciphertext through `djd secret set`. Start with AGENTS.md if you change the repository, and with README.md if you install it.
 
 ## Docs
 
-- [README](README.md): install and the `djd doctor` check, modules, djd, secrets, desktop over RDP, VMs, agentOS, remove, fork, development tasks, and a table of which doc to read when
-- [Architecture](docs/architecture.md): why the design is what it is, covering symlinks, the install flow, modules, hooks, secrets, shell startup, the RDP service, agentOS, Docker images, and CI decisions
-- [Reference](docs/reference.md): layout tree, module contents, djd commands, make targets, bootstrap order and hooks, shell startup files, environment variables, XDG locations, RDP security and known limits, agentOS, Docker images
-- [CI/CD reference](docs/ci.md): workflows (including docs.yaml), what each test proves, the test map and where a new test goes, repo tasks, running CI with act, the release chain
-- [How-to guides](docs/how-to.md): run CI locally, keep a VM after a failed test, try an OrbStack machine, update pinned tools, raise the mise release, handle a Dependabot agentos-core pull request, set your git identity, move an npm config, keep an edit a program made, publish the first release, retry a failed publish, harden the repository settings
-- [History](docs/history.md): comparison with budybye/dotfiles, origin, planned work
+- [README](README.md): install and the `djd doctor` check, modules, djd, secrets, desktop over RDP, VMs, remove, fork, development tasks, and a table of which doc to read when
+- [Architecture](docs/architecture.md): why the design is what it is, covering symlinks, the install flow, modules, hooks, secrets, shell startup, the RDP service, Docker images, and CI decisions
+- [Reference](docs/reference.md): layout tree, module contents, djd commands, make targets, bootstrap order and hooks, shell startup files, environment variables, XDG locations, RDP security and known limits, Docker images
+- [CI and release reference](docs/ci.md): workflows (including docs.yaml), what each test proves, the test map and where a new test goes, repo tasks, running CI with act, the release chain
+- [How-to guides](docs/how-to.md): run CI locally, keep a VM after a failed test, try an OrbStack machine, update pinned tools, raise the mise release, set your git identity, move an npm config, keep an edit a program made, publish the first release, retry a failed publish, harden the repository settings
+- [History and comparison](docs/history.md): comparison with budybye/dotfiles, origin, planned work
 - [AGENTS.md](AGENTS.md): rules for coding agents, verification commands including the fast offline tests, where each kind of change and each new test goes, definition of done
-- [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets and their limits, GitHub tokens, workflows and releases with recommended repository settings, Docker, server and desktop hardening, known limits of the RDP service, agentOS, checks
+- [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets and their limits, GitHub tokens, workflows and releases with recommended repository settings, Docker, server and desktop hardening, known limits of the RDP service, checks
 - [DESIGN.md](DESIGN.md): colors, fonts and theme tokens (google-labs-code/design.md format)
 
 ## Configuration
 
-- [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise. config.toml is the base module (it also pins the zsh plugins in `[bootstrap.repos]`) and config.<module>.toml (agent, server, desktop, full, secrets) the others. tasks/djd has the djd commands, hooks/ the hook scripts.
+The layout of the repository, with the purpose of each entry, is in [Reference](docs/reference.md#layout). These links are an index only.
+
+- [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise
 - [home/](home/): dotfiles symlinked into ~
-- [desktop/](desktop/): the desktop module's dotfiles (`.xsession`, ghostty, fcitx5, Zed)
+- [desktop/](desktop/): the desktop module's dotfiles
 - [agent/](agent/): the global AGENTS.md of pi and omp
-- [mise-tasks/](mise-tasks/): repo tasks (lint:shell, lint:config, lint:workflows, lint:design, lint:docs, lint:secrets, build, test, test:offline, test:desktop, test:vm, ci)
-- [mise.toml](mise.toml): the short repo tasks (lint, lint:fix, agentos:*, shell, up, down, pre-commit) and mise settings. Each task declares its own tools.
+- [mise-tasks/](mise-tasks/): repo tasks
+- [mise.toml](mise.toml): the short repo tasks and mise settings
 - [install.sh](install.sh): the installer that `curl | sh` runs
-- [Makefile](Makefile): `make <task>` runs `mise run <task>`, with a few djd exceptions
-- [mise.lock](mise.lock): the pinned versions of the repo tools, with `.mise/locks/` for npm tools
-- [.githooks/](.githooks/): the pre-commit hook that runs gitleaks
-- [.actrc](.actrc): the act runner images for `mise run ci`
-- [.devcontainer/](.devcontainer/): the Dockerfile, the desktop entrypoint, compose.yaml and devcontainer.json
-- [cloud-init/](cloud-init/): cloud-init files for the incus, multipass and OrbStack VMs
-- [tests/](tests/): the offline tests that `mise run test:offline` runs, VM and app checks, and the tree helper
+- [Makefile](Makefile): `make <task>` runs `mise run <task>`
+- [mise.lock](mise.lock): the pinned versions of the repo tools
+- [.githooks/](.githooks/): the pre-commit hook
+- [.agents/](.agents/): coding-agent skills for working on this repository
+- [skills-lock.json](skills-lock.json): the source and hash of each skill in `.agents/`
+- [.actrc](.actrc): the act runner images
+- [.devcontainer/](.devcontainer/): the Docker images and compose.yaml
+- [cloud-init/](cloud-init/): cloud-init files for the VMs
+- [tests/](tests/): the offline tests, VM and app checks, and the tree helper
 
 ## Optional
 
 - [.github/workflows/](.github/workflows/): CI, docs, tag, release image and weekly full-module workflows
-- [agentos/boot.mjs](agentos/boot.mjs): agentOS export and boot check
-- [agentos/software.lock.json](agentos/software.lock.json): the pinned agentOS registry packages
-- [agentos/gitconfig](agentos/gitconfig): the `~/.gitconfig` of agentOS guests, loaded after the shared git config
-- [.github/dependabot.yml](.github/dependabot.yml): Dependabot for the pinned actions and the agentos-core package
+- [.github/dependabot.yml](.github/dependabot.yml): Dependabot for the pinned actions

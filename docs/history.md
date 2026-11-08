@@ -8,8 +8,8 @@ The table comes from the workflows and the run history of budybye/dotfiles, read
 
 | budybye/dotfiles | This repository | Why |
 | --- | --- | --- |
-| `test.yaml` runs `make init` on the runners and swallows tool failures with `\|\| echo "mise install failed."`. Runs stayed green while `pipx:marimo`, taskctl, and vegeta failed. | `test` and `vm` fail when any package, tool, or hook fails. | A green run has to mean that the machine converged. |
-| The `lxd` and `rpi` jobs launch `ubuntu:26.04` in LXD with cloud-init and print OS information. | The `vm` job runs the full server and desktop install in that container and checks the result. | The LXD job was the only systemd coverage. Now it asserts the result. |
+| `test.yaml` runs `make init` on the runners and swallows tool failures with `\|\| echo "mise install failed."`. Runs stayed green although `pipx:marimo`, taskctl, and vegeta failed to install. | `test` and `vm` fail when any package, tool, or hook fails. | A green run has to mean that the machine converged. |
+| The `lxd` and `rpi` jobs launch `ubuntu:26.04` in LXD with cloud-init and print OS information. | The `vm` job runs the full server and desktop install in that container and checks the result. | The LXD job was the only systemd coverage, and it asserted nothing about the result. |
 | A "clean space" step frees runner disk before the install. | None. | Its own log shows 88 GB free before the cleanup on a 145 GB disk in October 2026, enough for the images that CI builds. The weekly `full` build died once with `No space left on device`, and `full-weekly.yaml` now prints `df -h /` first. |
 | The daily schedule in `push.yaml` rebuilds the images to warm the BuildKit cache. | CI runs weekly, and releases build without a cache. | The weekly run detects drift without spending runner hours on a cache. A build without a cache gives cache poisoning no path into a published image. |
 | `build-dev` publishes a separate devcontainer image. | None. | The devcontainer builds the same Dockerfile as the sandbox image. |
@@ -52,5 +52,7 @@ It dropped these parts:
 
 ## Planned work
 
-- Omarchy-style themes. The plan renders the tokens of `DESIGN.md` into the ghostty, starship, XFCE, and fzf configs, so the Colors table no longer needs a manual sync.
-- `djd menu`, a gum-based menu over the djd commands.
+- A global lock for mise tools, for machines that must match bit for bit: `lockfile = true` in the global config, then `mise lock --global`.
+- A `migrations/` runner for changes that need imperative steps, in the style of Omarchy (omarchy.org, a Linux setup by DHH).
+- Omarchy-style themes, which switch the colors of many programs at once. The plan renders the tokens of `DESIGN.md` into the ghostty, starship, XFCE, and fzf configs, so the Colors table no longer needs a manual sync.
+- `djd menu`, a menu over the djd commands, built with gum (charmbracelet/gum, a tool for menus and prompts in shell scripts).

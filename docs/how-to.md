@@ -4,7 +4,7 @@ Task guides for working on this repository and for the per-machine settings that
 
 ## Run CI locally
 
-`mise run ci` stops unless `GITHUB_TOKEN` is set: a token without scopes (SECURITY.md, [GitHub tokens](../SECURITY.md#github-tokens)), or `GITHUB_TOKEN=` (empty) for anonymous downloads. It never falls back to `gh auth token`. The same holds for `make test`, `make test:desktop` and `make ci`. To run every CI job that act supports, run this command on a machine with Docker where you trust the checkout:
+`mise run ci` stops unless `GITHUB_TOKEN` is set: a token without scopes ([GitHub tokens](../SECURITY.md#github-tokens)), or `GITHUB_TOKEN=` (empty) for anonymous downloads. It never falls back to `gh auth token`. `mise run build`, `test` and `test:desktop` stop the same way, and so do their `make` targets. To run every CI job that act supports, run this command on a machine with Docker where you trust the checkout:
 
 ```sh
 mise run ci
@@ -16,7 +16,7 @@ To run only some jobs, name them:
 mise run ci sandbox desktop
 ```
 
-To plan every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml` and `push.yaml` without running any step, add `--dry-run`:
+To plan every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml` and `push.yaml` without running any step, add `--dry-run`. It takes no job names:
 
 ```sh
 mise run ci --dry-run
@@ -26,13 +26,13 @@ The `vm` job does not run under act. To run it, use `make test:vm` on a machine 
 
 ## Keep a VM after a failed test
 
-If `make test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM`:
+If `make test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM` to `1`. Any other value, an empty one included, deletes the VM:
 
 ```sh
 DJD_KEEP_VM=1 make test:vm
 ```
 
-The VM is named `djd-test-<number>`, and the task prints the name once the VM is created. A VM whose cloud-init failed is never named, so look for it with `incus list`, `multipass list` or `orb list`. When you finish, delete it with `incus delete -f <name>`, `multipass delete --purge <name>`, or `orb delete -f <name>`, depending on the tool that ran.
+The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name> is up` once cloud-init has finished. The task waits for cloud-init for at most 900 s. A VM whose cloud-init failed or timed out is never named, so look for it with `incus list`, `multipass list` or `orb list`. When you finish, delete it with `incus delete -f <name>`, `multipass delete --purge <name>`, or `orb delete -f <name>`, depending on the tool that ran.
 
 ## Try it in an OrbStack machine
 
@@ -46,7 +46,7 @@ orb -m djd-vm sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdo
 
 For RDP, set a password with `orb -m djd-vm sudo passwd "$USER"` and connect to `localhost:3389`. OrbStack forwards the port from loopback, which ufw admits.
 
-The first two commands are the ones `mise run test:vm` runs for OrbStack, which it uses only when it finds neither incus nor multipass. That task ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01 against commit 58eff93. The server and desktop modules installed into a machine that `cloud-init/vm.yaml` configured, on `ubuntu:resolute`, every check of `tests/vm-checks.sh` passed, and the task deleted the machine again. The tree has changed since then (`vm-checks.sh` gained a guard and more checks), and no run on the changed tree was recorded when this was written. The `curl` install line and the RDP steps above are not part of that run.
+The first two commands are the ones `mise run test:vm` runs for OrbStack, which it uses only when it finds neither incus nor multipass. That task ran end to end on OrbStack 2.2.5 (arm64, macOS host) on 2026-11-01 against commit 58eff93. The server and desktop modules installed into a machine that `cloud-init/vm.yaml` configured, on `ubuntu:resolute`, every check of `tests/vm-checks.sh` passed, and the task deleted the machine again. The tree has changed since then (`vm-checks.sh` gained a guard and more checks), and no run on the changed tree is recorded. The `curl` install line and the RDP steps above are not part of that run.
 
 ## Update the pinned tools
 
@@ -62,7 +62,7 @@ To refresh `mise.lock`, follow these steps on a machine where you trust the chec
 
 2. Commit `mise.lock` and the changes under `.mise/locks/`.
 
-Dependabot covers the pinned actions and the `agentos-core` package in `agentos/package.json`. It does not cover mise tools.
+Dependabot covers the pinned actions. It does not cover mise tools.
 
 ## Raise the mise release
 
@@ -74,18 +74,8 @@ The mise release is pinned in several files, and no bot bumps them.
    grep -nE '^min_version|^ +version: [0-9]' mise.toml mise-config/config.toml .github/workflows/*.yaml
    ```
 
-2. Change every pin to the new release. None has a `v` prefix. `install.sh` has no pin of its own. When mise is missing, it reads `min_version` from `mise-config/config.toml` after the checkout is linked, and adds the `v`. `MISE_VERSION` in the environment overrides that for one run.
+2. Change every pin to the new release. None has a `v` prefix. `install.sh` has no pin of its own. It reads `min_version` from `mise-config/config.toml` after the checkout is linked, installs that release when mise is missing or older, and adds the `v`. `MISE_VERSION` in the environment overrides the release for one run, but `install.sh` refuses a value older than `min_version`.
 3. Run `mise run lint:config`. It fails while two pins differ, and while a file has fewer pins than it should.
-
-## Handle a Dependabot agentos-core pull request
-
-A bump of `@rivet-dev/agentos-core` fails the offline test and the `agentos` job until the lock matches, because `agentos/software.lock.json` records the core version. Dependabot cannot run the lock task, so do this on the pull request branch, on a machine where you trust the checkout.
-
-1. Check out the branch.
-2. Run `mise run agentos:lock`. It rewrites `agentos/software.lock.json` from the live release manifest, and it refuses to run while `AGENTOS_SOFTWARE_REGISTRY_URL` is set.
-3. Review `git diff agentos/software.lock.json`. The `core` field must equal the version in `agentos/package.json`. Every changed URL and digest is a package that you now install, and nothing compares them with anything else.
-4. Run `mise run test:offline agentos-bundle`, which checks the lock and the bundle.
-5. Commit the lock file and push it to the pull request branch.
 
 ## Set your git identity
 
@@ -121,7 +111,7 @@ A program that saves a managed file through a rename replaces its link with a re
    ```
 
 2. Run `git -C ~/.dotfiles diff` and check the change.
-3. Run `djd apply`. It moves the regular file aside as `~/.config/starship.toml.djd-backup-<time>` and links the checkout file again.
+3. Run `djd apply`. It moves the regular file aside as `~/.config/starship.toml.djd-backup-<epoch>-<pid>` and links the checkout file again.
 4. Delete the backup file when the edit looks right.
 
 ## Publish the first release
@@ -134,18 +124,18 @@ This repository has released since 0.0.1; the steps below are for a fork or a ne
 4. Create the repository on GitHub, add it as `origin`, and enable private vulnerability reporting in its settings. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
 5. Push to `main`. CI runs. When it passes, `tag.yaml` creates the tag `0.0.1` and a GitHub release, and `push.yaml` publishes the GHCR images.
 6. Read the logs of the jobs that run only on GitHub: the amd64 runs of `sandbox` and `desktop`, the incus path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 runs of `sandbox` and `desktop`.
-7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/dayjobdoor/dotfiles:sandbox`. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.
+7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/<owner>/dotfiles:sandbox`, where `<owner>` is the lower-case name of your GitHub user or organization. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.
 8. Inspect the images:
 
    ```sh
-   docker buildx imagetools inspect ghcr.io/dayjobdoor/dotfiles:sandbox
-   docker buildx imagetools inspect ghcr.io/dayjobdoor/dotfiles:desktop
+   docker buildx imagetools inspect ghcr.io/<owner>/dotfiles:sandbox
+   docker buildx imagetools inspect ghcr.io/<owner>/dotfiles:desktop
    ```
 
    Both must list `linux/amd64` and `linux/arm64`, and two attestation entries that show as `unknown/unknown`. Then print the index annotations. The classic `docker manifest inspect` hides them:
 
    ```sh
-   docker buildx imagetools inspect --raw ghcr.io/dayjobdoor/dotfiles:sandbox | jq .annotations
+   docker buildx imagetools inspect --raw ghcr.io/<owner>/dotfiles:sandbox | jq .annotations
    ```
 
    The output must hold the description, the MIT license, the source, and the version.
