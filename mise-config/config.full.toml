@@ -44,7 +44,7 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:ncmpcpp" = { version = "latest", env = "desktop" }
 
 [tools]
-# Grouped roughly by implementation language. Commented-out entries are kept for re-enabling.
+# Commented-out entries are kept for re-enabling.
 
 # https://mise.jdx.dev/dev-tools/backends/http.html
 # "http:android-cli" = "latest"
@@ -209,7 +209,7 @@ auto-doc = "latest"
 # direnv = "latest"
 
 # github (Go)
-"go:github.com/cheat/cheat/cmd/cheat" = "latest" # aqua only ships a darwin-amd64 build, so this is built with go
+"go:github.com/cheat/cheat/cmd/cheat" = "latest" # aqua's cheat package has amd64 builds only, no linux/arm64, so this is built with go
 "github:keploy/keploy" = "latest"
 "github:projectdiscovery/katana" = "latest"      # crawling
 "github:koki-develop/clive" = "latest"           # auto command

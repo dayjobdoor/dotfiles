@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # The desktop module's final hook (declared in config.desktop.toml, phase `final`, after the tools): purges the
-# packages that break xrdp sessions and pins the xrdp security settings. It downloads nothing. Every run must be
-# safe to repeat.
+# packages that break xrdp sessions and pins the xrdp security settings. It downloads nothing, because the Docker
+# build runs it in its first RUN, which has no GitHub token (the tools phase gets one in the second). Every run
+# must be safe to repeat.
 set -euo pipefail
 
 # Screen lockers blank xrdp sessions and im-config breaks xrdp logins. A pulseaudio daemon next to pipewire-pulse
 # means two servers claim the pulse socket (xfce4-pulseaudio-plugin can pull it in).
 for p in light-locker xscreensaver im-config pulseaudio; do
-    if dpkg -s "$p" >/dev/null 2>&1; then sudo apt-get purge -y "$p"; fi
+    if dpkg -s "$p" >/dev/null 2>&1; then sudo apt-get purge -y -o DPkg::Lock::Timeout=120 "$p"; fi
 done
 
 # Refuse the weak xrdp settings: "negotiate" lets a client fall back to the RDP security layer, and sesman allows
@@ -31,6 +32,7 @@ set_ini /etc/xrdp/sesman.ini AllowRootLogin false
 if systemctl is-active -q xrdp.service 2>/dev/null; then
     stamp=${XDG_STATE_HOME:-$HOME/.local/state}/djd/xrdp-restart
     if [ -n "$changed" ] || [ ! -e "$stamp" ] || [ /etc/xrdp/xrdp.ini -nt "$stamp" ] || [ /etc/xrdp/sesman.ini -nt "$stamp" ]; then
+        # xrdp starts one xrdp-chansrv per RDP session, so a running one means a session is open
         if pgrep -x xrdp-chansrv >/dev/null; then
             echo "desktop-final: an RDP session is open, so xrdp keeps the settings it started with; run 'sudo systemctl restart xrdp xrdp-sesman' after you log out" >&2
         else

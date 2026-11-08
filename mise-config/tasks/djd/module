@@ -47,6 +47,10 @@ if [ "$action" != list ] && [ ${#modules[@]} -eq 0 ]; then
 fi
 case $action in
 list)
+    if [ ${#modules[@]} -gt 0 ]; then
+        echo "djd: list takes no module names" >&2
+        exit 2
+    fi
     for m in "${order[@]}"; do
         if [ -n "${on[$m]:-}" ]; then echo "$m selected"; else echo "$m -"; fi
     done
@@ -60,7 +64,6 @@ add)
     if [ -n "${on[secrets]:-}" ] && [ -n "${on[agent]:-}" ]; then
         echo "djd: secrets and agent are both selected: every agent tool on this machine sees the decrypted values. Keep this combination off sandboxes" >&2
     fi
-    # the firewall rules for 3389/tcp live in the server module
     if [ -n "${on[desktop]:-}" ] && [ -z "${on[server]:-}" ]; then
         echo "djd: desktop without server leaves RDP (3389/tcp) open on every interface; the server module adds the firewall rules" >&2
     fi
@@ -73,8 +76,6 @@ remove)
     removed=()
     brave=/etc/apt/sources.list.d/mise-brave-browser.sources
     for m in "${modules[@]}"; do
-        # the selection is written before the unapply below, so a run that failed halfway leaves the module
-        # unselected but its files in place; a retry has to unapply them
         if [ -z "${on[$m]:-}" ]; then echo "djd: $m is not selected; unapplying anything it left behind" >&2; fi
         unset "on[$m]"
         removed+=("$m")
@@ -83,6 +84,8 @@ remove)
         echo "djd: full requires agent; remove full first" >&2
         exit 2
     fi
+    # written before the unapply loop, so a run that failed halfway leaves the module unselected but its files in
+    # place; a retry has to unapply them
     write_selection
     unset MISE_ENV
     for m in "${removed[@]}"; do

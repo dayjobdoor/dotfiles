@@ -10,6 +10,8 @@ if ! git -C "$DJD_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 elif ! git -C "$DJD_DIR" symbolic-ref -q HEAD >/dev/null; then
     # a detached HEAD (a jj colocated checkout is always one) has no upstream to merge
     echo "djd: $DJD_DIR has no branch checked out; skipping pull"
+elif ! git -C "$DJD_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    echo "djd: the branch checked out in $DJD_DIR has no upstream; skipping pull"
 else
     # not `git pull --ff-only`: with the repo's own pull.rebase = true that path refuses any dirty tree.
     # Two commands, not `&&`: set -e ignores a failing fetch in an `&&` list, and update would go on with a stale checkout.

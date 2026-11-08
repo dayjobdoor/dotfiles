@@ -8,7 +8,8 @@ root="$HOME/.dotfiles/${1:?dotfile group}"
 # ~/.dotfiles may itself be a link to a checkout elsewhere
 real_root=$(realpath "$HOME/.dotfiles")
 
-while IFS= read -r -d '' src; do
+# a pipe, not `< <(find ...)`: with pipefail a failing find fails the hook instead of passing for an empty tree
+find "$root" -type f -print0 | while IFS= read -r -d '' src; do
     rel=${src#"$root/"}
     target="$HOME/$rel"
     if [ ! -e "$target" ] || [ -L "$target" ]; then
@@ -20,7 +21,7 @@ while IFS= read -r -d '' src; do
     if [ -f "/etc/skel/$rel" ] && cmp -s "/etc/skel/$rel" "$target"; then
         rm "$target"
     else
-        mv "$target" "$target.djd-backup-$(date +%s)"
+        mv "$target" "$target.djd-backup-$(date +%s)-$$"
         echo "djd: moved $target aside" >&2
     fi
-done < <(find "$root" -type f -print0)
+done

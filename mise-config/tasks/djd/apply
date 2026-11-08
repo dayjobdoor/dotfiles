@@ -3,8 +3,6 @@
 #MISE quiet=true
 set -euo pipefail
 
-# Real files that a dotfile would replace are moved aside by the pre-dotfiles hook (hooks/dotfile-conflicts), so that
-# they stay put on --dry-run, --skip dotfiles and a bootstrap that fails before the dotfiles part.
 # DJD_BOOTSTRAP_FLAGS: extra mise bootstrap flags for non-interactive callers (the Docker build's passes)
 status=0
 # the flags are split on spaces on purpose and must not be globbed (set -f)

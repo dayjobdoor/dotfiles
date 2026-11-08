@@ -16,6 +16,8 @@ activate_aggressive = true
 # parallel tool installs, written out although 8 is mise's default, so that a changed default does not slow the
 # full module's about 180 tools
 jobs = 8
+# mise does not borrow the token that `gh auth login` stored in hosts.yml; set MISE_GITHUB_TOKEN where one is wanted
+github.gh_cli_tokens = false
 
 [tools]
 usage = "latest"
@@ -51,7 +53,6 @@ shfmt = "latest"
 "apt:less" = "latest"
 "apt:vim" = "latest"
 "apt:unzip" = "latest"
-"apt:zip" = "latest"
 "apt:tree" = "latest"
 "apt:sqlite3" = "latest"
 "apt:openssh-client" = "latest"
@@ -75,7 +76,7 @@ login_shell = "zsh"
 # mise runs a plain `chsh` in the user phase, which asks for a password that cloud and OrbStack users
 # don't have; switching via sudo first leaves that phase a no-op.
 pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
-# Symlink entries refuse real files, so this moves them aside. Only the dotfiles part runs it: not --dry-run, not --skip dotfiles.
+# Symlink entries refuse real files; hooks/dotfile-conflicts moves them aside (dotfiles part only).
 pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts home"
 
 [dotfile_groups.home]

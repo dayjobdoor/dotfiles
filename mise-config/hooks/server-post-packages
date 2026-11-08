@@ -5,11 +5,18 @@
 # the apply succeeds.
 set -euo pipefail
 
-u=$(id -un)
-id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"
+# a refused apply grants nothing, so this runs after the checks below
+grant_docker() {
+    local u
+    u=$(id -un)
+    id -nG "$u" | grep -qw docker || sudo usermod -aG docker "$u"
+}
 
 # DJD_SKIP_SSH_CHECKS=1 for a machine reached some other way (a VM console, `incus exec`, `multipass exec`)
-[ -z "${DJD_SKIP_SSH_CHECKS:-}" ] || exit 0
+if [ -n "${DJD_SKIP_SSH_CHECKS:-}" ]; then
+    grant_docker
+    exit 0
+fi
 
 refuse() {
     echo "djd server: $* (DJD_SKIP_SSH_CHECKS=1 skips these checks if you reach this machine another way)" >&2
@@ -28,3 +35,5 @@ done
 other_port=$(grep -rhiE '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null |
     awk '$2 != 22' || true)
 [ -z "$other_port" ] || refuse "sshd listens on a port other than 22 ($other_port), but the firewall rule opens 22 only; change the ssh rule in config.server.toml first"
+
+grant_docker

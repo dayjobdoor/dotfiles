@@ -12,8 +12,8 @@
 # Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
 # a PipeWire server in the session (desktop/.xsession starts one where systemd does not). That package's autostart
 # script calls pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card
-# keeps playing locally. pipewire-pulse gives PulseAudio clients such as browsers a way in. desktop-final purges
-# the pulseaudio daemon, because it and pipewire-pulse would both claim the pulse socket.
+# keeps playing locally. pipewire-pulse gives PulseAudio clients such as browsers a way in.
+# hooks/desktop-final purges the pulseaudio daemon.
 "apt:pipewire" = "latest"
 "apt:pipewire-pulse" = "latest"
 "apt:wireplumber" = "latest"
@@ -53,8 +53,8 @@ fingerprint = [
 [env]
 ZED_UPDATE_EXPLANATION = "Updates come from mise: run `mise upgrade github:zed-industries/zed`."
 
-# Zed and Zen ship tarballs with no .desktop file that survives an upgrade, so each postinstall writes the menu
-# entry and icon with Exec on the mise shim (a versioned install dir is gone after the next upgrade).
+# Zed's and Zen's install dirs are versioned and deleted by the next upgrade, so each postinstall copies the menu
+# entry and icon out, with Exec on the mise shim.
 # mise puts the tool's own bin dirs ahead of PATH during a postinstall, so each script resets PATH: a poisoned
 # tarball must not shadow sed or install.
 # mise checks the digest of every Zed download and checks the GitHub artifact attestation when the release has
@@ -78,8 +78,7 @@ asset_pattern = "zed-linux-aarch64.tar.gz"
 # Zen publishes no signature and no attestation, so the only check is the sha256 digest GitHub reports for the
 # asset, which mise verifies. That proves the download matches what the release lists, not who built it.
 # filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH. Its MAR updater would bypass that digest
-# and the release age, so the postinstall writes a policy that disables app updates and telemetry (about:policies
-# lists the updater policy as active).
+# and the release age, so the postinstall writes a policy that disables app updates and telemetry.
 [tools."github:zen-browser/desktop"]
 version = "latest"
 filter_bins = "zen"

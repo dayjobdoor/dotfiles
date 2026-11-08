@@ -12,7 +12,12 @@ set -euo pipefail
 # a file this user cannot read (cloud-init's 50-cloud-init.conf is 0600), hide settings from the greps in the same
 # way, so each of them forces sshd -T too.
 first=$(grep -m1 -vE '^[[:space:]]*(#|$)' /etc/ssh/sshd_config || true)
-earlier=$(cd /etc/ssh/sshd_config.d && printf '%s\n' *.conf | LC_ALL=C sort | sed '/^10-djd\.conf$/,$d')
+if [ ! -d /etc/ssh/sshd_config.d ]; then
+    echo "djd server: /etc/ssh/sshd_config.d does not exist, so the keys-only drop-in is not in place (is openssh-server installed?)" >&2
+    exit 1
+fi
+# nullglob: an empty directory yields no names, not the literal *.conf
+earlier=$(cd /etc/ssh/sshd_config.d && shopt -s nullglob && printf '%s\n' *.conf | LC_ALL=C sort | sed '/^10-djd\.conf$/,$d')
 match=$(grep -rhiE '^[[:space:]]*(Match|Include)[[:space:]]' /etc/ssh/sshd_config.d || true)
 match+=$(grep -hiE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config || true)
 unreadable=$(find /etc/ssh/sshd_config /etc/ssh/sshd_config.d -type f ! -readable 2>/dev/null || true)
