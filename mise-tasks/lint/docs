@@ -5,7 +5,6 @@ cd "$(dirname "$0")/../.."
 
 docs="README.md AGENTS.md SECURITY.md DESIGN.md llms.txt docs/*.md"
 
-# GitHub's heading slugs decide what an anchor is
 broken=0
 # shellcheck disable=SC2086
 for f in $docs; do
@@ -19,9 +18,10 @@ for f in $docs; do
             echo "lint: $f links to a missing file: $link" >&2
             broken=1
         elif [ -n "$anchor" ] && [ -f "$target" ]; then
-            # a here-string, not a pipe: grep -q exiting early would SIGPIPE the producer under pipefail
+            # GitHub's heading slugs decide what an anchor is
             # fences skipped like the span extractor below: a `# comment` in a code block is no heading
             slugs=$(awk '/^[ \t]*```/ { fence = !fence; next } !fence && /^#+ /' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g')
+            # a here-string, not a pipe: grep -q exiting early would SIGPIPE the producer under pipefail
             if ! grep -qxF -- "$anchor" <<<"$slugs"; then
                 echo "lint: $f links to a missing anchor: $link" >&2
                 broken=1
@@ -110,6 +110,8 @@ done <<<"$spans"
 
 # 3. DJD_ variables
 code="install.sh home mise-config mise-tasks tests .devcontainer .github Makefile mise.toml"
+# --exclude=docs matches file names, not directories: it skips this script (mise-tasks/lint/docs), so a variable it only
+# mentions in its own text does not count as found in code. No directory in $code is named docs.
 # shellcheck disable=SC2086
 known=$(grep -rhoE --exclude=docs 'DJD_[A-Z][A-Z0-9_]*' $code | sort -u)
 for f in $docs; do

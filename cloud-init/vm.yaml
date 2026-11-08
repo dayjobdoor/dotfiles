@@ -1,7 +1,8 @@
 #cloud-config
 # Neutral setup for trying these dotfiles in an incus container, a multipass VM or an OrbStack
 # machine; test:vm uses it for all three. It only sets the hostname, timezone and packages: the install itself is
-# a separate step. README.md has the incus and multipass commands, and docs/how-to.md the OrbStack ones.
+# a separate step. README.md has the incus commands and docs/how-to.md the OrbStack ones; multipass has its own file,
+# multipass.yaml, which also runs the install.
 
 hostname: djd-vm
 timezone: Asia/Tokyo

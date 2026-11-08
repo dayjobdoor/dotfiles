@@ -19,7 +19,8 @@ for f in mise.toml mise-config/*.toml; do
     fi
 done
 mise tasks validate
-# mise-config as the global config, so the djd tasks and their usage specs are validated too
+# mise-config as the global config, so the djd tasks and their usage specs are validated too; the repo tasks are
+# loaded as well and checked a second time (mise has no way to select only the global ones)
 MISE_CONFIG_DIR="$PWD/mise-config" mise tasks validate
 # The mise release is pinned in several places that no bot bumps; they must name the same one (install.sh pins
 # none: it reads min_version). A pin whose line stops matching its sed would silently drop out of the comparison,

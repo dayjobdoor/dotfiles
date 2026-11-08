@@ -12,13 +12,13 @@ for stray in .github/workflows/*.yml; do
     fi
 done
 jactionlint .github/workflows/*.yaml .github/dependabot.yml
-# act stops at an interactive image prompt for any runner label .actrc does not map
+# act stops at an interactive image prompt for any runner label .actrc does not map; comment lines are no labels
 while IFS= read -r label; do
     grep -q -- "^-P ${label//./\\.}=" .actrc || {
         echo "lint: runner $label is not mapped in .actrc" >&2
         exit 1
     }
-done < <(grep -ohE 'ubuntu-[0-9a-z.-]+' .github/workflows/*.yaml | sort -u)
+done < <(sed 's/^[[:space:]]*#.*//' .github/workflows/*.yaml | grep -oE 'ubuntu-[0-9a-z.-]+' | sort -u)
 # DL3066: the base image defines the ubuntu user, so USER by name always resolves
 hadolint --ignore DL3066 .devcontainer/Dockerfile
 echo "ok workflows and Dockerfile"

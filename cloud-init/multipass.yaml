@@ -1,5 +1,4 @@
 #cloud-config
-# multipass launch 26.04 --name djd --cpus 4 --memory 8G --disk 40G --timeout 3600 --cloud-init cloud-init/multipass.yaml
 # RDP needs a password: multipass exec djd -- sudo passwd ubuntu
 timezone: Asia/Tokyo
 keyboard:
@@ -10,8 +9,10 @@ keyboard:
 # multipass images ship openssh-server and take the owner's key below, so passwords stay off from the first boot
 # (vm.yaml leaves this out on purpose: its image may lack openssh-server)
 ssh_pwauth: false
-# the owner's GitHub keys; forks: change this to your own GitHub user. The server module refuses to turn
-# passwords off for a user without a key, so a failed import stops the install instead of locking the VM
+# SECURITY: this imports the public keys of the GitHub account below into the ubuntu user, which has passwordless
+# sudo, so that account gets root over SSH on the VM. Forks: replace it with your own GitHub user before launching.
+# The server module refuses to turn passwords off for a user without a key, so a failed import stops the install
+# instead of locking the VM
 ssh_import_id:
   - gh:dayjobdoor
 

@@ -14,6 +14,15 @@ die() {
     exit 1
 }
 
+# whether version $2 (empty counts as 0) is at least $1
+at_least() {
+    [ "$(printf '%s\n%s\n' "$1" "${2:-0}" | sort -V | sed -n 1p)" = "$1" ]
+}
+
+mise_version() {
+    "$HOME/.local/bin/mise" --version 2>/dev/null | awk '{ print $1; exit }'
+}
+
 # one function called on the last line, so a download cut short by curl runs nothing
 main() {
     [ -r /etc/os-release ] && . /etc/os-release
@@ -27,7 +36,9 @@ main() {
 
     # from curl | sh, $0 is the shell, not this file
     self=
-    if [ -f "$0" ]; then self=$(cd "$(dirname "$0")" && pwd -P); fi
+    case ${0##*/} in
+    install.sh) if [ -f "$0" ]; then self=$(cd "$(dirname "$0")" && pwd -P); fi ;;
+    esac
     # a checkout that moved leaves a dangling ~/.dotfiles link behind, which neither ln nor git clone replaces
     if [ -L "$DJD_DIR" ] && [ ! -e "$DJD_DIR" ]; then rm "$DJD_DIR"; fi
     if [ ! -e "$DJD_DIR" ]; then
@@ -56,23 +67,30 @@ main() {
     fi
 
     # the version the applied tree requires, so the pin has one home; MISE_VERSION overrides it (with or without
-    # the leading v)
+    # the leading v), but never below that minimum
     min=$(sed -n 's/^min_version = "\(.*\)"$/\1/p' "$DJD_DIR/mise-config/config.toml")
     [ -n "$min" ] || die "no min_version in $DJD_DIR/mise-config/config.toml"
     version=${MISE_VERSION:-$min}
     version=v${version#v}
+    at_least "$min" "${version#v}" || die "MISE_VERSION $version is older than the required $min"
     # an install that predates min_version would make every `djd apply` fail on it, so it is replaced as well
     install_mise=
     if [ ! -x "$HOME/.local/bin/mise" ]; then
         install_mise=1
     else
-        have=$("$HOME/.local/bin/mise" --version 2>/dev/null | awk '{ print $1; exit }')
-        [ "$(printf '%s\n%s\n' "$min" "${have:-0}" | sort -V | sed -n 1p)" = "$min" ] || install_mise=1
+        at_least "$min" "$(mise_version)" || install_mise=1
     fi
     if [ -n "$install_mise" ]; then
-        # sh has no pipefail: a failed download shows up as a missing binary
-        curl -fsSL https://mise.run | MISE_VERSION="$version" sh
+        # a file, not a pipe into sh: a download cut short must not run; TLS 1.2 or newer, https only
+        mise_sh=$(mktemp)
+        trap 'rm -f "$mise_sh"' EXIT
+        curl -fsSL --proto '=https' --tlsv1.2 https://mise.run -o "$mise_sh" || die "downloading mise.run failed"
+        MISE_VERSION="$version" sh "$mise_sh"
+        rm -f "$mise_sh"
+        # a failed install leaves a missing binary, or the old one that was there before
         [ -x "$HOME/.local/bin/mise" ] || die "installing mise failed"
+        have=$(mise_version)
+        at_least "$min" "$have" || die "installing mise failed: ${have:-no version} is older than the required $min"
     fi
 
     # the wrapper owns the environment that djd tasks need (PATH, LC_ALL, MISE_ENV, cwd)

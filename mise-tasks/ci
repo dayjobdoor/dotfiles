@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
-#MISE description="Run CI jobs locally with act, or plan every workflow with --dry-run (the vm job needs incus)"
+#MISE description="Run the lint, sandbox and desktop jobs of ci.yaml locally with act, or plan every workflow with --dry-run (the vm job needs incus and is not offered)"
 #MISE tools={act="latest"}
-#USAGE arg "[job]..." var=#true help="ci.yaml jobs to run in order; all four by default" {
-#USAGE   choices "lint" "sandbox" "desktop" "agentos"
+#USAGE arg "[job]..." var=#true help="ci.yaml jobs to run in order; all three by default" {
+#USAGE   choices "lint" "sandbox" "desktop"
 #USAGE }
-#USAGE flag "-n --dry-run" help="Plan every job of every workflow, release ones included, without running steps"
+#USAGE flag "-n --dry-run" help="Plan every job of every workflow, release ones included, without running steps; takes no job names"
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # usage hands variadic args over as one shell-quoted string; its choices limit the words to plain job names
 read -ra selected <<<"${usage_job:-}"
-[ ${#selected[@]} -gt 0 ] || selected=(lint sandbox desktop agentos)
+if [ "${usage_dry_run:-false}" = true ] && [ ${#selected[@]} -gt 0 ]; then
+    echo "$0: --dry-run plans every job of every workflow and takes no job names (got: ${selected[*]})" >&2
+    exit 2
+fi
+[ ${#selected[@]} -gt 0 ] || selected=(lint sandbox desktop)
+# act hands the token to the workflows as a secret. No fallback to `gh auth token`: it carries every scope (SECURITY.md#github-tokens)
+if [ -z "${GITHUB_TOKEN+x}" ]; then
+    echo "$0: set GITHUB_TOKEN to a token without scopes (classic with none, or fine-grained with no permissions), or GITHUB_TOKEN= for none; \`gh auth token\` would hand the installs every scope of your login (SECURITY.md#github-tokens)" >&2
+    exit 1
+fi
+export GITHUB_TOKEN
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # the scratch repository below must not pick up the host's git config (a signing key, hooks, an excludesfile)
@@ -23,15 +33,6 @@ git -C "$work" -c user.name=act -c user.email=act@localhost commit -qm "act $(gi
 # act derives github.repository from origin; tag.yaml only releases for this repository
 git -C "$work" remote add origin https://github.com/dayjobdoor/dotfiles.git
 
-# act hands the token to the workflows as a secret.
-# A token needs no scope; it only lifts the anonymous rate limit (SECURITY.md#github-tokens). No fallback to
-# `gh auth token`: it carries every scope of the login, and installs run third-party code.
-# GITHUB_TOKEN= (set, empty) runs anonymously.
-if [ -z "${GITHUB_TOKEN+x}" ]; then
-    echo "$0: set GITHUB_TOKEN to a token without scopes (classic with none, or fine-grained with no permissions), or GITHUB_TOKEN= for none; \`gh auth token\` would hand the installs every scope of your login (SECURITY.md#github-tokens)" >&2
-    exit 1
-fi
-export GITHUB_TOKEN
 cd "$work"
 # runner images and options come from .actrc; -s NAME reads the secret from the environment
 if [ "${usage_dry_run:-false}" = true ]; then
