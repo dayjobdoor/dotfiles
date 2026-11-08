@@ -58,16 +58,16 @@ $shell\
 # DESIGN.md palette; change it there first
 [palettes.color]
 # Kanagawa Dragon
-gray = '#a6a69c'    # dragonGray
+gray = '#a6a69c'
 white = '#c5c9c5'   # dragonWhite
-navy = '#8ba4b0'    # dragonBlue2
-dark = '#8992a7'    # dragonViolet
-dd = '#181616'      # dragonBlack3
-ddd = '#12120f'     # dragonBlack1
-red = '#c4746e'     # dragonRed
-green = '#87a987'   # dragonGreen
-yellow = '#b6927b'  # dragonOrange
-blue = '#8ea4a2'    # dragonAqua
+navy = '#8ba4b0'
+dark = '#8992a7'
+dd = '#181616'
+ddd = '#12120f'
+red = '#c4746e'
+green = '#87a987'
+yellow = '#b6927b'
+blue = '#8ea4a2'
 
 [os]
 disabled = false
@@ -107,8 +107,7 @@ truncation_symbol = "…/"
 "Music" = "  "
 "Pictures" = "  "
 
-# git_branch and git_status are off because custom.jj (jj-starship) shows the repo state. They stay
-# in `format` and keep their styles so re-enabling one is a one-line change.
+# git_branch and git_status are off because custom.jj (jj-starship) shows the repo state.
 [git_branch]
 symbol = " "
 style = "fg:dd bg:dark"

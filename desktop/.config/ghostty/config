@@ -18,7 +18,6 @@ cursor-style-blink = true
 
 mouse-hide-while-typing = true
 
-# keep output visible after the command exits
 wait-after-command = true
 
 # a single space hides the title

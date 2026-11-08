@@ -17,6 +17,8 @@ if [ -z "$password" ] && [ -f "$secret" ]; then password=$(<"$secret"); fi
 [[ $user =~ ^[a-zA-Z0-9_-]+$ ]] || die "invalid user: $user"
 id "$user" >/dev/null 2>&1 || die "no such user: $user"
 [ -n "$password" ] || die "usage: djd-desktop-entrypoint USER [PASSWORD]; with no PASSWORD, $secret must hold a non-empty one"
+# chpasswd reads one user:password pair per line: a newline in the password would set another account's password
+[[ $password != *$'\n'* ]] || die "the password must not contain a newline"
 
 printf '%s:%s\n' "$user" "$password" | chpasswd
 # no logind in the container: this is the XDG_RUNTIME_DIR that ~/.xsession falls back to

@@ -1,6 +1,6 @@
 # shellcheck shell=sh
-# Shared by bash, zsh (via .zshenv) and agentOS guests (which source it explicitly).
-# Keep it POSIX: this file's own code only exports. profile.local is the one escape hatch.
+# Shared by bash and zsh (via .zshenv).
+# Keep it POSIX: zsh sources it under `emulate sh`. profile.local is the one escape hatch.
 
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -25,7 +25,6 @@ export EDITOR="${EDITOR:-vim}"
 export PYTHON_HISTORY="$XDG_STATE_HOME/python_history"
 export NODE_REPL_HISTORY="$XDG_STATE_HOME/node_repl_history"
 
-# -f, not -r: the agentOS guest shell (brush) reports `[ -r <missing file> ]` as true
-if [ -f "$XDG_CONFIG_HOME/djd/profile.local" ]; then
+if [ -r "$XDG_CONFIG_HOME/djd/profile.local" ]; then
     . "$XDG_CONFIG_HOME/djd/profile.local"
 fi

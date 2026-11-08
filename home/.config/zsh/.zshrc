@@ -48,8 +48,8 @@ unset _djd_plugins _djd_p
 mkdir -p $XDG_CACHE_HOME/zsh
 zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
 zstyle ':completion:*' use-cache on
-# a dump younger than a day is trusted (-C skips the scan of every fpath file, about 40 ms); `djd apply` and a
-# newer shell version start a fresh dump
+# a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh
+# starts a fresh dump (the version is in the file name)
 autoload -Uz compinit
 _djd_zcompdump=$XDG_CACHE_HOME/zsh/zcompdump-${ZSH_VERSION}
 if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
@@ -72,20 +72,21 @@ chpwd() {
 }
 
 # mise first: its hook runs at once and puts the installed tools' own directories before the shims, so
-# $commands[tool] below is a path inside the installed tool's own directory, not the shim. The cache key carries
-# the resolved path (`:A`, so mise's `latest` link counts as the version behind it), and an upgrade that prunes
-# the old version regenerates the script instead of breaking the prompt.
-# Not cached: the output of `mise activate` embeds the current PATH, so a cached copy would reset PATH for
-# every later shell. None of the cached inits below changes PATH.
+# $commands[tool] resolves inside the tool's directory. Not cached: mise activate output embeds the current PATH.
 if (( $+commands[mise] )); then
     eval "$(mise activate zsh)"
 fi
 
-# Tool init scripts are cached (omp completions alone cost ~650ms per shell).
-# `djd apply` clears the cache too, so tools that moved without a new path regenerate theirs on the next shell.
+# Tool init scripts are cached (omp completions alone cost ~650ms per shell). The file name carries the tool, its
+# resolved path (`:A`, so mise's `latest` link counts as the version behind it) and a checksum of the whole command
+# line: an upgrade that prunes the old version, or an edited argument below, regenerates the script instead of
+# loading a stale one. `djd apply` clears the cache, so a tool that moved without a new path or arguments
+# regenerates its script on the next shell.
 _djd_init() {
-    local file=$XDG_CACHE_HOME/zsh/init/$1-${${commands[$1]:A}//[^[:alnum:]]/_}.zsh
+    local file sum
     (( $+commands[$1] )) || return 0
+    sum=$(printf '%s\0' "${@:2}" | cksum)
+    file=$XDG_CACHE_HOME/zsh/init/$1-${${commands[$1]:A}//[^[:alnum:]]/_}-${sum%% *}.zsh
     if [[ ! -s $file ]]; then
         mkdir -p ${file:h}
         # write aside and rename, so an interrupted or concurrent shell never leaves a partial file
@@ -95,8 +96,7 @@ _djd_init() {
 }
 [[ $CPUTYPE == x86_64 ]] && export DJD_ARCH=x86_64 # the arch badge of starship.toml
 _djd_init starship starship init zsh --print-full-init
-# --hook pwd runs zoxide on a directory change only, where --hook prompt starts it before every prompt
-_djd_init zoxide zoxide init zsh --hook pwd
+_djd_init zoxide zoxide init zsh
 _djd_init fzf fzf --zsh
 # after fzf: both bind Ctrl-R, and the later one wins
 _djd_init atuin atuin init zsh
