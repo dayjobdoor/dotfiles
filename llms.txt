@@ -28,8 +28,6 @@ The layout of the repository, with the purpose of each entry, is in [Reference](
 - [Makefile](Makefile): `make <task>` runs `mise run <task>`
 - [.mise/mise.lock](.mise/mise.lock): the pinned versions of the repo tools
 - [.githooks/](.githooks/): the pre-commit hook
-- [.agents/](.agents/): coding-agent skills for working on this repository
-- [skills-lock.json](skills-lock.json): the source and hash of each skill in `.agents/`
 - [.actrc](.actrc): the act runner images
 - [.devcontainer/](.devcontainer/): the Docker images and compose.yaml
 - [cloud-init/vm.yaml](cloud-init/vm.yaml): the cloud-init file for the VMs

@@ -51,8 +51,6 @@ mise-config/            linked as ~/.config/mise, the global config
   hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, and desktop-final: hook scripts that are too long for an inline [bootstrap.hooks] string, and the helpers they share
 home/                   dotfile group home, symlinked file by file into ~ (home/.config/pi and home/.config/omp hold the pi and omp config)
 tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and server-hooks.sh
-.agents/                coding-agent skills for this repository, one directory each
-skills-lock.json        source and hash of each skill in .agents/
 cloud-init/vm.yaml      the cloud-init file for incus, multipass, and OrbStack
 .devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
 .githooks/              pre-commit hook that runs gitleaks
