@@ -32,7 +32,7 @@ jobs:
       - name: Build full image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise trust mise.toml && mise run build full
+        run: mise trust .mise/config.toml && mise run build full
       - name: Doctor
         # djd:full is the image the previous step built on this runner, not a pulled one
         run: docker run --rm djd:full djd doctor # jactionlint ignore=unpinned-images

@@ -1,6 +1,6 @@
 name: Push to ghcr
-# Publishes the sandbox and desktop images to GHCR for a semver tag (tag push, or dispatched by tag.yaml).
-# sandbox = agent module (latest), desktop = agent + desktop modules (XFCE + xrdp).
+# Publishes the image to GHCR for a semver tag (tag push, or dispatched by tag.yaml). The image is the base, which
+# includes the desktop (XFCE + xrdp), plus the agent module.
 on:
   push:
     tags:
@@ -31,11 +31,8 @@ jobs:
           - linux/amd64
           - linux/arm64
         flavor:
-          - name: sandbox
+          - name: latest
             modules: "agent"
-            smoke: djd doctor
-          - name: desktop
-            modules: "agent desktop"
             smoke: djd doctor
         include:
           - platform: linux/arm64
@@ -203,13 +200,12 @@ jobs:
         run: |
           shopt -s nullglob
           # a re-run of an older release, or one that finishes after a newer one, must not move the
-          # floating tags (sandbox, latest, X.Y, desktop, X.Y-desktop) back
+          # floating tags (latest, X.Y) back
           newest=$(git ls-remote --tags --refs "https://github.com/${GITHUB_REPOSITORY}.git" |
             sed 's#.*refs/tags/##' | grep -E '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -n1)
           minor="${GITHUB_REF_NAME%.*}"
 
-          # Publish sandbox last so the latest tag is the newest manifest in GHCR.
-          for flavor in desktop sandbox; do
+          for flavor in latest; do
             digest_files=(digests-*-"${flavor}"/*)
             if [ "${#digest_files[@]}" -eq 0 ]; then
               echo "No digest artifacts found for ${flavor}." >&2
@@ -221,15 +217,9 @@ jobs:
               refs+=("${REGISTRY_IMAGE}@sha256:$(basename "${digest_file}")")
             done
 
-            if [ "${flavor}" = "sandbox" ]; then
-              tags=(-t "${REGISTRY_IMAGE}:${GITHUB_REF_NAME}")
-              floating=(sandbox latest "${minor}")
-              description="Ubuntu 26.04 dotfiles, agent sandbox (agent module)"
-            else
-              tags=(-t "${REGISTRY_IMAGE}:${GITHUB_REF_NAME}-desktop")
-              floating=(desktop "${minor}-desktop")
-              description="Ubuntu 26.04 dotfiles, XFCE desktop over RDP (agent and desktop modules)"
-            fi
+            tags=(-t "${REGISTRY_IMAGE}:${GITHUB_REF_NAME}")
+            floating=(latest "${minor}")
+            description="Ubuntu 26.04 dotfiles: the agent module and an XFCE desktop over RDP"
             if [ "${GITHUB_REF_NAME}" = "${newest}" ]; then
               for t in "${floating[@]}"; do tags+=(-t "${REGISTRY_IMAGE}:${t}"); done
             else

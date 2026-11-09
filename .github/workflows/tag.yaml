@@ -112,7 +112,7 @@ jobs:
             {
               git log --no-merges --format='- %s (%h)' "${prev:+$prev..}$new_tag"
               printf '\nImages, once the Push to ghcr run finishes:\n\n'
-              printf '    docker pull ghcr.io/%s:%s\n' "${GITHUB_REPOSITORY,,}" "$new_tag" "${GITHUB_REPOSITORY,,}" "${new_tag}-desktop"
+              printf '    docker pull ghcr.io/%s:%s\n' "${GITHUB_REPOSITORY,,}" "$new_tag"
             } >"$RUNNER_TEMP/notes.md"
             gh release create "$new_tag" \
               --title="$new_tag" \

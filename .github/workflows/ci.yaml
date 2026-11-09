@@ -2,11 +2,11 @@ name: CI
 on:
   push:
     branches: [main]
-    # Markdown-only changes (llms.txt included) skip CI, except DESIGN.md (lint checks it) and agent/** (its AGENTS.md files ship in the
-    # images and the sandbox test compares them)
-    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "agent/**"]
+    # Markdown-only changes (llms.txt included) skip CI, except DESIGN.md (lint checks it) and home/.config/pi, home/.config/omp (their AGENTS.md and RULES.md ship in the
+    # image and the image test checks them)
+    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "home/.config/pi/**", "home/.config/omp/**"]
   pull_request:
-    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "agent/**"]
+    paths: ["**", "!docs/**", "!**/*.md", "!llms.txt", "DESIGN.md", "home/.config/pi/**", "home/.config/omp/**"]
   # tools track `latest`, so a quiet repository still breaks upstream; this run catches it.
   # Scheduled runs never tag a release (tag.yaml accepts push runs only).
   schedule:
@@ -22,14 +22,14 @@ concurrency:
   cancel-in-progress: true
 
 # Every job runs the same mise task a developer runs locally (`make test` = `mise run test`);
-# `mise run ci <job>` runs the lint, sandbox and desktop jobs on your machine with act.
+# `mise run ci <job>` runs the lint and image jobs on your machine with act.
 jobs:
   lint:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      # tools install from the URLs and checksums in mise.lock, so this job calls no GitHub API and needs no token
+      # tools install from the URLs and checksums in .mise/mise.lock, so this job calls no GitHub API and needs no token
       MISE_LOCKED: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
       - name: Install zsh for `zsh -n`
         run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends zsh
-      # mise itself only; `mise run lint` installs each check's tools, at the versions pinned in mise.lock
+      # mise itself only; `mise run lint` installs each check's tools, at the versions pinned in .mise/mise.lock
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           version: 2026.10.23
@@ -47,15 +47,18 @@ jobs:
       - name: Lint (shell, mise configs, workflows, Dockerfile, DESIGN.md, docs links, secrets)
         run: mise run lint
 
-  sandbox:
+  # the one Docker image (the base with the desktop, plus the agent module): offline tests, doctor, tools on PATH, shell
+  # startup, backup, secrets, idempotent apply, then RDP login, XFCE session, audio and the desktop apps. The second
+  # task reuses the layers that the first one built.
+  image:
     strategy:
       fail-fast: false
       matrix:
         runner: [ubuntu-26.04, ubuntu-26.04-arm]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    timeout-minutes: 45
     env:
-      # the task only drives docker; its tools run inside the image
+      # the tasks only drive docker; their tools run inside the image
       MISE_TASK_RUN_AUTO_INSTALL: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,32 +68,14 @@ jobs:
         with:
           version: 2026.10.23
           install: false
-      - name: Build the sandbox image; offline tests, doctor, tools on PATH, shell startup, backup, secrets, idempotent apply
+      - name: Build the image; offline tests, doctor, tools on PATH, shell startup, backup, secrets, idempotent apply
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise trust mise.toml && mise run test
-
-  desktop:
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-26.04, ubuntu-26.04-arm]
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
-    env:
-      MISE_TASK_RUN_AUTO_INSTALL: "false"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
-        with:
-          version: 2026.10.23
-          install: false
-      - name: Build the desktop image, RDP login starts XFCE
+        run: mise trust .mise/config.toml && mise run test
+      - name: RDP login starts XFCE, audio, desktop apps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise trust mise.toml && mise run test:desktop
+        run: mise run test:desktop
 
   # a fresh Ubuntu system container with systemd, as a VM user gets it
   vm:
@@ -120,7 +105,7 @@ jobs:
         with:
           version: 2026.10.23
           install: false
-      - name: cloud-init, install server + desktop, firewall, services, module removal
+      - name: cloud-init, install server, firewall, services, module removal
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise trust mise.toml && mise run test:vm
+        run: mise trust .mise/config.toml && mise run test:vm

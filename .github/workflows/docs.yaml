@@ -5,9 +5,9 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "**/*.md", "llms.txt", "!agent/**"]
+    paths: ["docs/**", "**/*.md", "llms.txt", "!home/.config/pi/**", "!home/.config/omp/**"]
   pull_request:
-    paths: ["docs/**", "**/*.md", "llms.txt", "!agent/**"]
+    paths: ["docs/**", "**/*.md", "llms.txt", "!home/.config/pi/**", "!home/.config/omp/**"]
 
 permissions:
   contents: read
@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 10
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      # tools install from the URLs and checksums in mise.lock, so this job calls no GitHub API and needs no token
+      # tools install from the URLs and checksums in .mise/mise.lock, so this job calls no GitHub API and needs no token
       MISE_LOCKED: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,7 +47,7 @@ jobs:
           # gitleaks scans the whole history
           fetch-depth: 0
           persist-credentials: false
-      # mise itself only; `mise run lint:secrets` installs gitleaks at the version pinned in mise.lock
+      # mise itself only; `mise run lint:secrets` installs gitleaks at the version pinned in .mise/mise.lock
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           version: 2026.10.23

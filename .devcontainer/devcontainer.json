@@ -12,7 +12,7 @@
       "--secret=id=github_token,env=GITHUB_TOKEN"
     ]
   },
-  "remoteUser": "ubuntu",
+  "remoteUser": "dayjobdoor",
   "init": true,
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "customizations": {

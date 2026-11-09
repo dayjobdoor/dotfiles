@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Desktop image entrypoint (runs as root): set the RDP password, make this container's TLS key, then run xrdp in the
+# Entrypoint of the image for its desktop (runs as root): set the RDP password, make this container's TLS key, then run xrdp in the
 # foreground.
 # Usage: djd-desktop-entrypoint USER [PASSWORD]
 # Without PASSWORD the password is read from /run/secrets/djd_rdp_password, which compose.yaml mounts: an argument
@@ -10,7 +10,7 @@ die() {
     echo "djd-desktop-entrypoint: $*" >&2
     exit 2
 }
-user=${1:-ubuntu}
+user=${1:-dayjobdoor}
 password=${2:-}
 secret=/run/secrets/djd_rdp_password
 if [ -z "$password" ] && [ -f "$secret" ]; then password=$(<"$secret"); fi

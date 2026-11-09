@@ -5,13 +5,14 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
       args:
-        DJD_MODULES: "agent desktop"
+        DJD_MODULES: "agent"
       secrets:
         - github_token
+    hostname: vm
     user: root
     entrypoint: ["djd-desktop-entrypoint"]
     # the password comes from the djd_rdp_password secret, so it is in neither argv nor `docker inspect`
-    command: ["ubuntu"]
+    command: ["dayjobdoor"]
     secrets:
       - djd_rdp_password
     ports:
