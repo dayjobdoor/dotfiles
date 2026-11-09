@@ -40,8 +40,8 @@ cloud-init/vm.yaml      the cloud-init file for incus, multipass, and OrbStack
 
 | Kind of file | Where, and under what name |
 | --- | --- |
-| Global mise config | `mise-config/`. A `mise.toml`, `mise/` or `.config/mise/` at the top of the checkout would make mise treat the checkout itself as a project config, so none exists. |
-| Repo tasks, their tools and lock | `.mise/` only: `tasks/<name>`, `config.toml`, `mise.lock`. There is no `mise-tasks/`, and no `mise.toml` or `mise.lock` at the root. |
+| Global mise config | `mise-config/`. A mise project file or a `mise/` or `.config/mise/` directory at the top of the checkout would make mise treat the checkout itself as a project config, so none exists. |
+| Repo tasks, their tools and lock | `.mise/` only: `tasks/<name>`, `config.toml` and the lock beside it. The tasks, the config and the lock do not live at the root. |
 | Modules | `mise-config/config.<module>.toml` for `agent`, `server`, `full` and `secrets`. The desktop is part of `config.toml`, so there is no `config.desktop.toml`. |
 | Dotfiles | `home/`, under the literal name they have in `~`. |
 | Hooks and djd commands | `mise-config/hooks/<name>` and `mise-config/tasks/djd/<name>`, both executable bash. |

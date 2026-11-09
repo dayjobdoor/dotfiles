@@ -5,7 +5,7 @@ What each release changed, newest first, in the style of [Keep a Changelog](http
 ## Unreleased
 
 - Docs: `references.md`, `tech.md` and `directory.md` replace `reference.md`; `requirements.md` and `problems.md` come out of `architecture.md`; `ROADMAP.md` and this file replace the planned-work section.
-- Removed the `i-have-adhd` agent skill and `skills-lock.json`; added `.env.example` with variable names only.
+- Removed the i-have-adhd agent skill and its lock file; added `.env.example` with variable names only.
 
 ## 0.0.11 (2026-11-09)
 
