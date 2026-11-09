@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# sec NAME: append NAME=<random> to $ENV_FILE (default .env). A new file is private, and a name that is already there
+# is left alone, because a second line would shadow the first without any message.
+set -euo pipefail
+name=${1:-SECRET}
+file=${ENV_FILE:-.env}
+if [[ -f $file ]] && grep -q "^${name}=" "$file"; then
+    echo "sec: $name is already in $file" >&2
+    exit 1
+fi
+(
+    umask 077
+    printf '%s=%s\n' "$name" "$(openssl rand -base64 32)" >>"$file"
+)

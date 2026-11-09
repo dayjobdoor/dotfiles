@@ -1,6 +1,9 @@
 #!/bin/sh
 # No logind in the Docker image, so nothing else sets it; the PipeWire socket lives there.
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+# The desktop session is Japanese, and nothing else is: /etc/locale.conf stays C.UTF-8, so ssh logins, agents and the
+# Docker image keep English tool output. language-pack-ja-base generates this locale.
+export LANG=ja_JP.UTF-8
 # GTK, Qt and XIM clients reach fcitx5 through these.
 export GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx
 # sesman's environment may carry the address of a dead bus; neither dbus-launch nor the daemons may see it.

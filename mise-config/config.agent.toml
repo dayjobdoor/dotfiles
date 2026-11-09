@@ -16,6 +16,13 @@ NPM_CONFIG_CACHE = "{{xdg_cache_home}}/npm"
 NPM_CONFIG_USERCONFIG = "{{xdg_config_home}}/npm/npmrc"
 BUN_INSTALL_CACHE_DIR = "{{xdg_cache_home}}/bun"
 PI_TELEMETRY = "0"
+# pi reads its agent directory from PI_CODING_AGENT_DIR. omp ignores that variable once OMP_PROFILE is set and reads
+# ~/.config/omp/profiles/<profile>/agent instead; PI_CONFIG_DIR moves omp's ~/.omp under ~/.config/omp.
+# The files themselves are the home dotfile group: home/.config/pi/ and home/.config/omp/.
+PI_CODING_AGENT_DIR = "{{xdg_config_home}}/pi/agent"
+PI_CONFIG_DIR = ".config/omp"
+OMP_PROFILE = "god"
+PI_NATIVES_DIR = "{{xdg_config_home}}/omp/profiles/god/natives"
 DO_NOT_TRACK = "1"
 
 [tools]
@@ -31,10 +38,3 @@ pi = "latest"
 "apt:build-essential" = "latest"
 "apt:pkg-config" = "latest"
 "apt:libssl-dev" = "latest"
-
-# The global AGENTS.md of pi and omp. Each reads its own agent directory and nothing else, so the file exists twice.
-[dotfile_groups.agent]
-root = "agent"
-
-[bootstrap.hooks]
-pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts agent"

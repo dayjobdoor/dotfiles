@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# The desktop module's four required apps, as the desktop user in the image (mise-tasks/test/desktop) or the VM
-# (tests/vm-checks.sh): the command runs and the XFCE menu entry points at something executable.
+# The desktop's four required apps, as the desktop user in the image (.mise/tasks/test/desktop) or the VM
+# (tests/vm-checks.sh): the command runs and the XFCE menu entry points at something executable. The extra apps
+# (Wireshark, Obsidian, Vicinae, Ferdium, fusuma) only have to be on PATH with a menu entry that points at something
+# executable; Electron programs print no version without a display, so they are not run.
 # DJD_APPS_LAUNCH=1 (the image test only, which runs it after the RDP login) also starts brave-browser and zen headless,
 # and ghostty and zed inside the running XFCE session, where each must put a window on screen.
 set -euo pipefail
@@ -10,6 +12,13 @@ apps='brave-browser|brave-browser
 ghostty|com.mitchellh.ghostty
 zen|zen
 zed|dev.zed.Zed'
+
+# command|desktop file id (empty for none)|argument that prints a version (empty for none)
+extras='wireshark|org.wireshark.Wireshark|--version
+obsidian|obsidian|
+vicinae|vicinae|version
+ferdium|ferdium|
+fusuma||'
 
 # docker exec and a non-login ssh command get no profile PATH: add the mise shims
 export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
@@ -128,3 +137,25 @@ while IFS='|' read -r cmd id; do
 done <<<"$apps"
 # a launched command that swallowed the list would end the loop early without a failure
 [ "$checked" = "$(grep -c . <<<"$apps")" ] || fail "checked $checked apps, the list has $(grep -c . <<<"$apps")"
+
+extra_checked=0
+while IFS='|' read -r cmd id version; do
+    command -v "$cmd" >/dev/null || fail "$cmd is not on PATH"
+    if [ -n "$version" ] && ! "$cmd" "$version" >/dev/null 2>&1 </dev/null; then fail "$cmd $version failed"; fi
+    if [ -n "$id" ]; then
+        entry=
+        for d in "${dirs[@]}"; do
+            if [ -f "$d/applications/$id.desktop" ]; then
+                entry="$d/applications/$id.desktop"
+                break
+            fi
+        done
+        [ -n "$entry" ] || fail "$cmd has no $id.desktop menu entry"
+        exec_cmd=$(main_exec "$entry")
+        exec_cmd=${exec_cmd%% *}
+        if ! command -v "$exec_cmd" >/dev/null; then fail "$entry: Exec '$exec_cmd' is not executable"; fi
+    fi
+    echo "ok $cmd"
+    extra_checked=$((extra_checked + 1))
+done <<<"$extras"
+[ "$extra_checked" = "$(grep -c . <<<"$extras")" ] || fail "checked $extra_checked extra apps, the list has $(grep -c . <<<"$extras")"

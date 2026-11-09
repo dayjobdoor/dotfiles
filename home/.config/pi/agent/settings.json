@@ -1,0 +1,35 @@
+{
+  "compaction": {
+    "enabled": true,
+    "keepRecentTokens": 22000,
+    "reserveTokens": 16384
+  },
+  "defaultModel": "preview/Kimi-K2.7-Code",
+  "defaultProvider": "sakura",
+  "defaultThinkingLevel": "middium",
+  "enabledModels": [
+    "anthropic/claude-sonnet-5-5",
+    "sakura/preview/Kimi-K2.7-Code"
+  ],
+  "enableInstallTelemetry": false,
+  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep '^alias ' ~/.aliases | grep -vE '^alias (rm|cp|mv)=')\"",
+  "npmCommand": [
+    "bun"
+  ],
+  "packages": [
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:pi-auto-compact",
+    "npm:context-mode",
+    "npm:@dietrichgebert/ponytail",
+    "git:github.com/michael-denyer/pstack-claude"
+  ],
+  "skills": [
+    "~/.agents/skills"
+  ],
+  "steeringMode": "all",
+  "followUpMode": "all",
+  "lastChangelogVersion": "1.5.0",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:@gotgenes/pi-anthropic-auth\",\"scope\":\"user\"}": "3.4.4"
+  }
+}

@@ -3,14 +3,14 @@
 #MISE quiet=true
 #USAGE arg "<action>" { choices "list" "add" "remove"; }
 #USAGE arg "[module]..." var=#true help="Modules to add or remove" {
-#USAGE   choices "agent" "server" "desktop" "full" "secrets"
+#USAGE   choices "agent" "server" "full" "secrets"
 #USAGE }
 set -euo pipefail
 # fixed: mise reads miserc.local.toml from ~/.config/mise, a link into this checkout
 DJD_DIR="$HOME/.dotfiles"
 
 # the canonical order, so later modules win key collisions
-order=(agent server desktop full secrets)
+order=(agent server full secrets)
 modules=()
 # usage hands variadic args over as one shell-quoted string; its choices limit the words to known modules, and the
 # loop below refuses any other word, so the names are safe as array subscripts
@@ -64,8 +64,10 @@ add)
     if [ -n "${on[secrets]:-}" ] && [ -n "${on[agent]:-}" ]; then
         echo "djd: secrets and agent are both selected: every agent tool on this machine sees the decrypted values. Keep this combination off sandboxes" >&2
     fi
-    if [ -n "${on[desktop]:-}" ] && [ -z "${on[server]:-}" ]; then
-        echo "djd: desktop without server leaves RDP (3389/tcp) open on every interface; the server module adds the firewall rules" >&2
+    # every machine has xrdp (the desktop is part of the base); only the server module adds the firewall rules that
+    # limit 3389/tcp to loopback and private networks. In a container the port is published by docker, not by this
+    if [ -z "${on[server]:-}" ]; then
+        echo "djd: without the server module RDP (3389/tcp) listens on every interface of this machine; the server module adds the firewall rules" >&2
     fi
     write_selection
     # MISE_ENV inherited from this task outranks miserc.local.toml
@@ -74,7 +76,6 @@ add)
     ;;
 remove)
     removed=()
-    brave=/etc/apt/sources.list.d/mise-brave-browser.sources
     for m in "${modules[@]}"; do
         if [ -z "${on[$m]:-}" ]; then echo "djd: $m is not selected; unapplying anything it left behind" >&2; fi
         unset "on[$m]"
@@ -90,22 +91,6 @@ remove)
     unset MISE_ENV
     for m in "${removed[@]}"; do
         mise bootstrap unapply "$m" --yes
-        if [ -d "$DJD_DIR/$m" ]; then
-            # mise reports a group that was never applied as an error
-            if out=$(mise dot unapply --group "$m" --yes 2>&1); then
-                [ -z "$out" ] || printf '%s\n' "$out"
-            elif [[ $out == *"has no recorded files"* ]]; then
-                echo "djd: $m has no deployed dotfiles"
-            else
-                printf '%s\n' "$out" >&2
-                exit 1
-            fi
-        fi
-        # mise never removes an apt source it added; left behind, the repository would stay trusted and feed apt upgrade
-        if [ "$m" = desktop ] && [ -e "$brave" ]; then
-            sudo rm -f "$brave"
-            echo "djd: removed Brave's apt source"
-        fi
         if [ "$m" = server ]; then
             # the unapply deletes the sshd drop-in and daemon.json and leaves the firewall rules (tests/vm-checks.sh
             # asserts both); say what that means before the session that ran this is lost
@@ -113,7 +98,7 @@ remove)
         fi
         echo "djd: packages installed by $m stay; remove them with apt if needed"
     done
-    # converge what the remaining modules still declare (e.g. the base locale over desktop's)
+    # converge what the remaining modules still declare
     exec mise run djd:apply
     ;;
 esac

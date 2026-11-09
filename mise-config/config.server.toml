@@ -12,7 +12,7 @@ lazydocker = "latest"
 "apt:docker-buildx" = "latest"
 
 # Key-only SSH. Cloud images already turn passwords off through cloud-init, but a machine installed from an ISO
-# allows them, and the desktop module needs a user password for RDP. 10- sorts before cloud-init's 50- and
+# allows them, and the desktop needs a user password for RDP. 10- sorts before cloud-init's 50- and
 # 60- drop-ins; sshd keeps the first value it reads.
 [bootstrap.files."/etc/ssh/sshd_config.d/10-djd.conf"]
 content = """
@@ -55,8 +55,8 @@ action = "limit"
 
 # mDNS needs no rule: Ubuntu's ufw before.rules already accepts multicast 5353, and a rule here would open
 # unicast 5353 to everyone. RDP is password login, so only private networks reach it; from anywhere else,
-# tunnel it: ssh -L 33389:localhost:3389 <host>. Open even without the desktop module, so the firewall stays
-# out of desktop (which also runs in Docker).
+# tunnel it: ssh -L 33389:localhost:3389 <host>. The rule lives here, not in the base: the desktop also runs in
+# Docker, which has no ufw, and only this module turns the firewall on.
 [[bootstrap.linux.firewall.rules]]
 name = "rdp-10"
 port = 3389

@@ -4,7 +4,7 @@ set -eu
 export PATH="$HOME/.local/bin:$PATH"
 # djd tasks are plain bash; installing tools belongs to `djd apply`, not to every task run
 export MISE_TASK_RUN_AUTO_INSTALL=false
-# mise matches the English "Status: active" to detect ufw; under a Japanese locale (desktop module, or LC_ALL
+# mise matches the English "Status: active" to detect ufw; under a Japanese locale (the desktop session, or LC_ALL
 # forwarded by orb/ssh) the firewall reports drift forever (tests/vm-checks.sh covers it).
 export LC_ALL=C.UTF-8
 # a MISE_ENV of the user's own would replace the module selection in miserc.local.toml, so `djd module add`

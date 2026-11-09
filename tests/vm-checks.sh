@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs inside the VM after the README's `curl | sh -s -- server desktop` install (see mise-tasks/test/vm).
+# Runs inside the VM after the README's `curl | sh -s -- server` install (see .mise/tasks/test/vm).
 set -euo pipefail
 # ufw rules, an sshd drop-in and module removals: a developer's own machine must never run this
 if [ "${DJD_TEST_VM:-}" != 1 ]; then
@@ -38,8 +38,9 @@ if grep -q '^Status: active' <<<"$ja"; then
     exit 1
 fi
 doctor=$(LC_ALL=ja_JP.UTF-8 djd doctor)
-# server and desktop are selected: doctor checks what the hooks enforce, and a missing line would mean it skipped them
-for check in ubuntu sshd xrdp-tls xrdp-root-login; do
+# server is selected, and the desktop is in the base: doctor checks what the hooks enforce (the sheldon lock is the
+# final hook's work), and a missing line would mean it skipped them
+for check in ubuntu plugins sshd xrdp-tls xrdp-root-login; do
     grep -qx "ok $check" <<<"$doctor" || {
         echo "doctor has no 'ok $check' line: $doctor" >&2
         exit 1
@@ -116,8 +117,9 @@ done
 ok services
 id -nG "$USER" | grep -qw docker
 ok docker group
-# pam_env reads /etc/default/locale, which 26.04 links to /etc/locale.conf
-grep -qx 'LANG=ja_JP.UTF-8' /etc/default/locale
+# the system locale stays English (pam_env reads /etc/default/locale, which 26.04 links to /etc/locale.conf); the
+# desktop session sets ja_JP.UTF-8 in ~/.xsession, and that locale has to exist
+grep -qx 'LANG=C.UTF-8' /etc/default/locale
 grep -qi '^ja_JP.utf8$' <<<"$(locale -a)"
 # a here-string, not a pipe: grep -q exiting early would SIGPIPE fc-list under pipefail
 grep -q 'HackGen35 Console NF' <<<"$(fc-list : family)"
@@ -174,7 +176,7 @@ djd apply >/dev/null
 djd doctor >/dev/null
 ok sshd override refused by apply and doctor
 
-# the module never adds --no-sandbox to Brave (only the Docker image does). Control: the file the grep would
+# the desktop never adds --no-sandbox to Brave (only the Docker image does). Control: the file the grep would
 # read is there, or the grep below would find nothing in a missing file.
 test -f /usr/share/applications/brave-browser.desktop
 if grep -rq -- --no-sandbox ~/.local/share/applications /usr/share/applications/brave-browser.desktop 2>/dev/null; then
@@ -183,19 +185,23 @@ if grep -rq -- --no-sandbox ~/.local/share/applications /usr/share/applications/
 fi
 ok brave keeps its sandbox
 
-# the module removal deletes the apt source mise added for Brave, or the repository would stay trusted
-test -e /etc/apt/sources.list.d/mise-brave-browser.sources
-djd module remove desktop >/dev/null
-test ! -e ~/.xsession
-test ! -e /etc/apt/sources.list.d/mise-brave-browser.sources
-grep -qx 'LANG=C.UTF-8' /etc/default/locale
-djd doctor
-ok module remove desktop
+# desktop-final puts the user in the groups that Wireshark captures through and fusuma reads input through. The Electron
+# profile (Obsidian, Ferdium) is loaded where AppArmor runs; OrbStack's kernel has no AppArmor, so there is nothing to load.
+getent group wireshark | grep -qw "$(id -un)"
+getent group input | grep -qw "$(id -un)"
+if [ -d /sys/kernel/security/apparmor ]; then
+    sudo grep -q '^djd-obsidian ' /sys/kernel/security/apparmor/profiles
+    sudo grep -q '^djd-ferdium ' /sys/kernel/security/apparmor/profiles
+fi
+ok wireshark and input groups, electron apparmor profiles
 
 # unapply deletes the files a module wrote and leaves its packages and firewall rules, so SSH stays reachable
 djd module remove server >/dev/null
 test ! -e /etc/ssh/sshd_config.d/10-djd.conf
 test ! -e /etc/docker/daemon.json
 grep -qE '^22/tcp +LIMIT +Anywhere' <<<"$(sudo ufw status)"
+# the desktop is in the base, so removing a module leaves it in place
+test -e ~/.xsession
+grep -qx 'LANG=C.UTF-8' /etc/default/locale
 djd doctor
 ok module remove server

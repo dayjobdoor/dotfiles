@@ -29,19 +29,19 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:rsyslog" = "latest"
 "apt:rsync" = "latest"
 "apt:command-not-found" = "latest"
-# GUI: only when the desktop module is selected too (env gating keeps headless full machines CLI-only)
-"apt:flatpak" = { version = "latest", env = "desktop" }
-"apt:libnss3-tools" = { version = "latest", env = "desktop" }          # browser certificate stores (mkcert)
-"apt:libfreetype-dev" = { version = "latest", env = "desktop" }        # libfreetype6-dev is gone in 26.04
-"apt:libfontconfig1-dev" = { version = "latest", env = "desktop" }
-"apt:libxcb-xfixes0-dev" = { version = "latest", env = "desktop" }
-"apt:libxkbcommon-dev" = { version = "latest", env = "desktop" }
-"apt:libgtk-3-dev" = { version = "latest", env = "desktop" }
-"apt:libwebkit2gtk-4.1-dev" = { version = "latest", env = "desktop" }
-"apt:libgtk-layer-shell-dev" = { version = "latest", env = "desktop" }
-"apt:mpd" = { version = "latest", env = "desktop" }
-"apt:mpc" = { version = "latest", env = "desktop" }
-"apt:ncmpcpp" = { version = "latest", env = "desktop" }
+# GUI libraries and programs
+"apt:flatpak" = "latest"
+"apt:libnss3-tools" = "latest"          # browser certificate stores (mkcert)
+"apt:libfreetype-dev" = "latest"        # libfreetype6-dev is gone in 26.04
+"apt:libfontconfig1-dev" = "latest"
+"apt:libxcb-xfixes0-dev" = "latest"
+"apt:libxkbcommon-dev" = "latest"
+"apt:libgtk-3-dev" = "latest"
+"apt:libwebkit2gtk-4.1-dev" = "latest"
+"apt:libgtk-layer-shell-dev" = "latest"
+"apt:mpd" = "latest"
+"apt:mpc" = "latest"
+"apt:ncmpcpp" = "latest"
 
 [tools]
 # Commented-out entries are kept for re-enabling.

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# The base's last step: fetch the zsh plugins that home/.config/sheldon/plugins.toml names, each at its pinned `rev`.
+# With every plugin already at its pinned `rev`, `sheldon lock` only checks the local checkouts and rewrites the lock
+# file, so a repeat needs no network (tested with --network none); a new or changed `rev` is fetched. Where sheldon is
+# not installed yet (the Docker build's first pass skips the tools) there is nothing to do; the Dockerfile locks after
+# the dotfiles pass. A failed fetch fails the apply, because a shell without its plugins would start silently half set up.
+set -euo pipefail
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+command -v sheldon >/dev/null 2>&1 || exit 0
+[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/sheldon/plugins.toml" ] || exit 0
+sheldon lock

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# x: prints an ASCII-art picture. A quoted heredoc prints every character as it is; the picture holds
+# backslashes, backticks and quotes, which a double-quoted echo would have taken for shell syntax.
+cat <<'EOF'
+                                              .--.
+                                               `.  \
+                                                 \  \
+                                                  .  \
+                                                  :   .
+                                                  |    .
+                                                  |    :
+                                                  |    |
+  ..._  ___                                       |    |
+ `."".`''''""--..___                              |    |
+ ,-\  \             ""-...__         _____________/    |
+ / ` " '                    `""""""""                  .
+ \                                                      L
+ (>                                                      \
+/                                                         \
+\_    ___..---.                                            L
+  `--'         '.                                           \
+                 .                                           \_
+                _/`.                                           `.._
+             .'     -.                                             `.
+            /     __.-Y     /''''''-...___,...--------.._            |
+           /   _."    |    /                ' .      \   '---..._    |
+          /   /      /    /                _,. '    ,/           |   |
+          \_,'     _.'   /              /''     _,-'            _|   |
+                  '     /               `-----''               /     |
+                  `...-'                                        `...-'
+EOF

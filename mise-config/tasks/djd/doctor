@@ -37,14 +37,29 @@ if out=$(mise dot status --missing --json 2>/dev/null); then ok dotfiles; else
         mise dot status --missing 2>&1 || true
 fi
 
+# the zsh plugins: sheldon's lock file has to exist, be newer than the config that names the plugins, and point at
+# directories that are there. `sheldon source` would fetch on a stale lock, and a doctor changes nothing.
+config="${XDG_CONFIG_HOME:-$HOME/.config}/sheldon/plugins.toml"
+lock="${XDG_DATA_HOME:-$HOME/.local/share}/sheldon/plugins.lock"
+if [ ! -s "$lock" ]; then
+    fail plugins "no sheldon lock at $lock; run djd apply"
+elif [ "$config" -nt "$lock" ]; then
+    fail plugins "$config is newer than its lock; run djd apply"
+elif missing=$(sed -nE 's/^source_dir = "(.*)"$/\1/p' "$lock" | while read -r dir; do [ -d "$dir" ] || echo "$dir"; done) && [ -n "$missing" ]; then
+    fail plugins "a plugin directory is missing: $(head -n1 <<<"$missing"); run djd apply"
+else
+    ok plugins
+fi
+
 # bootstrap status cannot see what the hooks enforce: they run on every apply and are imperative
 if selected server; then
     if out=$("$DJD_DIR/mise-config/hooks/sshd-keys-only" 2>&1); then ok sshd; else fail sshd "${out#djd server: }"; fi
 fi
-if selected desktop; then
+# every machine has xrdp: the desktop is part of the base
+{
     if grep -qx security_layer=tls /etc/xrdp/xrdp.ini; then ok xrdp-tls; else fail xrdp-tls "/etc/xrdp/xrdp.ini lacks security_layer=tls; run djd apply"; fi
     if grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini; then ok xrdp-root-login; else fail xrdp-root-login "/etc/xrdp/sesman.ini lacks AllowRootLogin=false; run djd apply"; fi
-fi
+}
 
 # age.strict is off in the secrets module, so a missing or wrong key would leave its variables unset without a word
 if selected secrets; then

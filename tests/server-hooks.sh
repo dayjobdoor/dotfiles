@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The server module's post-packages hook: it refuses an apply that would lock the user out of ssh. Run it inside
-# the sandbox image; it needs sudo (the image's ubuntu user has it without a password) and bash.
+# the image; it needs sudo (the image's dayjobdoor user has it without a password) and bash.
 # usage: tests/server-hooks.sh
 #
 # Contract
@@ -41,8 +41,8 @@ want_no_docker() { ! in_docker || fail "$1: the hook refused but $me is in the d
 # the hook adds the user to docker, which a machine with the server module has (docker.io creates the group)
 if ! getent group docker >/dev/null; then sudo groupadd docker; fi
 sudo install -d /etc/ssh/sshd_config.d
-# the membership checks below mean nothing for a user who is in the group already (the sandbox image has none)
-if in_docker; then fail "$me is already in the docker group; run this in the sandbox image (mise run test:offline)"; fi
+# the membership checks below mean nothing for a user who is in the group already (the image has none)
+if in_docker; then fail "$me is already in the docker group; run this in the image (mise run test:offline)"; fi
 
 # run [VAR=value...]: sets rc and $work/err; $HOME is $work/home. -u: see the contract.
 rc=0

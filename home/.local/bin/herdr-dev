@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# herdr-dev: the herdr entry point for a login shell. Ensures the herdr server runs, ensures the dev preset tab by
+# tab, then attaches. Run from a herdr pane it only builds and does not attach.
+# Preset tabs: 101 (btm), 102 (fastfetch, and cat.txt below it when HERDR_DEV_DATA holds one), Dev (four panes),
+# Docs (pi, when installed) and lazydocker (when docker and lazydocker are there). Each tab is ensured on its own,
+# so a tab you closed returns at the next start. To rebuild everything: herdr workspace close <workspace_id> && herdr-dev
+# A server that is already running only gets missing tabs, and its panes stay as they are. A server that this script
+# starts has just restored a snapshot (its panes are bare shells), so the dev workspace is closed and rebuilt, and the
+# commands run again.
+# The response IDs are those of herdr 0.9.5: .result.{workspace.workspace_id, tab.tab_id, root_pane.pane_id, pane.pane_id}
+# Environment: HERDR_DEV_CWD (cwd of the dev workspace, default ~/.dotfiles, else ~), HERDR_DEV_DATA (where tab 102 looks
+# for cat.txt, default ~). The login shell starts this unless DJD_NO_MUX is set (home/.config/zsh/.zprofile).
+set -eu
+
+case "${1:-}" in
+-h | --help)
+    cat <<'EOF'
+Usage: herdr-dev [-h|--help]
+
+Starts the herdr server if needed, creates the missing tabs of the dev workspace
+(101, 102, Dev, Docs, lazydocker) and attaches. Run from inside herdr it does not attach.
+
+Environment:
+  HERDR_DEV_CWD   cwd of the dev workspace (default ~/.dotfiles, else ~)
+  HERDR_DEV_DATA  directory whose cat.txt tab 102 shows (default ~)
+EOF
+    exit 0
+    ;;
+esac
+
+command -v herdr >/dev/null 2>&1 || exit 1
+
+DEV_CWD="${HERDR_DEV_CWD:-$HOME/.dotfiles}"
+[ -d "$DEV_CWD" ] || DEV_CWD="$HOME"
+DATA_DIR="${HERDR_DEV_DATA:-$HOME}"
+
+server_running() {
+    herdr status 2>/dev/null | grep -q 'status: running'
+}
+
+# the id of the workspace labelled dev, or nothing
+dev_ws_id() {
+    herdr workspace list 2>/dev/null |
+        jq -r '.result.workspaces[]? | select(.label == "dev") | .workspace_id' |
+        head -1
+}
+
+# 1) start a headless server when none runs, and wait for it (if that fails, herdr itself still starts)
+FRESH=0
+SERVER_PID=""
+if ! server_running; then
+    nohup herdr server >/dev/null 2>&1 &
+    SERVER_PID=$!
+    i=0
+    until server_running || [ "$i" -ge 30 ]; do
+        i=$((i + 1))
+        sleep 0.5
+    done
+    # FRESH only when the running server is the process started here; a status probe that failed once
+    # while an older server lives leaves FRESH=0, so nothing is closed
+    if server_running && kill -0 "$SERVER_PID" 2>/dev/null; then
+        FRESH=1
+    fi
+fi
+# right after boot the API is unreliable while the snapshot restores: wait until a query goes through
+if [ "$FRESH" = 1 ]; then
+    i=0
+    until herdr workspace list >/dev/null 2>&1 || [ "$i" -ge 20 ]; do
+        i=$((i + 1))
+        sleep 0.5
+    done
+    sleep 1
+fi
+
+# 2) ensure the dev preset, tab by tab
+# ensure_dev_layout is called on the left of `||`, where set -e does not apply, so each creation is checked and returns 1
+if ! command -v jq >/dev/null 2>&1; then
+    echo "herdr-dev: no jq, so the dev preset is skipped" >&2
+elif server_running; then
+    # creates a tab and prints the id of its root pane; fails when herdr does
+    new_tab() {
+        local out cwd="$2"
+        [ -d "$cwd" ] || cwd="$HOME"
+        out=$(herdr tab create --workspace "$W" --label "$1" --cwd "$cwd") || return 1
+        printf '%s' "$out" | jq -er '.result.root_pane.pane_id'
+    }
+
+    # splits a pane and prints the id of the new one; fails when herdr does
+    split_pane() {
+        local out
+        out=$(herdr pane split --pane "$1" --direction "$2" ${3:+--cwd "$3"}) || return 1
+        printf '%s' "$out" | jq -er '.result.pane.pane_id'
+    }
+
+    ensure_dev_layout() {
+        if [ "${FRESH:-}" = 1 ]; then
+            # the restored panes are bare shells (their commands died); wait one second for the restore to show,
+            # then close the workspace, and list again: the list after the close is the source of truth
+            sleep 1
+            W=$(dev_ws_id)
+            if [ -n "$W" ]; then
+                herdr workspace close "$W" >/dev/null 2>&1 || true
+            fi
+        fi
+        W=$(dev_ws_id)
+        if [ -z "$W" ]; then
+            # workspace create makes the first tab and its root pane at once; that tab becomes 101
+            R=$(herdr workspace create --label dev --cwd "$DEV_CWD") || return 1
+            W=$(printf '%s' "$R" | jq -er '.result.workspace.workspace_id') || return 1
+            T=$(printf '%s' "$R" | jq -er '.result.tab.tab_id') || return 1
+            P=$(printf '%s' "$R" | jq -er '.result.root_pane.pane_id') || return 1
+            herdr tab rename "$T" 101 >/dev/null
+            herdr pane run "$P" btm >/dev/null
+        fi
+
+        TABS=$(herdr tab list 2>/dev/null || true)
+        if [ -z "$TABS" ]; then
+            sleep 1
+            TABS=$(herdr tab list 2>/dev/null || true)
+        fi
+        [ -n "$TABS" ] || return 1
+        has_tab() {
+            printf '%s' "$TABS" | jq -re --arg w "$W" --arg l "$1" \
+                '.result.tabs[] | select(.workspace_id == $w and .label == $l) | .tab_id' >/dev/null 2>&1
+        }
+
+        if ! has_tab 102; then
+            P=$(new_tab 102 "$HOME") || return 1
+            herdr pane run "$P" fastfetch >/dev/null
+            if [ -f "$DATA_DIR/cat.txt" ]; then
+                P=$(split_pane "$P" down "$DATA_DIR") || return 1
+                herdr pane run "$P" "cat -- $(printf '%q' "$DATA_DIR/cat.txt")" >/dev/null
+            fi
+        fi
+
+        if ! has_tab Dev; then
+            P=$(new_tab Dev "$HOME/Developer") || return 1
+            PB=$(split_pane "$P" down) || return 1                     # bottom row, full width
+            herdr pane split --pane "$P" --direction right >/dev/null  # top right, a bare shell
+            herdr pane split --pane "$PB" --direction right >/dev/null # bottom right, a bare shell
+        fi
+
+        # the agent module installs pi; a machine without it gets no Docs tab
+        if ! has_tab Docs && command -v pi >/dev/null 2>&1; then
+            P=$(new_tab Docs "$HOME/Developer/docs") || return 1
+            herdr agent start pi --kind pi --pane "$P" -- -c >/dev/null
+        fi
+
+        # the lazydocker tab only when docker answers and lazydocker is installed
+        if ! has_tab lazydocker && command -v docker >/dev/null 2>&1 && command -v lazydocker >/dev/null 2>&1 &&
+            docker info >/dev/null 2>&1; then
+            P=$(new_tab lazydocker "$HOME/Developer") || return 1
+            herdr pane run "$P" lazydocker >/dev/null
+        fi
+    }
+    ensure_dev_layout || echo "herdr-dev: the dev preset failed; attaching to the existing session" >&2
+fi
+
+# 3) attach (from inside herdr it only builds)
+if [ -z "${HERDR_ENV:-}" ]; then
+    herdr
+fi

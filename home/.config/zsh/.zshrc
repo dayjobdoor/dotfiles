@@ -30,47 +30,9 @@ setopt extended_glob
 
 autoload -Uz colors && colors
 
-# Plugins come from [bootstrap.repos] in config.toml, pinned to commits; a checkout that is not there yet
-# (before the first `mise bootstrap`) is skipped. zsh-completions goes on fpath before compinit, which only
-# indexes what is on fpath when it runs. Sourced here, not cached like the tool inits: a cache would outlive
-# a bumped pin.
-_djd_plugins=$XDG_DATA_HOME/zsh/plugins
-fpath=($_djd_plugins/zsh-completions/src $fpath)
-if [[ -r $_djd_plugins/zsh-defer/zsh-defer.plugin.zsh ]]; then
-    source $_djd_plugins/zsh-defer/zsh-defer.plugin.zsh
-    for _djd_p in fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh zsh-autosuggestions/zsh-autosuggestions.zsh \
-        zsh-autopair/zsh-autopair.plugin.zsh forgit/forgit.plugin.zsh git-open/git-open.plugin.zsh; do
-        zsh-defer source $_djd_plugins/$_djd_p
-    done
-fi
-unset _djd_plugins _djd_p
-
 mkdir -p $XDG_CACHE_HOME/zsh
 zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
 zstyle ':completion:*' use-cache on
-# a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh
-# starts a fresh dump (the version is in the file name)
-autoload -Uz compinit
-_djd_zcompdump=$XDG_CACHE_HOME/zsh/zcompdump-${ZSH_VERSION}
-if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
-    compinit -C -d $_djd_zcompdump
-else
-    compinit -d $_djd_zcompdump
-fi
-unset _djd_zcompdump
-
-zstyle ':completion:*' matcher-list 'm:{:a-z:}={:A-Z:}'
-zstyle ':completion:*' format '%B%F{blue}%d%f%b'
-zstyle ':completion:*' group-name ''
-zstyle ':completion:*:default' menu select=2
-# find commands installed since the shell started, without running rehash
-zstyle ':completion:*' rehash 1
-
-# not in a subshell: `$(cd dir && pwd)` would capture the listing
-chpwd() {
-    (( ZSH_SUBSHELL )) || ls -la
-}
-
 # mise first: its hook runs at once and puts the installed tools' own directories before the shims, so
 # $commands[tool] resolves inside the tool's directory. Not cached: mise activate output embeds the current PATH.
 if (( $+commands[mise] )); then
@@ -94,6 +56,35 @@ _djd_init() {
     fi
     source $file
 }
+
+# Plugins: sheldon prints the commands that source them, pinned in ~/.config/sheldon/plugins.toml and fetched by
+# hooks/sheldon-lock. Cached like the tool inits below; `djd apply` clears the cache after a changed pin. It runs before
+# compinit, because zsh-completions only adds its directory to fpath and compinit indexes what is there when it runs.
+_djd_init sheldon sheldon source
+
+# a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh
+# starts a fresh dump (the version is in the file name)
+autoload -Uz compinit
+_djd_zcompdump=$XDG_CACHE_HOME/zsh/zcompdump-${ZSH_VERSION}
+if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
+    compinit -C -d $_djd_zcompdump
+else
+    compinit -d $_djd_zcompdump
+fi
+unset _djd_zcompdump
+
+zstyle ':completion:*' matcher-list 'm:{:a-z:}={:A-Z:}'
+zstyle ':completion:*' format '%B%F{blue}%d%f%b'
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:default' menu select=2
+# find commands installed since the shell started, without running rehash
+zstyle ':completion:*' rehash 1
+
+# not in a subshell: `$(cd dir && pwd)` would capture the listing
+chpwd() {
+    (( ZSH_SUBSHELL )) || ls -la
+}
+
 [[ $CPUTYPE == x86_64 ]] && export DJD_ARCH=x86_64 # the arch badge of starship.toml
 _djd_init starship starship init zsh --print-full-init
 _djd_init zoxide zoxide init zsh
@@ -103,9 +94,6 @@ _djd_init atuin atuin init zsh
 _djd_init uv uv generate-shell-completion zsh
 _djd_init omp omp completions zsh
 _djd_init mise mise completion zsh
-if [ -f "${ZDOTDIR}/.functions" ]; then
-    . "${ZDOTDIR}/.functions"
-fi
 
 if [[ -r $ZDOTDIR/.zshrc.local ]]; then
     source $ZDOTDIR/.zshrc.local

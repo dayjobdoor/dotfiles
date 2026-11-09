@@ -1,0 +1,3 @@
+# Language settings file for Wireshark. Wireshark rewrites it when it quits.
+
+language: ja_JP

@@ -4,19 +4,15 @@
 #
 # Contract
 #   - add writes the selection in the canonical order whatever order it arrives in, adds agent with full, and
-#     warns about RDP (3389) only when desktop is selected without server.
+#     warns about RDP (3389) whenever server is not selected (every machine has xrdp; only server adds the firewall).
 #   - add warns when secrets and agent are both selected (the selection is still written), and an empty item in
 #     MISE_ENV is ignored.
 #   - remove of server warns that the hardening is gone.
 #   - add and remove run the apply with MISE_ENV unset, because an inherited MISE_ENV outranks the file.
 #   - remove writes the new selection before it unapplies, deletes the file when nothing is left, refuses to
 #     leave full without agent (exit 2), and unapplies a module even when it was not selected.
-#   - A group that was never applied is not an error; any other `mise dot unapply` failure is.
 #   - add and remove without a module, or with a word that is no module, exit 2 and say why ("name at least one
 #     module", "unknown module") and write nothing; list reads MISE_ENV and calls nothing.
-#   - remove of desktop deletes Brave's apt source when it exists; the stubbed sudo only logs the removal. The file
-#     is fixed in place, so without it that part fails (test/offline creates it), unless DJD_MODULE_NO_BRAVE=1 says
-#     that this machine has none and the part is skipped.
 #
 # The task is run as a script with the variables mise's #USAGE parsing would hand it, so the argument choices
 # are not covered here. `mise` and `sudo` are stubs on PATH: the real ones would touch the machine.
@@ -27,7 +23,6 @@ task=$here/../mise-config/tasks/djd/module
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-brave=/etc/apt/sources.list.d/mise-brave-browser.sources
 stubs=$work/stubs
 mkdir "$stubs"
 # One line per call: MISE_ENV | arguments | the selection file at that moment
@@ -37,12 +32,6 @@ printf '%s|%s|%s\n' "${MISE_ENV-unset}" "$*" \
     "$(cat "$HOME/.dotfiles/mise-config/miserc.local.toml" 2>/dev/null || echo none)" >>"$HOME/log"
 case "$*" in
 "bootstrap unapply"*) exit "${STUB_UNAPPLY_STATUS:-0}" ;;
-"dot unapply"*)
-    if [ -n "${STUB_DOT_ERROR:-}" ]; then
-        echo "$STUB_DOT_ERROR"
-        exit 1
-    fi
-    ;;
 esac
 STUB
 cat >"$stubs/sudo" <<'STUB'
@@ -57,13 +46,11 @@ fail() {
     exit 1
 }
 
-# new_home [group dir...]: a fresh $HOME with an empty mise-config, and the named dotfile group directories
+# new_home: a fresh $HOME with an empty mise-config
 new_home() {
-    local g
     HOME=$work/home
     rm -rf "$HOME"
     mkdir -p "$HOME/.dotfiles/mise-config"
-    for g in "$@"; do mkdir "$HOME/.dotfiles/$g"; done
     : >"$HOME/log"
     export HOME
 }
@@ -92,30 +79,30 @@ no_err() {
 
 # the canonical order, not the order of arrival, not alphabetical
 new_home
-run "" add desktop server
-want_rc "add desktop server" 0
-want_selection "add desktop server" 'env = ["server", "desktop"]'
-run desktop add agent
-want_rc "add agent to desktop" 0
-want_selection "add agent to desktop" 'env = ["agent", "desktop"]'
+run "" add secrets server
+want_rc "add secrets server" 0
+want_selection "add secrets server" 'env = ["server", "secrets"]'
+run server,secrets add agent
+want_rc "add agent to server" 0
+want_selection "add agent to server" 'env = ["agent", "server", "secrets"]'
 # an inherited MISE_ENV would outrank the selection file that add just wrote
-want_log "apply env" 'unset|run djd:apply|env = ["agent", "desktop"]'
+want_log "apply env" 'unset|run djd:apply|env = ["agent", "server", "secrets"]'
 
 new_home
 run "" add full
 want_rc "add full" 0
 want_selection "add full" 'env = ["agent", "full"]'
 
-# RDP without the firewall rules of server
+# RDP without the firewall rules of server: every machine has xrdp
 new_home
-run "" add desktop
-want_rc "add desktop" 0
-want_err "desktop without server" 3389
-run "" add desktop server
-want_rc "add desktop server" 0
-no_err "desktop with server" 3389
-run server add desktop
-no_err "desktop added to server" 3389
+run "" add agent
+want_rc "add agent" 0
+want_err "agent without server" 3389
+run "" add agent server
+want_rc "add agent server" 0
+no_err "agent with server" 3389
+run server add agent
+no_err "agent added to server" 3389
 
 # decrypted secrets next to the agent tools: allowed, with a warning whichever of the two arrives second
 new_home
@@ -134,9 +121,9 @@ want_rc "add secrets alone" 0
 no_err "add secrets alone" "decrypted values"
 want_selection "add secrets alone" 'env = ["secrets"]'
 # an empty item in MISE_ENV is no module
-run "server,,secrets" add desktop
+run "server,,secrets" add agent
 want_rc "empty item in MISE_ENV" 0
-want_selection "empty item in MISE_ENV" 'env = ["server", "desktop", "secrets"]'
+want_selection "empty item in MISE_ENV" 'env = ["agent", "server", "secrets"]'
 
 # a word that is no module never reaches the selection (usage's choices stop it first; this is the second line)
 new_home
@@ -161,14 +148,14 @@ want_log "remove agent and full" 'unset|run djd:apply|none'
 
 # the selection is written before the unapply, which a failed run relies on to retry
 new_home
-set_selection 'env = ["server", "desktop"]'
-run server,desktop remove desktop
-want_rc "remove desktop" 0
-want_selection "remove desktop" 'env = ["server"]'
-want_log "remove desktop" 'unset|bootstrap unapply desktop --yes|env = ["server"]'
-want_log "remove desktop" 'unset|run djd:apply|env = ["server"]'
+set_selection 'env = ["agent", "server", "full"]'
+run agent,server,full remove full
+want_rc "remove full" 0
+want_selection "remove full" 'env = ["agent", "server"]'
+want_log "remove full" 'unset|bootstrap unapply full --yes|env = ["agent", "server"]'
+want_log "remove full" 'unset|run djd:apply|env = ["agent", "server"]'
 # removing server takes the hardening away: the remover is told while still logged in
-no_err "remove desktop" "sshd may accept passwords"
+no_err "remove full" "sshd may accept passwords"
 run server remove server
 want_rc "remove server" 0
 want_err "remove server" "sshd may accept passwords"
@@ -176,31 +163,16 @@ want_err "remove server" "firewall stays enabled"
 # a module that is not selected is unapplied anyway: its files may be left over from a run that failed halfway
 new_home
 set_selection 'env = ["server"]'
-run server remove desktop
-want_rc "remove unselected desktop" 0
-want_selection "remove unselected desktop" 'env = ["server"]'
-want_log "remove unselected desktop" 'unset|bootstrap unapply desktop --yes|env = ["server"]'
+run server remove secrets
+want_rc "remove unselected secrets" 0
+want_selection "remove unselected secrets" 'env = ["server"]'
+want_log "remove unselected secrets" 'unset|bootstrap unapply secrets --yes|env = ["server"]'
 # a failing unapply stops before the apply
 new_home
 set_selection 'env = ["server"]'
 STUB_UNAPPLY_STATUS=1 run server remove server
 [ "$rc" != 0 ] || fail "failed unapply: exit 0"
 no_log "failed unapply" "run djd:apply"
-
-# dotfile groups: only a module with a directory is unapplied, and a never applied group is not an error
-new_home desktop
-set_selection 'env = ["server", "desktop"]'
-run server,desktop remove server
-want_rc "remove server" 0
-no_log "server has no dotfile group" "dot unapply"
-STUB_DOT_ERROR="group desktop has no recorded files" run server,desktop remove desktop
-want_rc "never applied group" 0
-want_log "never applied group" 'unset|dot unapply --group desktop --yes|env = ["server"]'
-want_log "never applied group" 'unset|run djd:apply|env = ["server"]'
-new_home desktop
-STUB_DOT_ERROR="could not read the state" run server,desktop remove desktop
-want_rc "failing dot unapply" 1
-no_log "failing dot unapply" "run djd:apply"
 
 # no module: nothing is written, nothing is called
 new_home
@@ -215,27 +187,11 @@ done
 
 # list reads MISE_ENV and changes nothing
 new_home
-run server,desktop list
+run server,full list
 want_rc list 0
-printf 'agent -\nserver selected\ndesktop selected\nfull -\nsecrets -\n' >"$HOME/want"
+printf 'agent -\nserver selected\nfull selected\nsecrets -\n' >"$HOME/want"
 cmp -s "$HOME/out" "$HOME/want" || fail "list prints: $(cat "$HOME/out")"
 want_selection list none
 [ ! -s "$HOME/log" ] || fail "list called: $(cat "$HOME/log")"
 
-# Brave's apt source outlives mise's unapply and would keep feeding apt upgrade. It sits at a fixed path, so
-# this part needs the file to exist (test/offline creates it before this test runs); the VM test covers the real removal.
-# A missing file is a failure, not a skip: a test that skips itself where the file is expected proves nothing.
-if [ ! -e "$brave" ] && [ "${DJD_MODULE_NO_BRAVE:-}" = 1 ]; then
-    echo "djd-module: skipped Brave's apt source ($brave is absent, DJD_MODULE_NO_BRAVE=1)"
-else
-    [ -e "$brave" ] || fail "$brave is absent: create it (test/offline does), or set DJD_MODULE_NO_BRAVE=1 to skip that part"
-    new_home
-    run desktop remove desktop
-    want_rc "remove desktop with Brave's source" 0
-    grep -q "^sudo|.*$brave\$" "$HOME/log" || fail "remove desktop left Brave's apt source: $(cat "$HOME/log")"
-    new_home
-    run server,desktop remove server
-    want_rc "remove server with Brave's source" 0
-    no_log "remove server with Brave's source" "sudo|"
-fi
 echo "djd-module: ok"

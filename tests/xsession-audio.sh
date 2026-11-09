@@ -2,7 +2,7 @@
 # How ~/.xsession starts and ends the audio daemons, against stub binaries: the real script, fake dbus-launch, pipewire,
 # pw-cli, wireplumber, pipewire-pulse, startxfce4, date and (in one scenario) seq, so no PipeWire, bus or display is
 # needed. Timing is a stub's sleep. Linux only: leftover processes are found through /proc/PID/environ.
-# usage: tests/xsession-audio.sh [XSESSION]    default: desktop/.xsession next to this directory
+# usage: tests/xsession-audio.sh [XSESSION]    default: home/.xsession next to this directory
 #
 # Contract
 #   - The desktop starts without waiting for an audio server that is still starting.
@@ -17,7 +17,7 @@
 #     desktop runs (a session that only disconnected) nothing ends. The script exits with the desktop's status.
 set -euo pipefail
 
-script=$(realpath "${1:-$(dirname "$0")/../desktop/.xsession}")
+script=$(realpath "${1:-$(dirname "$0")/../home/.xsession}")
 [ -f "$script" ] || {
     echo "xsession-audio: no such script: $script" >&2
     exit 2

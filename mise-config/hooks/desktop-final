@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The desktop module's final hook (declared in config.desktop.toml, phase `final`, after the tools): purges the
-# packages that break xrdp sessions and pins the xrdp security settings. It downloads nothing, because the Docker
+# The base's final hook (declared in config.toml, phase `final`, after the tools): purges the
+# packages that break xrdp sessions, lets the user capture with Wireshark, read the touchpad and run the Electron
+# apps with their sandbox, and pins the xrdp security settings. It downloads nothing, because the Docker
 # build runs it in its first RUN, which has no GitHub token (the tools phase gets one in the second). Every run
 # must be safe to repeat.
 set -euo pipefail
@@ -10,6 +11,24 @@ set -euo pipefail
 for p in light-locker xscreensaver im-config pulseaudio; do
     if dpkg -s "$p" >/dev/null 2>&1; then sudo apt-get purge -y -o DPkg::Lock::Timeout=120 "$p"; fi
 done
+
+# Wireshark: its debconf question install-setuid defaults to no, which leaves capture to root. Answering yes and
+# reconfiguring makes dumpcap capture for the group wireshark, and the user joins that group (a new login applies it).
+if dpkg -s wireshark-common >/dev/null 2>&1; then
+    echo 'wireshark-common wireshark-common/install-setuid boolean true' | sudo debconf-set-selections
+    sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure wireshark-common
+    if getent group wireshark >/dev/null; then sudo usermod -aG wireshark "$(id -un)"; fi
+fi
+
+# fusuma reads the touchpad through libinput, which needs the group input.
+sudo usermod -aG input "$(id -un)"
+
+# Electron's sandbox (Obsidian, Ferdium) needs unprivileged user namespaces, which Ubuntu's AppArmor denies to a program
+# without a profile. /etc/apparmor.d/djd-electron (config.toml) allows them for those two programs. Where
+# AppArmor cannot be loaded (a container), the profile stays unloaded.
+if command -v apparmor_parser >/dev/null && sudo test -w /sys/kernel/security/apparmor/.replace; then
+    sudo apparmor_parser -r /etc/apparmor.d/djd-electron
+fi
 
 # Refuse the weak xrdp settings: "negotiate" lets a client fall back to the RDP security layer, and sesman allows
 # root logins. Every run reasserts them. The daemon that the xrdp package started keeps the settings it read, so a

@@ -8,7 +8,7 @@ min_version = "2026.10.23"
 # machines must match bit for bit.
 # the supply-chain brake: a tool release younger than three days is skipped (config.agent.toml exempts two tools)
 minimum_release_age = "3d"
-# the checkout is trusted, so its mise.toml (the repo tasks) and the mise-config linked as ~/.config/mise load
+# the checkout is trusted, so its .mise/config.toml (the repo tasks) and the mise-config linked as ~/.config/mise load
 # without `mise trust`; this is why whoever can change that checkout runs code on the machine
 trusted_config_paths = ["~/.dotfiles"]
 # mise's tool directories stay ahead of PATH entries that a shell adds after `mise activate`
@@ -41,6 +41,27 @@ micro = "latest"
 herdr = "latest"
 shellcheck = "latest"
 shfmt = "latest"
+# zsh plugins: home/.config/sheldon/plugins.toml names them, pinned to commits; hooks/sheldon-lock fetches them
+sheldon = "latest"
+
+# Touchpad gestures (home/.config/fusuma/config.yml). fusuma is a Ruby gem, and mise installs ruby from a prebuilt
+# archive. It needs libinput-tools and the group input (hooks/desktop-final); start it with `fusuma -d`.
+ruby = "latest"
+"gem:fusuma" = "latest"
+
+# Shell aliases, set by `mise activate` in every interactive bash and zsh. These are the ones that replace a command;
+# the shortcuts (l, ll, cx, ...) are zsh-abbr abbreviations in home/.config/zsh-abbr/user-abbreviations. Nothing else
+# defines an alias. No `command -v` guard is needed: lsd, bat, tree and ping are on every machine.
+[shell_alias]
+mv = "mv -i"
+cp = "cp -i"
+rm = "rm -i"
+mkdir = "mkdir -p"
+ls = "lsd --group-directories-first"
+cat = "bat -p"
+ping = "ping -c 3"
+# -N prints non-ASCII names as they are; -C colors even into a pipe, as `ls --color` does
+tree = "tree -NC"
 
 [bootstrap.packages]
 "apt:ca-certificates" = "latest"
@@ -60,8 +81,55 @@ shfmt = "latest"
 "apt:fastfetch" = "latest"
 "apt:make" = "latest"
 
-# English system locale for agents; config.desktop.toml overrides it. Declaring it here also means
-# removing the desktop module restores this content instead of deleting the file.
+# The desktop: XFCE over xrdp with audio and Japanese input, and the desktop apps. Every machine gets it.
+"apt:xfce4" = "latest"
+"apt:xfce4-terminal" = "latest"
+"apt:xfce4-screenshooter" = "latest"
+"apt:xfce4-taskmanager" = "latest"
+"apt:xfce4-clipman-plugin" = "latest"
+"apt:xfce4-xkb-plugin" = "latest"
+"apt:xrdp" = "latest"
+"apt:xorgxrdp" = "latest"
+# Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
+# a PipeWire server in the session (home/.xsession starts one where systemd does not). That package's autostart
+# script calls pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card
+# keeps playing locally. pipewire-pulse gives PulseAudio clients such as browsers a way in.
+# hooks/desktop-final purges the pulseaudio daemon.
+"apt:pipewire" = "latest"
+"apt:pipewire-pulse" = "latest"
+"apt:wireplumber" = "latest"
+"apt:pipewire-module-xrdp" = "latest"
+"apt:pulseaudio-utils" = "latest"
+"apt:dbus-x11" = "latest"
+"apt:fcitx5-mozc" = "latest"
+"apt:language-pack-ja" = "latest"
+"apt:language-pack-ja-base" = "latest"
+"apt:manpages-ja" = "latest"
+"apt:fonts-noto-cjk" = "latest"
+"apt:fonts-noto-color-emoji" = "latest"
+"apt:ghostty" = "latest"                # Ubuntu universe, signed archive
+"apt:brave-browser" = "latest"          # Brave's signed apt repo below
+"apt:libasound2t64" = "latest"          # zed and zen link libasound.so.2
+"apt:mesa-vulkan-drivers" = "latest"    # zed needs a Vulkan ICD (lavapipe in a VM or container) to create a surface
+"apt:xsel" = "latest"
+"apt:xdotool" = "latest"
+"apt:wireshark" = "latest"              # hooks/desktop-final lets the group wireshark capture
+"apt:apparmor" = "latest"               # apparmor_parser and /etc/apparmor.d, for the Electron profile below (a container lacks both)
+"apt:libinput-tools" = "latest"         # fusuma reads touchpad gestures through libinput
+# The libraries that Obsidian and Ferdium (Electron) link; without them the programs do not start. xfce4 brings GTK.
+"apt:libnss3" = "latest"
+"apt:libgbm1" = "latest"
+"apt:libcups2t64" = "latest"
+"apt:libatk-bridge2.0-0t64" = "latest"
+"apt:libatspi2.0-0t64" = "latest"
+"apt:libxkbcommon0" = "latest"
+"apt:libxss1" = "latest"
+"apt:libxtst6" = "latest"
+"apt:libsecret-1-0" = "latest"
+"apt:libnotify4" = "latest"
+
+# English system locale, so ssh logins and agents get English tool output on every machine. The desktop session sets
+# ja_JP.UTF-8 itself, in home/.xsession.
 # 26.04 `locales` turns /etc/default/locale into a symlink to this file.
 [bootstrap.files."/etc/locale.conf"]
 content = "LANG=C.UTF-8\n"
@@ -78,18 +146,223 @@ login_shell = "zsh"
 pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
 # Symlink entries refuse real files; hooks/dotfile-conflicts moves them aside (dotfiles part only).
 pre-dotfiles = "~/.config/mise/hooks/dotfile-conflicts home"
+# final purges screen lockers, im-config and the pulseaudio daemon, makes xrdp TLS-only without root logins, and sets up
+# the groups and the AppArmor profile of the desktop apps (hooks/desktop-final); then it fetches the zsh plugins that
+# sheldon names (hooks/sheldon-lock), which needs the tools phase to have installed sheldon.
+final = "~/.config/mise/hooks/desktop-final && ~/.config/mise/hooks/sheldon-lock"
 
 [dotfile_groups.home]
 root = "home"
 
-# zsh plugins, sourced by .zshrc. Every plugin is pinned to a commit, because a default branch would put
-# whatever it holds that day into shells that may see secrets. To update one, set a newer `ref`. A commit ref
-# rules out `depth`, so these are full clones.
-[bootstrap.repos]
-"~/.local/share/zsh/plugins/zsh-defer" = { url = "https://github.com/romkatv/zsh-defer", ref = "53a26e287fbbe2dcebb3aa1801546c6de32416fa" }
-"~/.local/share/zsh/plugins/fast-syntax-highlighting" = { url = "https://github.com/zdharma-continuum/fast-syntax-highlighting", ref = "4672ad5dd9ad68a7effc1476d65afb7c584ce2b3" }
-"~/.local/share/zsh/plugins/zsh-completions" = { url = "https://github.com/zsh-users/zsh-completions", ref = "989b23277ab33e8d5e82df6aed936e846db9d8b8" }
-"~/.local/share/zsh/plugins/zsh-autosuggestions" = { url = "https://github.com/zsh-users/zsh-autosuggestions", ref = "85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5" }
-"~/.local/share/zsh/plugins/zsh-autopair" = { url = "https://github.com/hlissner/zsh-autopair", ref = "449a7c3d095bc8f3d78cf37b9549f8bb4c383f3d" }
-"~/.local/share/zsh/plugins/forgit" = { url = "https://github.com/wfxr/forgit", ref = "8b638f4765cabe41bf3e86196cfcce388daa9266" }
-"~/.local/share/zsh/plugins/git-open" = { url = "https://github.com/paulirish/git-open", ref = "63c0e77aaf18b72c839b1113c1e2f9514413643b" }
+# The release channel has no resolute suite, only "stable". The three fingerprints are the ones Brave lists at
+# https://brave.com/signing-keys; mise keeps only these keys from the keyring it downloads.
+[bootstrap.apt.sources.brave-browser]
+uris = "https://brave-browser-apt-release.s3.brave.com"
+suites = "stable"
+components = "main"
+architectures = "amd64 arm64"
+key = "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg"
+fingerprint = [
+  "DBF1 A116 C220 B8C7 164F 9823 0686 B784 2003 8257",
+  "47D3 2A74 E9A9 E013 A4B4 926C 68D5 13D3 6A73 CD96",
+  "B2A3 DCA3 50E6 7256 740D F904 DE4E C67B E4B0 DCA0",
+]
+# Zed's updater would bypass mise's digest and release age check, so the env var below turns it off (zed's
+# auto_update.rs skips polling and shows this text when it is set). home/.config/zed/settings.json sets
+# auto_update to false as well.
+[env]
+ZED_UPDATE_EXPLANATION = "Updates come from mise: run `mise upgrade github:zed-industries/zed`."
+# Zed's and Zen's install dirs are versioned and deleted by the next upgrade, so each postinstall copies the menu
+# entry and icon out, with Exec on the mise shim.
+# mise puts the tool's own bin dirs ahead of PATH during a postinstall, so each script resets PATH: a poisoned
+# tarball must not shadow sed or install.
+# mise checks the digest of every Zed download and checks the GitHub artifact attestation when the release has
+# one. It does not require one, so the attestation only helps while upstream keeps publishing it.
+[tools."github:zed-industries/zed"]
+version = "latest"
+filter_bins = "zed"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i"
+install -m644 "$MISE_TOOL_INSTALL_PATH/share/icons/hicolor/512x512/apps/zed.png" "$i/zed.png"
+sed -e "s|^TryExec=zed|TryExec=$HOME/.local/share/mise/shims/zed|" -e "s|^Exec=zed|Exec=$HOME/.local/share/mise/shims/zed|" \
+  "$MISE_TOOL_INSTALL_PATH/share/applications/dev.zed.Zed.desktop" > "$d/dev.zed.Zed.desktop"
+'''
+[tools."github:zed-industries/zed".platforms.linux-x64]
+# one asset_pattern per platform: a templated pattern made mise lock record the aarch64 asset for linux-x64
+asset_pattern = "zed-linux-x86_64.tar.gz"
+[tools."github:zed-industries/zed".platforms.linux-arm64]
+asset_pattern = "zed-linux-aarch64.tar.gz"
+# Zen publishes no signature and no attestation, so the only check is the sha256 digest GitHub reports for the
+# asset, which mise verifies. That proves the download matches what the release lists, not who built it.
+# filter_bins keeps zen-bin, updater, pingsender and gfxtest off PATH. Its MAR updater would bypass that digest
+# and the release age, so the postinstall writes a policy that disables app updates and telemetry.
+[tools."github:zen-browser/desktop"]
+version = "latest"
+filter_bins = "zen"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/128x128/apps"; mkdir -p "$d" "$i"
+install -m644 "$MISE_TOOL_INSTALL_PATH/browser/chrome/icons/default/default128.png" "$i/zen.png"
+mkdir -p "$MISE_TOOL_INSTALL_PATH/distribution"
+echo '{"policies": {"DisableAppUpdate": true, "DisableTelemetry": true}}' > "$MISE_TOOL_INSTALL_PATH/distribution/policies.json"
+cat > "$d/zen.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Zen Browser
+GenericName=Web Browser
+Exec=$HOME/.local/share/mise/shims/zen %u
+Icon=zen
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=zen
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+EOF
+'''
+[tools."github:zen-browser/desktop".platforms.linux-x64]
+asset_pattern = "zen.linux-x86_64.tar.xz"
+[tools."github:zen-browser/desktop".platforms.linux-arm64]
+asset_pattern = "zen.linux-aarch64.tar.xz"
+# HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. To bump it, change `version` and the
+# checksum together. mise strips the zip's top directory, so the .ttf files sit flat in the install dir. The
+# files are copied out, because a versioned install dir is gone after the next upgrade; PATH is reset for the
+# reason given at the Zed entry.
+[tools."http:hackgen"]
+version = "2.10.0"
+url = "https://github.com/yuru7/HackGen/releases/download/v{{ version }}/HackGen_NF_v{{ version }}.zip"
+checksum = "sha256:f8abd483d5edfad88a78ed511978f43c83b43c48e364aa29ebe4a68217474428"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/HackGen"
+rm -rf "$d"; mkdir -p "$d"
+install -m644 "$MISE_TOOL_INSTALL_PATH"/*.ttf "$d"
+fc-cache -f "$d"
+'''
+# Obsidian, Vicinae and Ferdium are `http:` tools pinned to a release and to the SHA-256 of each platform's file, where
+# zed and zen follow `latest`. The pin is deliberate: an `http:` tool needs no GitHub API call (anonymous callers get
+# 60 an hour), mise checks the digest that is written here, and Obsidian's latest release can be mobile-only, so
+# `latest` could pick a release without Linux files. (Either backend leaves a .AppImage or .deb as one raw file; the
+# postinstalls below do the unpacking.) The pin holds only for the first launch of Obsidian and Ferdium, which update
+# themselves (SECURITY.md). To update one, change its version and both checksums (`shasum -a 256` of the two files).
+# Each postinstall puts one program in the tool's own bin/ (mise shims only that dir), so the helpers next to it, such
+# as chrome-sandbox, stay off PATH, and copies the menu entry and icon out, with Exec on the mise shim. Obsidian and
+# Ferdium are Electron apps: Ubuntu blocks unprivileged user namespaces for programs without an AppArmor profile, and
+# their sandbox needs them, so /etc/apparmor.d/djd-electron below allows them for these two programs only. Nothing here
+# passes --no-sandbox (tests/vm-checks.sh checks the menu entries). Vicinae's AppImage is unpacked once, so it needs
+# no FUSE.
+[tools."http:obsidian"]
+version = "1.15.0"
+strip_components = 1
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i" "$MISE_TOOL_INSTALL_PATH/bin"
+ln -sf ../obsidian "$MISE_TOOL_INSTALL_PATH/bin/obsidian"
+install -m644 "$MISE_TOOL_INSTALL_PATH/resources/icon.png" "$i/obsidian.png"
+cat > "$d/obsidian.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Obsidian
+Exec=$HOME/.local/share/mise/shims/obsidian %U
+Icon=obsidian
+Terminal=false
+Categories=Office;Utility;
+MimeType=x-scheme-handler/obsidian;
+StartupWMClass=obsidian
+EOF
+'''
+[tools."http:obsidian".platforms.linux-x64]
+url = "https://github.com/obsidianmd/obsidian-releases/releases/download/v{{ version }}/obsidian-{{ version }}.tar.gz"
+checksum = "sha256:75594ae09914ca0191dde13c0697dee653322287a3a806c15519332d9ada14d3"
+[tools."http:obsidian".platforms.linux-arm64]
+url = "https://github.com/obsidianmd/obsidian-releases/releases/download/v{{ version }}/obsidian-{{ version }}-arm64.tar.gz"
+checksum = "sha256:7e1bdd82fc65dcc3c03de5b8a85a8d79258f94642ba27987c2d1188b9763e903"
+[tools."http:vicinae"]
+version = "0.30.0"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i" "$MISE_TOOL_INSTALL_PATH/bin"
+# the AppImage is unpacked once, so the app needs no FUSE (a container or an OrbStack machine has none)
+cd "$MISE_TOOL_INSTALL_PATH" && ./Vicinae.AppImage --appimage-extract >/dev/null && mv squashfs-root app && rm Vicinae.AppImage
+# AppRun finds its files from its own path, so a link would not do: a wrapper runs it in place
+printf '#!/bin/sh\nexec "%s/app/AppRun" "$@"\n' "$MISE_TOOL_INSTALL_PATH" > "$MISE_TOOL_INSTALL_PATH/bin/vicinae"
+chmod +x "$MISE_TOOL_INSTALL_PATH/bin/vicinae"
+install -m644 "$MISE_TOOL_INSTALL_PATH/app/usr/share/icons/hicolor/512x512/apps/vicinae.png" "$i/vicinae.png"
+cat > "$d/vicinae.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Vicinae
+GenericName=Launcher
+Exec=$HOME/.local/share/mise/shims/vicinae server --replace
+Icon=vicinae
+Terminal=false
+Categories=Utility;
+StartupWMClass=vicinae
+EOF
+'''
+[tools."http:vicinae".platforms.linux-x64]
+url = "https://github.com/vicinaehq/vicinae/releases/download/v{{ version }}/Vicinae-x86_64.AppImage"
+checksum = "sha256:bc9df9cb0190244e728a67a42e00217650f3e7b0b32f6c91721bddb2de3ea904"
+[tools."http:vicinae".platforms.linux-arm64]
+url = "https://github.com/vicinaehq/vicinae/releases/download/v{{ version }}/Vicinae-aarch64.AppImage"
+checksum = "sha256:317c3885279f8161cb0b08d7e337b32956e2373a973a7ba34d0034c6878187b9"
+# Ferdium's release is a .deb: the postinstall unpacks it into the tool's dir (dpkg-deb -x needs no root).
+[tools."http:ferdium"]
+version = "7.2.3"
+postinstall = '''
+export PATH=/usr/bin:/bin
+d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor"; mkdir -p "$d" "$i" "$MISE_TOOL_INSTALL_PATH/bin"
+dpkg-deb -x "$MISE_TOOL_INSTALL_PATH/Ferdium" "$MISE_TOOL_INSTALL_PATH/root"
+rm -f "$MISE_TOOL_INSTALL_PATH/Ferdium"
+ln -sf ../root/opt/Ferdium/ferdium "$MISE_TOOL_INSTALL_PATH/bin/ferdium"
+cp -r "$MISE_TOOL_INSTALL_PATH/root/usr/share/icons/hicolor/." "$i/"
+cat > "$d/ferdium.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ferdium
+Exec=$HOME/.local/share/mise/shims/ferdium %U
+Icon=ferdium
+Terminal=false
+Categories=Network;InstantMessaging;
+StartupWMClass=Ferdium
+EOF
+'''
+[tools."http:ferdium".platforms.linux-x64]
+url = "https://github.com/ferdium/ferdium-app/releases/download/v{{ version }}/Ferdium-linux-{{ version }}-amd64.deb"
+checksum = "sha256:f8a3f5d3b6bc4e6af6a91f291fe807b97a84aa20b91313c65e860ea95d54adba"
+[tools."http:ferdium".platforms.linux-arm64]
+url = "https://github.com/ferdium/ferdium-app/releases/download/v{{ version }}/Ferdium-linux-{{ version }}-arm64.deb"
+checksum = "sha256:e979ee4aa1ce2710144531967e2e10501bf889cb4b9a3789028cab3e0fa8f818"
+# Ubuntu's AppArmor policy denies unprivileged user namespaces to a program with no profile, and Chromium's sandbox
+# (Electron: Obsidian and Ferdium) needs them. This profile names the two programs and lifts only that restriction
+# (flags=(unconfined) leaves the rest alone). hooks/desktop-final loads it where AppArmor runs; elsewhere the file is inert.
+[bootstrap.files."/etc/apparmor.d/djd-electron"]
+content = """
+abi <abi/4.0>,
+include <tunables/global>
+
+profile djd-obsidian @{HOME}/.local/share/mise/installs/http-obsidian/*/obsidian flags=(unconfined) {
+  userns,
+}
+
+profile djd-ferdium @{HOME}/.local/share/mise/installs/http-ferdium/*/root/opt/Ferdium/ferdium flags=(unconfined) {
+  userns,
+}
+"""
+mode = "0644"
+owner = "root"
+group = "root"
+# desktop-final edits two xrdp conffiles (xrdp.ini, sesman.ini), so dpkg stops at its conffile prompt when an xrdp
+# update ships a new version of either, and `djd update` fails without a tty. mise only sets DEBIAN_FRONTEND, which
+# does not cover that prompt. These options keep the local file without asking; they apply to every apt run on the
+# machine. pre-packages, so the file exists before the package step of the apply that upgrades.
+[bootstrap.files."/etc/apt/apt.conf.d/90djd-conffiles"]
+content = """
+Dpkg::Options {
+  "--force-confdef";
+  "--force-confold";
+};
+"""
+mode = "0644"
+owner = "root"
+group = "root"
+phase = "pre-packages"

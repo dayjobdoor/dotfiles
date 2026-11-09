@@ -1,0 +1,71 @@
+setupVersion: 3
+modelRoles:
+  smol: anthropic/claude-haiku-5-5:auto
+  tiny: "@smol"
+  commit: "@smol"
+  judge: cloudflare-workers-ai/@cf/cloudflare/clef
+  vision: "@default"
+  task: "@default"
+  designer: "@advisor"
+  plan: "@advisor"
+  slow: "@advisor"
+  advisor: anthropic/claude-opus-5-5:auto
+  default: anthropic/claude-sonnet-5-5:high
+defaultThinkingLevel: auto
+advisor:
+  enabled: true
+  reviewMode: turn
+magicKeywords:
+  enabled: true
+autoLearn:
+  enabled: true
+vault:
+  enabled: true
+marketplace:
+  autoUpdate: auto
+update:
+  auto: true
+dev:
+  autoqaConsent: denied
+read:
+  defaultLimit: 1000
+ttsr:
+  builtinRules: false
+compaction:
+  enabled: true
+  thresholdPercent: 78
+composer:
+  shape: box
+theme:
+  dark: dark-monokai
+  light: titanium
+browser:
+  headless: true
+goal:
+  statusInFooter: true
+memory:
+  backend: mnemopi
+mnemopi:
+  noEmbeddings: true
+  llmMode: none
+providers:
+  anthropic:
+    slowMode: auto
+    serverSideFallback: true
+retry:
+  usageAwareFallback: false
+  fallbackChains:
+    anthropic/claude-fable-5-1:
+      - anthropic/claude-opus-5-5
+    anthropic/claude-opus-5-5:
+      - anthropic/claude-sonnet-5-5
+    anthropic/claude-sonnet-5-5:
+      - anthropic/claude-haiku-5-5
+    anthropic/claude-haiku-5-5:
+      - anthropic-gateway/claude-haiku-5-5
+task:
+  agentModelOverrides:
+    scout: "@default"
+    sonic: "@default"
+    reviewer: "@advisor"
+    security-reviewer: "@advisor"

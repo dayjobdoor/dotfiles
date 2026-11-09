@@ -1,0 +1,33 @@
+# Touchpad gestures for fusuma (start it with `fusuma -d`).
+swipe:
+  3: # three fingers: drag
+    begin:
+      command: xdotool mousedown 1 # hold the left button
+    update:
+      command: xdotool mousemove_relative -- $move_x, $move_y # move the pointer
+      interval: 0.01 # short update interval
+      accel: 2 # pointer acceleration
+    end:
+      command: xdotool mouseup 1 # release the left button
+  4: # four fingers: workspaces
+    left:
+      command: "xdotool key ctrl+Super+Down" # next workspace
+    right:
+      command: "xdotool key ctrl+Super+Up" # previous workspace
+    up:
+      command: "xdotool key ctrl+Super+Down" # next workspace
+    down:
+      command: "xdotool key ctrl+Super+Up" # previous workspace
+pinch:
+  in:
+    command: "xdotool keydown ctrl click 4 keyup ctrl" # zoom in
+  out:
+    command: "xdotool keydown ctrl click 5 keyup ctrl" # zoom out
+
+threshold: # how far a gesture goes before it counts
+  swipe: 0.75 # 75% of the default distance
+  pinch: 0.5 # 50% of the default distance
+
+interval: # the pause between two gestures
+  swipe: 0.2 # seconds
+  pinch: 0.2 # seconds

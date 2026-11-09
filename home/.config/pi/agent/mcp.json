@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "mise": {
+      "command": "mise",
+      "args": ["mcp"],
+      "env": {
+        "MISE_EXPERIMENTAL": "1"
+      }
+    },
+    "cloudflare-docs": {
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "kody": {
+      "url": "https://kody.codes/mcp"
+    },
+    "executor": {
+      "url": "https://mcp.executor.sh/mcp"
+    }
+  }
+}
