@@ -1,6 +1,6 @@
 # Reference
 
-Lookup tables for the repository. [architecture.md](architecture.md) explains the reasons behind them.
+Lookup tables for the repository, and the list of the tools and repositories it uses. [architecture.md](architecture.md) explains the reasons behind them.
 
 ## Terms
 
@@ -43,7 +43,7 @@ README.md, SECURITY.md  the entry page, and the security policy with the hardeni
 AGENTS.md               rules for coding agents, where each kind of change goes, verification commands
 DESIGN.md               design tokens in the google-labs-code/design.md format
 llms.txt                index of the docs for language-model readers
-docs/                   architecture.md, reference.md, ci.md, how-to.md, roadmap.md
+docs/                   architecture.md, reference.md, maintenance.md, testing.md, guidance.md
 mise-config/            linked as ~/.config/mise, the global config
   config.toml           base module: settings, core tools, base apt packages, locale, login shell, dotfile group home, the sheldon tool
   config.<module>.toml  the modules agent, server, full, and secrets
@@ -59,7 +59,7 @@ cloud-init/vm.yaml      the cloud-init file for incus, multipass, and OrbStack
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml, docs.yaml
 ```
 
-`tests/tree.sh` writes the tracked and unignored files as a tar stream, judged by the repository's own `.gitignore` alone: the git configuration and the global ignore file of the machine have no effect. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [ci.md](ci.md#test-map) maps each test script to the task that runs it.
+`tests/tree.sh` writes the tracked and unignored files as a tar stream, judged by the repository's own `.gitignore` alone: the git configuration and the global ignore file of the machine have no effect. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [testing.md](testing.md#test-map) maps each test script to the task that runs it.
 
 ## Modules
 
@@ -171,7 +171,7 @@ Plan for at least 10 GB of free disk. That figure is an estimate. One install of
 
 | Command | Does |
 | --- | --- |
-| `djd apply [flags]` | Runs `mise bootstrap --yes --update` and clears the shell init caches. It moves no file itself. Real files that a dotfile would replace are moved aside by the `pre-dotfiles` hook (see Bootstrap phases and hooks). |
+| `djd apply [flags]` | Runs `mise bootstrap --yes --update`, clears the shell init caches, and runs `mise cache prune`, which deletes the archives that mise downloaded more than `cache_prune_age` (one day) ago. It moves no file itself. Real files that a dotfile would replace are moved aside by the `pre-dotfiles` hook (see Bootstrap phases and hooks). |
 | `djd update` | Runs `git fetch` and `git merge --ff-only @{u}`, then `mise self-update`, then `djd apply --upgrade`. It prints a message and skips the pull when `~/.dotfiles` is not a git checkout, when no branch is checked out (a detached HEAD, which a jj colocated checkout always has), or when the branch has no upstream. A dirty file that the update does not touch stays. |
 | `djd status` | Prints the checkout path and commit, the selected modules, and `mise bootstrap status`. |
 | `djd doctor` | Checks Ubuntu 26.04 (`VERSION_ID`), the `~/.config/mise` link, the zsh login shell, `bootstrap status --missing`, the sheldon lock (it has to exist, be newer than `plugins.toml`, and name directories that are there), and `dot status --missing`, and lists each dotfile that differs from the checkout. Hooks are imperative and `bootstrap status` cannot see what they enforce, so it also checks them. With `server` selected, it checks that sshd is keys-only through `hooks/sshd-keys-only`, which evaluates `sshd -T -C` for the current user whenever a `Match` line exists. It always checks `security_layer=tls` in `xrdp.ini` and `AllowRootLogin=false` in `sesman.ini`, each on its own line, because every machine has xrdp. With the `secrets` module selected, it also checks that `~/.config/djd/age.txt` exists, has no group or other permission bits (mode 0600 and 0400 pass), and decrypts every value. Exits with code 1 on any failure. |
@@ -416,3 +416,104 @@ A tested remedy for the ciphers is `tls_ciphers=ECDHE+AESGCM:ECDHE+CHACHA20` in 
 | `djd:full`, local only and not published | `agent` and `full` | The full toolbox. `mise run build full` builds it. `full-weekly.yaml` builds it weekly, runs `djd doctor` in it, and then runs `djd update && djd doctor`. |
 
 Every image sets `DJD_NO_MUX=1`, `DEBIAN_FRONTEND=noninteractive`, and `LANG=C.UTF-8`, and puts the mise shims on `PATH`. The images that `mise run build` and `push.yaml` build also carry the commit in `DJD_REVISION`. Start the containers with `--init`, so that an init process reaps zombies. `compose.yaml` and `devcontainer.json` set it, and `mise run shell` passes it.
+
+## Tools and repositories
+
+Where each tool and project comes from. The versions are in the configs: `latest` tools resolve at install time, the pinned `http:` tools carry a version and a checksum in `mise-config/config.toml`, and `.mise/mise.lock` pins the repo's own tools. `mise registry <name>` shows the backend that mise uses for a name.
+
+### This repository
+
+| What | Where |
+| --- | --- |
+| Source | [dayjobdoor/dotfiles](https://github.com/dayjobdoor/dotfiles) |
+| Image | `ghcr.io/dayjobdoor/dotfiles` ([package page](https://github.com/dayjobdoor/dotfiles/pkgs/container/dotfiles)) |
+| Releases | [dayjobdoor/dotfiles releases](https://github.com/dayjobdoor/dotfiles/releases) |
+| mise | [mise.jdx.dev](https://mise.jdx.dev), [jdx/mise](https://github.com/jdx/mise) |
+| Report a vulnerability | [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) |
+
+### Base tools (`mise-config/config.toml`)
+
+| Tool | Repository | Note |
+| --- | --- | --- |
+| `usage` | [jdx/usage](https://github.com/jdx/usage) |  |
+| `starship` | [starship/starship](https://github.com/starship/starship) |  |
+| `zoxide` | [ajeetdsouza/zoxide](https://github.com/ajeetdsouza/zoxide) |  |
+| `fzf` | [junegunn/fzf](https://github.com/junegunn/fzf) |  |
+| `ripgrep` | [BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep) |  |
+| `fd` | [sharkdp/fd](https://github.com/sharkdp/fd) |  |
+| `bat` | [sharkdp/bat](https://github.com/sharkdp/bat) |  |
+| `lsd` | [lsd-rs/lsd](https://github.com/lsd-rs/lsd) |  |
+| `sd` | [chmln/sd](https://github.com/chmln/sd) |  |
+| `jq` | [jqlang/jq](https://github.com/jqlang/jq) |  |
+| `yq` | [mikefarah/yq](https://github.com/mikefarah/yq) |  |
+| `delta` | [dandavison/delta](https://github.com/dandavison/delta) |  |
+| `gh` | [cli/cli](https://github.com/cli/cli) |  |
+| `lazygit` | [jesseduffield/lazygit](https://github.com/jesseduffield/lazygit) |  |
+| `jj` | [jj-vcs/jj](https://github.com/jj-vcs/jj) |  |
+| `jj-starship` | [dmmulroy/jj-starship](https://github.com/dmmulroy/jj-starship) |  |
+| `bottom` | [ClementTsang/bottom](https://github.com/ClementTsang/bottom) |  |
+| `micro` | [micro-editor/micro](https://github.com/micro-editor/micro) |  |
+| `herdr` | [herdrdev/herdr](https://github.com/herdrdev/herdr) |  |
+| `shellcheck` | [koalaman/shellcheck](https://github.com/koalaman/shellcheck) |  |
+| `shfmt` | [mvdan/sh](https://github.com/mvdan/sh) |  |
+| `sheldon` | [rossmacarthur/sheldon](https://github.com/rossmacarthur/sheldon) |  |
+| `ruby` | [ruby/ruby](https://github.com/ruby/ruby) |  |
+| `fusuma (gem)` | [iberianpig/fusuma](https://github.com/iberianpig/fusuma) |  |
+
+### Desktop apps and system programs
+
+| Tool | Repository | Source |
+| --- | --- | --- |
+| `zed` | [zed-industries/zed](https://github.com/zed-industries/zed) | `github:` tool, latest |
+| `zen` | [zen-browser/desktop](https://github.com/zen-browser/desktop) | `github:` tool, latest |
+| `hackgen` | [yuru7/HackGen](https://github.com/yuru7/HackGen) | `http:` tool, pinned, SHA-256 |
+| `obsidian` | [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases) | `http:` tool, pinned, SHA-256 |
+| `vicinae` | [vicinaehq/vicinae](https://github.com/vicinaehq/vicinae) | `http:` tool, pinned, SHA-256 |
+| `ferdium` | [ferdium/ferdium-app](https://github.com/ferdium/ferdium-app) | `http:` tool, pinned, SHA-256 |
+| `ghostty` | [ghostty-org/ghostty](https://github.com/ghostty-org/ghostty) | Ubuntu archive (`apt`) |
+| `xrdp` | [neutrinolabs/xrdp](https://github.com/neutrinolabs/xrdp) | Ubuntu archive (`apt`) |
+| `brave-browser` | [brave.com](https://brave.com) | Brave's apt repository |
+| `wireshark` | [wireshark.org](https://www.wireshark.org) | Ubuntu archive (`apt`) |
+| XFCE, PipeWire, fcitx5-mozc and the other packages | [packages.ubuntu.com](https://packages.ubuntu.com/resolute/) | Ubuntu archive (`apt`), listed in [Modules](#modules) |
+
+### `agent` and `server` modules
+
+| Tool | Repository | Note |
+| --- | --- | --- |
+| `node` | [nodejs/node](https://github.com/nodejs/node) |  |
+| `bun` | [oven-sh/bun](https://github.com/oven-sh/bun) |  |
+| `python` | [python/cpython](https://github.com/python/cpython) |  |
+| `uv` | [astral-sh/uv](https://github.com/astral-sh/uv) |  |
+| `pi` | [earendil-works/pi](https://github.com/earendil-works/pi) |  |
+| `omp (oh-my-pi)` | [can1357/oh-my-pi](https://github.com/can1357/oh-my-pi) |  |
+| `skills` | [vercel-labs/skills](https://github.com/vercel-labs/skills) |  |
+| `lazydocker` | [jesseduffield/lazydocker](https://github.com/jesseduffield/lazydocker) | `server` module |
+
+The `full` module's tools are listed in `mise-config/config.full.toml`, one per line.
+
+### Tools of the repository itself (`.mise/tasks/`)
+
+| Tool | Repository | Note |
+| --- | --- | --- |
+| `act` | [nektos/act](https://github.com/nektos/act) |  |
+| `jactionlint` | [jdx/jactionlint](https://github.com/jdx/jactionlint) |  |
+| `hadolint` | [hadolint/hadolint](https://github.com/hadolint/hadolint) |  |
+| `gitleaks` | [gitleaks/gitleaks](https://github.com/gitleaks/gitleaks) |  |
+| `shellcheck` | [koalaman/shellcheck](https://github.com/koalaman/shellcheck) |  |
+| `shfmt` | [mvdan/sh](https://github.com/mvdan/sh) |  |
+| `@google/design.md` | [google-labs-code/design.md](https://github.com/google-labs-code/design.md) |  |
+
+### GitHub Actions
+
+Every `uses:` in `.github/workflows/` is pinned to a commit; the table gives the release that the comment beside each pin names. Dependabot moves them, after a cooldown of seven days.
+
+| Action | Release |
+| --- | --- |
+| [actions/checkout](https://github.com/actions/checkout) | v7.0.1 |
+| [jdx/mise-action](https://github.com/jdx/mise-action) | v5.2.6 |
+| [docker/setup-buildx-action](https://github.com/docker/setup-buildx-action) | v4.4.1 |
+| [docker/login-action](https://github.com/docker/login-action) | v4.7.0 |
+| [docker/metadata-action](https://github.com/docker/metadata-action) | v6.2.0 |
+| [docker/build-push-action](https://github.com/docker/build-push-action) | v7.4.0 |
+| [actions/upload-artifact](https://github.com/actions/upload-artifact) | v7.0.2 |
+| [actions/download-artifact](https://github.com/actions/download-artifact) | v8.0.2 |

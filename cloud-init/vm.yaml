@@ -1,5 +1,5 @@
 #cloud-config
-# One file for an incus container, a multipass VM and an OrbStack machine; the README and docs/how-to.md have the
+# One file for an incus container, a multipass VM and an OrbStack machine; the README and docs/guidance.md have the
 # commands. Above the marker below it sets the hostname, the user, timezone, keyboard and packages. Below the marker it
 # imports an SSH key and runs the install (not on OrbStack). test:vm stops reading at the marker: it installs the
 # checkout itself, and the VM has no key of the owner.
@@ -39,7 +39,7 @@ packages:
 # launching. The server module refuses to turn passwords off for a user without a key, so a failed import (GitHub's API
 # limits anonymous callers) stops the install instead of locking the VM.
 # Both run as dayjobdoor, after the packages. They are skipped on OrbStack: its setup renumbers the user after
-# cloud-init, and `orb create` fails while a process of that user runs; install there by hand (docs/how-to.md).
+# cloud-init, and `orb create` fails while a process of that user runs; install there by hand (docs/guidance.md).
 runcmd:
   - |
     if [ ! -e /opt/orbstack-guest ]; then

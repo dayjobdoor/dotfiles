@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="The image's desktop: xrdp TLS and root refusal, RDP login, XFCE session, audio, apps, logout and restart (see docs/ci.md)"
+#MISE description="The image's desktop: xrdp TLS and root refusal, RDP login, XFCE session, audio, apps, logout and restart (see docs/testing.md)"
 #MISE depends=["build"]
 #USAGE arg "[image]" default="djd:latest" help="Image to test"
 set -Eeuo pipefail

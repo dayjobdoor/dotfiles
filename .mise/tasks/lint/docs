@@ -49,7 +49,7 @@ fail() {
 # agent, desktop: a module and a compose service of those names; their directories were folded into home/ and still
 # count as past top-level names
 allow_paths=" .devcontainer/.env agent desktop "
-# docs/roadmap.md: planned, not implemented, and removed
+# the planned-work section of docs/architecture.md: planned, not implemented, and removed
 allow_cmds=" djd:menu "
 
 # Top-level names that a path may start with: those now, and those of every commit when there is a git history

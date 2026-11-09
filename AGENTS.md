@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/architecture.md) and [docs/reference.md](docs/reference.md) before structural changes, and [docs/ci.md](docs/ci.md) before changing workflows or tests.
+Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/architecture.md) and [docs/reference.md](docs/reference.md) before structural changes, and [docs/maintenance.md](docs/maintenance.md) before changing workflows and [docs/testing.md](docs/testing.md) before changing tests.
 
 ## Rules
 
@@ -13,7 +13,7 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/arc
 
 ## Verify
 
-CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus, multipass or OrbStack VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all four, and `xsession-audio` is the slow one, see [docs/ci.md](docs/ci.md#test-map)). A whole CI job runs with act (`mise run ci image`).
+CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus, multipass or OrbStack VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all four, and `xsession-audio` is the slow one, see [docs/testing.md](docs/testing.md#test-map)). A whole CI job runs with act (`mise run ci image`).
 
 Without trusting the repo on the host, the task files run directly, and lint runs inside the image. `tests/tree.sh` streams only tracked and unignored files as a tar archive (nothing is mounted), so ignored files such as `age.txt` stay on the host:
 
@@ -44,12 +44,12 @@ tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:latest zsh -lc 'mkdir /tm
 | djd commands | `mise-config/tasks/djd/<name>` (bash, `#MISE description=`, `#MISE quiet=true`) |
 | repo tasks (lint, build, test, test:offline, test:desktop, test:vm, ci) | `.mise/tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `.mise/tasks/lint/` of `lint:*` checks), short ones in `.mise/config.toml`. The `Makefile` runs `make <task>` as `mise run <task>`, except `init` (runs `install.sh`) and apply, update, status, doctor, module and secret (run `djd`) |
 | an offline test (no network, no token) | `tests/<name>.sh` with a `# Contract` header. Add its name to the `choices` and to the default list in `.mise/tasks/test/offline`, which `mise run test` calls, and name it in `docs/reference.md`; `lint:docs` fails when the docs or the tasks miss it |
-| a check that needs systemd, RDP or an image (the [test map](docs/ci.md#test-map) lists every test) | `tests/vm-checks.sh` (it refuses to run unless `test:vm` sets `DJD_TEST_VM=1`), `.mise/tasks/test/desktop`, or a `doctor_says` scenario in `.mise/tasks/test/_default` |
-| docs | `docs/reference.md` for facts, `docs/architecture.md` for why, `docs/ci.md` for CI and tests, `docs/how-to.md` for procedures; `llms.txt` lists them |
+| a check that needs systemd, RDP or an image (the [test map](docs/testing.md#test-map) lists every test) | `tests/vm-checks.sh` (it refuses to run unless `test:vm` sets `DJD_TEST_VM=1`), `.mise/tasks/test/desktop`, or a `doctor_says` scenario in `.mise/tasks/test/_default` |
+| docs | `docs/reference.md` for facts, `docs/architecture.md` for why, `docs/maintenance.md` for workflows and releases, `docs/testing.md` for tests, `docs/guidance.md` for procedures; `llms.txt` lists them |
 | repo tool versions | each task's `tools` (in `.mise/config.toml`, or a `#MISE tools=` header in `.mise/tasks/`), pinned in `.mise/mise.lock` plus `.mise/.mise/locks/` for npm tools (`mise lock --bump` advances them, and `lockfile_platforms` in `.mise/config.toml` names the platforms; commit both) |
 | colors, fonts, theme names | `DESIGN.md` first, then the files its Colors table names |
 
-- Add a new tool to the lowest module that needs it, as `"latest"`. The exception is a desktop app that is a single release file: an `http:` tool pinned to a version with a SHA-256 per platform (HackGen, Obsidian, Vicinae, Ferdium; [how to update](docs/how-to.md#update-a-pinned-desktop-app)).
+- Add a new tool to the lowest module that needs it, as `"latest"`. The exception is a desktop app that is a single release file: an `http:` tool pinned to a version with a SHA-256 per platform (HackGen, Obsidian, Vicinae, Ferdium; [how to update](docs/guidance.md#update-a-pinned-desktop-app)).
 - Every module is for a machine role, and the desktop is part of the base, so a GUI package goes in `mise-config/config.toml` (or `config.full.toml` for the toolbox).
 - `home/.profile` is shared by bash and zsh: keep it POSIX. It sets environment variables and `PATH`, then sources the optional `profile.local`, and starts no program.
 - A new eval'd tool init in `.zshrc`/`.bashrc` goes through `_djd_init` (cached), not a bare `eval "$(tool init)"`, unless its output embeds per-shell state such as `PATH` (`mise activate`, the one init that stays uncached).

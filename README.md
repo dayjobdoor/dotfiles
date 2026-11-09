@@ -225,7 +225,7 @@ To install a fork, take `install.sh` from the fork and name the fork's clone URL
 curl -fsSL https://raw.githubusercontent.com/<you>/dotfiles/main/install.sh | DJD_REPO=https://github.com/<you>/dotfiles.git sh -s -- agent
 ```
 
-The fork has no GHCR images until it publishes a release. [Publish the first release](docs/how-to.md#publish-the-first-release) lists the steps.
+The fork has no GHCR images until it publishes a release. [Publish the first release](docs/guidance.md#publish-the-first-release) lists the steps.
 
 These places also matter:
 
@@ -250,17 +250,17 @@ make ci                               # every CI job act can run: lint, image (A
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
-`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/how-to.md](docs/how-to.md#update-the-pinned-tools) says how to update them. [docs/ci.md](docs/ci.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([ci.md](docs/ci.md#workflows)).
+`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([maintenance.md](docs/maintenance.md#workflows)).
 
 ## Documentation
 
 | Doc | Kind | Read when |
 | --- | --- | --- |
 | [docs/reference.md](docs/reference.md) | reference | you need a fact such as a file, command, variable, hook or image |
-| [docs/how-to.md](docs/how-to.md) | how-to | you work on the repository, for example run CI, raise the mise release or publish a release |
-| [docs/architecture.md](docs/architecture.md) | explanation | you want to know why the design is what it is |
-| [docs/ci.md](docs/ci.md) | reference | you change a workflow or a test, or need to know what a CI job proves |
-| [docs/roadmap.md](docs/roadmap.md) | explanation | you look for planned work |
+| [docs/guidance.md](docs/guidance.md) | how-to | you work on the repository, for example run CI, raise the mise release or publish a release |
+| [docs/architecture.md](docs/architecture.md) | explanation | you want to know why the design is what it is, or what is planned |
+| [docs/maintenance.md](docs/maintenance.md) | reference | you change a workflow, cut a release or need the release chain |
+| [docs/testing.md](docs/testing.md) | reference | you change a test, or need to know what a CI job proves |
 | [SECURITY.md](SECURITY.md) | reference | you report a vulnerability, store a secret or judge a hardening claim |
 | [AGENTS.md](AGENTS.md) | reference | you are a coding agent that changes this repository |
 | [DESIGN.md](DESIGN.md) | reference | you change colors, fonts or theme names |
