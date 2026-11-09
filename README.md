@@ -21,9 +21,8 @@ Pick where it runs. All of them end in the same Ubuntu 26.04 machine with the ba
 | Where | You get | Read |
 | --- | --- | --- |
 | an Ubuntu 26.04 machine you already have | the base and the modules you name | [Install on a machine](#install-on-a-machine) |
-| Docker | one image: the base and `agent`, a shell or the desktop over RDP | [Docker](#docker) |
+| Docker (also OrbStack's Docker on a Mac) | one image: the base and `agent`, a shell or the desktop over RDP | [Docker](#docker) |
 | multipass (macOS, Windows, Linux) | a VM with the base and `server` | [multipass](#multipass) |
-| OrbStack (macOS) | a machine with the base and `server` | [OrbStack](#orbstack) |
 | incus (Linux) | a system container with the base and `server` | [incus](#incus) |
 
 The VM recipes install the `server` module (sshd, firewall, docker) on a machine with systemd; the Docker image has no systemd and no `server` module. [architecture.md](docs/architecture.md#a-container-and-a-vm-differ-in-three-things-only) lists the three differences. Every target uses the user `dayjobdoor` and, where it names the machine, the hostname `vm`. The desktop needs a password for RDP, and none is committed ([SECURITY.md](SECURITY.md#the-desktop)), so each recipe sets one.
@@ -101,7 +100,7 @@ A devcontainer mounts the whole checkout, so keep only the RDP password (and the
 
 ## VMs
 
-The multipass, OrbStack and incus recipes read `cloud-init/vm.yaml`, so run them from a clone of this repository. Above its `# djd-install-below` line the file sets the machine up: hostname `vm`, the user `dayjobdoor` with passwordless sudo, the timezone, a Japanese keyboard layout (`layout: jp`, `ctrl:nocaps`) and the packages. Below it, it imports your SSH keys and runs the install. In a fork, change the GitHub user there first ([Fork](#fork)). After the install, the VM is a machine like any other: log in, and run `djd doctor`.
+The multipass and incus recipes read `cloud-init/vm.yaml`, so run them from a clone of this repository. Above its `# djd-install-below` line the file sets the machine up: hostname `vm`, the user `dayjobdoor` with passwordless sudo, the timezone, a Japanese keyboard layout (`layout: jp`, `ctrl:nocaps`) and the packages. Below it, it imports your SSH keys and runs the install. In a fork, change the GitHub user there first ([Fork](#fork)). After the install, the VM is a machine like any other: log in, and run `djd doctor`.
 
 ### multipass
 
@@ -117,21 +116,6 @@ multipass delete --purge vm              # when you are done
 ```
 
 The default size (1 CPU, 1 GB RAM, 5 GB disk) is too small for the desktop. Without the `chpasswd` block `dayjobdoor` has no password and an RDP login fails; `sudo passwd dayjobdoor` inside the VM sets one afterwards. The key import asks GitHub's API, which limits anonymous callers; when it is refused, the server module stops the install at its key check ([SECURITY.md](SECURITY.md#github-tokens) explains tokens).
-
-### OrbStack
-
-On macOS with [OrbStack](https://orbstack.dev), create the machine from the same file. OrbStack renumbers the user after cloud-init and fails when a process of that user is running, so the file skips its key import and install there, and you run the install yourself, as `dayjobdoor`:
-
-```sh
-orb create --user dayjobdoor -c cloud-init/vm.yaml ubuntu:resolute vm-orb
-orb -m vm-orb -w / sudo cloud-init status --wait   # the install would otherwise race cloud-init's apt run
-orb -m vm-orb sh -c 'cd && curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | DJD_SKIP_SSH_CHECKS=1 sh -s -- server'
-orb -m vm-orb sudo passwd dayjobdoor               # RDP login needs a password
-orb -m vm-orb                                      # a shell as dayjobdoor; RDP goes to localhost:3389
-orb delete -f vm-orb                               # when you are done
-```
-
-OrbStack rejects `vm` as a machine name, so the machine is `vm-orb`; its hostname is still `vm`. `orb` starts commands in the Mac's current directory, where mise would also load any project config of the Mac, so the `cd` keeps the install inside the machine's home. `DJD_SKIP_SSH_CHECKS=1` is there because the machine has no authorized key, which the server module otherwise insists on before it turns passwords off.
 
 ### incus
 
@@ -245,7 +229,7 @@ make lint:fix                         # rewrite shell and mise TOML formatting
 mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:latest with no network and no build (also: make test:offline)
 make test                             # builds the image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # the image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
-make test:vm                          # fresh incus, multipass or OrbStack VM: base and server install, hardening, module removal
+make test:vm                          # fresh incus or multipass VM: base and server install, hardening, module removal
 make ci                               # every CI job act can run: lint, image (ARGS=image for one)
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```

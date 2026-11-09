@@ -13,7 +13,7 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/requirements.md](docs/req
 
 ## Verify
 
-CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus, multipass or OrbStack VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all four, and `xsession-audio` is the slow one, see [docs/testing.md](docs/testing.md#test-map)). A whole CI job runs with act (`mise run ci image`).
+CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus or multipass VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all four, and `xsession-audio` is the slow one, see [docs/testing.md](docs/testing.md#test-map)). A whole CI job runs with act (`mise run ci image`).
 
 Without trusting the repo on the host, the task files run directly, and lint runs inside the image. `tests/tree.sh` streams only tracked and unignored files as a tar archive (nothing is mounted), so ignored files such as `age.txt` stay on the host:
 
@@ -23,7 +23,7 @@ bash .mise/tasks/lint/docs   # needs only bash; docs links, anchors, paths and c
 .mise/tasks/test/offline     # the four offline tests on an existing djd:latest
 .mise/tasks/build && .mise/tasks/test/_default
 .mise/tasks/test/desktop     # builds the same image first
-.mise/tasks/test/vm   # incus, multipass or OrbStack
+.mise/tasks/test/vm   # incus or multipass
 tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:latest zsh -lc 'mkdir /tmp/w && tar -xf - -C /tmp/w && cd /tmp/w && mise trust .mise/config.toml && mise run lint'
 ```
 

@@ -13,7 +13,7 @@ The stack, the constraints on it, the options that were rejected, and the lookup
 | Shell | zsh as the login shell, bash kept working; plugins by sheldon, shortcuts by zsh-abbr, prompt by starship | `.profile` stays POSIX and starts no program. |
 | Desktop | XFCE over xrdp (TLS only, no root login), PipeWire audio, fcitx5 with Mozc | Part of the base, so every machine and the image get it. |
 | Containers | One Docker image from `ubuntu:26.04`, built by one Dockerfile and compose | No systemd inside; the desktop entrypoint starts xrdp. |
-| VMs | cloud-init (`cloud-init/vm.yaml`) on multipass, OrbStack or incus | The same user `dayjobdoor` and hostname `vm` as the image. |
+| VMs | cloud-init (`cloud-init/vm.yaml`) on multipass or incus | The same user `dayjobdoor` and hostname `vm` as the image. |
 | Secrets | age ciphertext in the mise `[env]` table of the `secrets` module | Only ciphertext reaches the repository. |
 | Agents | pi and omp, with node, bun, python and uv, in the `agent` module | Their config lives under `home/.config/{pi,omp}`. |
 | CI | GitHub Actions, run locally with act; images go to GHCR | Every job runs the mise task that you run locally. |
@@ -34,7 +34,7 @@ Each row is something that was tried or weighed and left out, with the reason th
 | --- | --- |
 | chezmoi, Ansible or Stow next to mise | One tool is enough: `mise bootstrap` covers packages, files, firewall, dotfiles, login shell and tools, and the repository is the global mise config ([architecture.md](architecture.md#the-checkout-is-the-global-mise-config)). |
 | `mise bootstrap --from <url> --from-dir ~/.dotfiles` instead of the hand-made clone in `install.sh` | It bootstraps before `djd module add` has written the module selection, and a checkout that you use in place needs a symlink, not a clone. |
-| Native `[bootstrap.users]` and `[bootstrap.groups]` for the docker group | They need a fixed user name, and OrbStack runs as the host user, so `hooks/server-post-packages` stays. |
+| Native `[bootstrap.users]` and `[bootstrap.groups]` for the docker group | They need a fixed user name, while the install runs as whoever calls it, so `hooks/server-post-packages` stays. |
 | `[bootstrap.repos]` for the zsh plugins | It clones no submodules, so zsh-abbr (which needs zsh-job-queue) failed to initialize. sheldon checks submodules out at the commit a plugin pins. |
 | `github:` tools for the pinned desktop apps | They would depend on the GitHub API (60 requests an hour anonymously), and the newest Obsidian release can be mobile-only. The `http:` tools are pinned to a version and a SHA-256 per platform. |
 | A seccomp profile that allows user namespaces, instead of `--no-sandbox` in the image | It applies only to containers started with it, so `docker run` of the published image would still abort. The repository ships none, and no one has run Brave under one ([problems.md](problems.md#brave-in-a-container-runs-without-its-sandbox)). |

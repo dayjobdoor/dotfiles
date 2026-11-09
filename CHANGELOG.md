@@ -4,6 +4,7 @@ What each release changed, newest first, in the style of [Keep a Changelog](http
 
 ## Unreleased
 
+- OrbStack is no longer a VM target: the README recipe, the `orb` backend of `test:vm` and the OrbStack guard in `cloud-init/vm.yaml` are gone. Use Docker (OrbStack's Docker works on a Mac) or multipass; the VM tests run on incus and multipass.
 - Docs: `references.md`, `tech.md` and `directory.md` replace `reference.md`; `requirements.md` and `problems.md` come out of `architecture.md`; `ROADMAP.md` and this file replace the planned-work section.
 - Removed the i-have-adhd agent skill and its lock file; added `.env.example` with variable names only.
 

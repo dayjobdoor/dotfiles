@@ -15,7 +15,7 @@ A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise t
 - [References](docs/references.md): terms, the documentation of each part, and the repository of each tool, app and action
 - [Maintenance](docs/maintenance.md): workflows (including docs.yaml), the CI and release chain, timeouts, the release and publish rules, the workflow audit, repo tasks and the lock
 - [Testing](docs/testing.md): what each CI job and test proves, the image, desktop and VM tests, the test map and where a new test goes, failure output, running CI with act
-- [Guidance](docs/guidance.md): run CI locally, keep a VM after a failed test, test with multipass and OrbStack, update pinned tools, raise the mise release, set your git identity, move an npm config, keep an edit a program made, publish the first release, retry a failed publish, harden the repository settings
+- [Guidance](docs/guidance.md): run CI locally, keep a VM after a failed test, test with multipass, update pinned tools, raise the mise release, set your git identity, move an npm config, keep an edit a program made, publish the first release, retry a failed publish, harden the repository settings
 - [Roadmap](ROADMAP.md): planned work by horizon
 - [Changelog](CHANGELOG.md): what each release changed
 - [AGENTS.md](AGENTS.md): rules for coding agents, verification commands including the fast offline tests, where each kind of change and each new test goes, definition of done

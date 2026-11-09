@@ -22,7 +22,7 @@ To plan every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml` and 
 mise run ci --dry-run
 ```
 
-The `vm` job does not run under act. To run it, use `make test:vm` on a machine with incus, multipass, or OrbStack.
+The `vm` job does not run under act. To run it, use `make test:vm` on a machine with incus or multipass.
 
 ## Keep a VM after a failed test
 
@@ -32,11 +32,11 @@ If `make test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM` to `1`
 DJD_KEEP_VM=1 make test:vm
 ```
 
-The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name> is up` once cloud-init has finished. The task waits for cloud-init for at most 900 s. A VM whose cloud-init failed or timed out is never named, so look for it with `incus list`, `multipass list` or `orb list`. When you finish, delete it with `incus delete -f <name>`, `multipass delete --purge <name>`, or `orb delete -f <name>`, depending on the tool that ran.
+The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name> is up` once cloud-init has finished. The task waits for cloud-init for at most 900 s. A VM whose cloud-init failed or timed out is never named, so look for it with `incus list` or `multipass list`. When you finish, delete it with `incus delete -f <name>` or `multipass delete --purge <name>`, depending on the tool that ran.
 
-## Test with multipass and OrbStack
+## Test with multipass
 
-[testing.md](testing.md#vm-on-amd64-and-arm64) says which backend `mise run test:vm` picks and what it checks. For OrbStack it runs the first two commands of the [README recipe](../README.md#orbstack). The task ran end to end on 2026-11-09 against the working tree, once on OrbStack (arm64, macOS host, about 14 minutes) and once on multipass 1.16.4 (the same host, about 19 minutes): the base (with its desktop) and the server module installed into a fresh `26.04` machine, every check of `tests/vm-checks.sh` passed, and the task deleted the machine again. Two details are specific to multipass on macOS. `multipass exec` spins at 100% CPU forever when its output goes to `/dev/null`, so the task reads the cloud-init wait through a pipe. And `multipass exec` arrives over ssh, so mise refuses to set the firewall to default deny unless `SSH_CONNECTION` survives `sudo`, which `vm_sh` arranges with `--preserve-env`. incus is not covered by a local run; CI runs it. The `curl` install line and the RDP steps of the README recipes are not part of these runs.
+[testing.md](testing.md#vm-on-amd64-and-arm64) says which backend `mise run test:vm` picks and what it checks. The task ran end to end on multipass 1.16.4 (arm64, macOS host, about 19 minutes) on 2026-11-09 against the working tree: the base (with its desktop) and the server module installed into a fresh `26.04` machine, every check of `tests/vm-checks.sh` passed, and the task deleted the machine again. [problems.md](problems.md#tooling-quirks) lists the two details that are specific to multipass on macOS and what the task does about them. incus is not covered by a local run; CI runs it. The `curl` install line and the RDP steps of the README recipes are not part of these runs.
 
 ## Update a pinned desktop app
 

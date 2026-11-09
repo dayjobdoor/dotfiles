@@ -7,7 +7,7 @@ What is planned, by horizon. Nothing here is needed to use or change a machine; 
 - Raise the mise release from 2026.10.23. 2026.11.3 and later are past the three-day `minimum_release_age`; the pins and the steps are in [guidance.md](docs/guidance.md#raise-the-mise-release).
 - Measure the start of an interactive zsh with the sheldon plugin set, and `full-weekly.yaml` after the desktop moved into the base ([problems.md](docs/problems.md#not-verified)).
 - Try Windows App and mstsc against the TLS-only xrdp.
-- Run the README multipass recipe with its `chpasswd` block, and the OrbStack `passwd` and RDP steps, as written.
+- Run the README multipass recipe with its `chpasswd` block, and the incus `passwd` and RDP steps, as written.
 
 ## Medium term
 

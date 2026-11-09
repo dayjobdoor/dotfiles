@@ -10,7 +10,7 @@ A program can still change a tracked file through its link. lazygit rewrites its
 
 ### A Japanese locale breaks the firewall check
 
-The wrapper forces `LC_ALL=C.UTF-8`, and `install.sh` gets the same value because it ends by running the wrapper. With the mise release that `min_version` names, a Japanese locale breaks the firewall check, because mise decides that ufw is active by matching the English line `Status: active`. Under a Japanese locale, `mise bootstrap` then reports firewall drift forever. The desktop session sets such a locale, and orb and ssh forward `LC_ALL`, which sudo keeps. On those machines, run raw `mise bootstrap` commands with `LC_ALL=C.UTF-8` until mise pins the locale itself.
+The wrapper forces `LC_ALL=C.UTF-8`, and `install.sh` gets the same value because it ends by running the wrapper. With the mise release that `min_version` names, a Japanese locale breaks the firewall check, because mise decides that ufw is active by matching the English line `Status: active`. Under a Japanese locale, `mise bootstrap` then reports firewall drift forever. The desktop session sets such a locale, and ssh forwards `LC_ALL`, which sudo keeps. On those machines, run raw `mise bootstrap` commands with `LC_ALL=C.UTF-8` until mise pins the locale itself.
 
 ### A project that selects its own mise environment hides the modules
 
@@ -38,7 +38,6 @@ Zed and Zen each carry an in-app updater that would replace files in the mise in
 ## Tooling quirks
 
 - **multipass on macOS.** `multipass exec` spins at 100% CPU forever when its output goes to `/dev/null`, so `test:vm` reads the cloud-init wait through a pipe. `multipass exec` also arrives over ssh, and mise refuses to set the firewall to default deny for an ssh-derived process without `SSH_CONNECTION`, which `sudo -i` drops; `vm_sh` keeps it with `--preserve-env`.
-- **OrbStack.** It renumbers the user after cloud-init and fails while a process of that user runs, so the install in `cloud-init/vm.yaml` is skipped there and you run it by hand. It rejects `vm` as a machine name.
 - **act.** The Docker daemon may not be on the machine that runs the script, so a bind mount of a path made with `mktemp` shows the container nothing. `test:desktop` copies the secret in with `docker cp`. The `vm` job does not run under act, and `.actrc` maps the runners to a 24.04 image.
 - **The GitHub API.** Anonymous callers get 60 requests an hour, which makes `ssh-import-id gh:` and mise's `github:` tools fail with 403; a token without scopes lifts it ([SECURITY.md](../SECURITY.md#github-tokens)).
 
@@ -144,7 +143,7 @@ A tested remedy for the ciphers is `tls_ciphers=ECDHE+AESGCM:ECDHE+CHACHA20` in 
 These statements are open ends, not known failures.
 
 - Windows App and mstsc were not tried against the TLS-only xrdp; FreeRDP was.
-- The README recipes were not run as written: the multipass launch with its `chpasswd` block, and the OrbStack `passwd` and RDP steps. `test:vm` runs the part above the `# djd-install-below` line of `cloud-init/vm.yaml` and the install.
+- The README recipes were not run as written: the multipass launch with its `chpasswd` block, and the incus `passwd` and RDP steps. `test:vm` runs the part above the `# djd-install-below` line of `cloud-init/vm.yaml` and the install.
 - The startup time of the sheldon plugin set was not measured. The old set measured 102.5 ms.
 - `full-weekly.yaml` has not run since the desktop moved into the base, so its time and its disk use are unknown.
 - A rebuilt image replaces a compose container, and the new one has none of the old container's files; this is compose's behavior and was not tested here.

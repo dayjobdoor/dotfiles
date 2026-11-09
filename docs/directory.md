@@ -28,7 +28,7 @@ mise-config/            linked as ~/.config/mise, the global config
   hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, desktop-final and sheldon-lock: hook scripts that are too long for an inline [bootstrap.hooks] string, and the helpers they share
 home/                   dotfile group home, symlinked file by file into ~ (home/.config/pi and home/.config/omp hold the pi and omp config)
 tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and server-hooks.sh
-cloud-init/vm.yaml      the cloud-init file for incus, multipass, and OrbStack
+cloud-init/vm.yaml      the cloud-init file for incus and multipass
 .devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
 .githooks/              pre-commit hook that runs gitleaks
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml, docs.yaml

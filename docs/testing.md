@@ -140,9 +140,9 @@ The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`
 - `djd module remove server` succeeds. The sshd drop-in and `daemon.json` disappear, the desktop (`~/.xsession`, the Japanese locale) stays, and the ufw SSH rule stays.
 - Brave's menu entry carries no `--no-sandbox`. Only the Docker image adds it.
 
-The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to every user on the runner (`chmod 666`). It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `make test:vm` runs the same checks with multipass or OrbStack. All three get the checkout through `tests/tree.sh`. The VM is deleted at the end of a run. `DJD_KEEP_VM=1` (exactly `1`) keeps it, to inspect a failure.
+The task uses the first of incus and multipass that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to every user on the runner (`chmod 666`). It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `make test:vm` runs the same checks with multipass. Both get the checkout through `tests/tree.sh`. The VM is deleted at the end of a run. `DJD_KEEP_VM=1` (exactly `1`) keeps it, to inspect a failure.
 
-[guidance.md](guidance.md#test-with-multipass-and-orbstack) records the runs of `test:vm` on multipass and OrbStack.
+[guidance.md](guidance.md#test-with-multipass) records the run of `test:vm` on multipass.
 
 ## Test map
 
@@ -153,7 +153,7 @@ The task uses the first of incus, multipass, and OrbStack (`orb`) that it finds.
 | `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses | `test:offline` | The image |
 | `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
 | `tests/desktop-apps.sh` | The four desktop apps, and that Wireshark, Obsidian, Vicinae, Ferdium and fusuma are on `PATH` with a working menu entry | `test:desktop`, `tests/vm-checks.sh` | The image, VM |
-| `tests/vm-checks.sh` | The base and server install, including that xrdp runs with the hardened settings | `test:vm` | incus, multipass, or OrbStack |
+| `tests/vm-checks.sh` | The base and server install, including that xrdp runs with the hardened settings | `test:vm` | incus or multipass |
 | `tests/tree.sh` | Helper, not a test | `ci`, `test:vm`, `test:offline`, the no-trust flow in AGENTS.md | Host |
 
 The tasks:

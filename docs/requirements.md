@@ -18,7 +18,7 @@ What the repository has to deliver, what it does not, and how you tell that a ma
 | `full` module | The personal toolbox; it implies `agent`. |
 | `secrets` module | Environment secrets as age ciphertext, for machines you own. |
 | Docker image | The base and `agent`, published to GHCR as `latest`, `X.Y` and `X.Y.Z`, with a shell or the desktop over RDP. |
-| VM recipes | `cloud-init/vm.yaml` for multipass, OrbStack and incus: hostname `vm`, the user `dayjobdoor`, the install. |
+| VM recipes | `cloud-init/vm.yaml` for multipass and incus: hostname `vm`, the user `dayjobdoor`, the install. |
 | `djd` | `apply`, `update`, `status`, `doctor`, `module` and `secret`. |
 
 ## What does not ship

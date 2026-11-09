@@ -6,7 +6,7 @@ Pointers before you search: the terms of this repository, the documentation of t
 
 | Term | Meaning |
 | --- | --- |
-| VM | A fresh Ubuntu 26.04 machine with systemd that `test:vm` starts from `cloud-init/vm.yaml`. In CI it is an incus system container, which shares the runner's kernel. On a Mac it is a multipass or an OrbStack machine. |
+| VM | A fresh Ubuntu 26.04 machine with systemd that `test:vm` starts from `cloud-init/vm.yaml`. In CI it is an incus system container, which shares the runner's kernel. On a Mac it is a multipass machine. |
 | part | One step of `mise bootstrap`, such as `packages`, `files`, `dotfiles`, or `tools`. `--only` and `--skip` take the part names. This is mise's word. |
 | flavor | The set of modules that one Docker image installs, passed as `DJD_MODULES`. The published image is `agent` on the base, which includes the desktop. The `full` flavor, `agent full`, is built only by `full-weekly.yaml`. |
 | checkout | The git working tree at `~/.dotfiles`, which can be a symlink to a tree elsewhere. `~/.config/mise` links to its `mise-config/`. |
@@ -35,7 +35,7 @@ Pointers before you search: the terms of this repository, the documentation of t
 | sheldon, zsh-abbr, zsh-job-queue | [sheldon.cli.rs](https://sheldon.cli.rs), [olets/zsh-abbr](https://github.com/olets/zsh-abbr), [olets/zsh-job-queue](https://github.com/olets/zsh-job-queue) |
 | age | [age-encryption.org](https://age-encryption.org) |
 | cloud-init | [cloudinit.readthedocs.io](https://cloudinit.readthedocs.io) |
-| multipass, OrbStack, incus | [multipass](https://documentation.ubuntu.com/multipass/latest/), [OrbStack](https://docs.orbstack.dev), [incus](https://linuxcontainers.org/incus/docs/main/) |
+| multipass, incus | [multipass](https://documentation.ubuntu.com/multipass/latest/), [incus](https://linuxcontainers.org/incus/docs/main/) |
 | Docker build | [docs.docker.com/build](https://docs.docker.com/build/) |
 | GitHub Actions | [docs.github.com/actions](https://docs.github.com/actions) |
 | xrdp | [neutrinolabs/xrdp](https://github.com/neutrinolabs/xrdp) |
