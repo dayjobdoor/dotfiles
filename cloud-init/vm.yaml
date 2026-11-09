@@ -1,10 +1,9 @@
 #cloud-config
-# One file for an incus container, a multipass VM and an OrbStack machine; the README and docs/guidance.md have the
-# commands. Above the marker below it sets the hostname, the user, timezone, keyboard and packages. Below the marker it
-# imports an SSH key and runs the install (not on OrbStack). test:vm stops reading at the marker: it installs the
+# One file for an incus container and a multipass VM; the README has the commands. Above the marker below it sets the hostname, the user, timezone, keyboard and packages. Below the marker it
+# imports an SSH key and runs the install. test:vm stops reading at the marker: it installs the
 # checkout itself, and the VM has no key of the owner.
 # RDP needs a password. It is not in this file (SECURITY.md forbids a committed passwd): the README recipe appends a
-# hashed chpasswd block at launch for multipass; OrbStack: orb -m vm-orb sudo passwd dayjobdoor
+# hashed chpasswd block at launch for multipass, and `incus exec vm -- passwd dayjobdoor` sets one in incus
 
 hostname: vm
 timezone: Asia/Tokyo
@@ -38,11 +37,7 @@ packages:
 # passwordless sudo, so that account gets root over SSH on the VM. Forks: replace it with your own GitHub user before
 # launching. The server module refuses to turn passwords off for a user without a key, so a failed import (GitHub's API
 # limits anonymous callers) stops the install instead of locking the VM.
-# Both run as dayjobdoor, after the packages. They are skipped on OrbStack: its setup renumbers the user after
-# cloud-init, and `orb create` fails while a process of that user runs; install there by hand (docs/guidance.md).
+# Both run as dayjobdoor, after the packages.
 runcmd:
-  - |
-    if [ ! -e /opt/orbstack-guest ]; then
-      su - dayjobdoor -c 'ssh-import-id gh:dayjobdoor'
-      su - dayjobdoor -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server'
-    fi
+  - su - dayjobdoor -c 'ssh-import-id gh:dayjobdoor'
+  - su - dayjobdoor -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server'

@@ -144,7 +144,7 @@ group = "root"
 login_shell = "zsh"
 
 [bootstrap.hooks]
-# mise runs a plain `chsh` in the user phase, which asks for a password that cloud and OrbStack users
+# mise runs a plain `chsh` in the user phase, which asks for a password that cloud users
 # don't have; switching via sudo first leaves that phase a no-op.
 pre-user = 'z=$(command -v zsh); u=$(id -un); [ "$(getent passwd "$u" | cut -d: -f7)" = "$z" ] || sudo chsh -s "$z" "$u"'
 # Symlink entries refuse real files; hooks/dotfile-conflicts moves them aside (dotfiles part only).
@@ -284,7 +284,7 @@ version = "0.30.0"
 postinstall = '''
 export PATH=/usr/bin:/bin
 d="$HOME/.local/share/applications"; i="$HOME/.local/share/icons/hicolor/512x512/apps"; mkdir -p "$d" "$i" "$MISE_TOOL_INSTALL_PATH/bin"
-# the AppImage is unpacked once, so the app needs no FUSE (a container or an OrbStack machine has none)
+# the AppImage is unpacked once, so the app needs no FUSE (a container has none)
 cd "$MISE_TOOL_INSTALL_PATH" && ./Vicinae.AppImage --appimage-extract >/dev/null && mv squashfs-root app && rm Vicinae.AppImage
 # AppRun finds its files from its own path, so a link would not do: a wrapper runs it in place
 printf '#!/bin/sh\nexec "%s/app/AppRun" "$@"\n' "$MISE_TOOL_INSTALL_PATH" > "$MISE_TOOL_INSTALL_PATH/bin/vicinae"

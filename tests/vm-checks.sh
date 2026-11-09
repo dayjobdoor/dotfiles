@@ -29,7 +29,7 @@ test ! -L ~/.dotfiles
 git -C ~/.dotfiles rev-parse --verify -q HEAD >/dev/null
 ok install.sh cloned the repo
 
-# the Japanese locale is what orb and ssh forward to such a machine; the djd router has to undo it. Control: under
+# the Japanese locale is what ssh forwards to such a machine; the djd router has to undo it. Control: under
 # this locale ufw does not speak English (mise matches "Status: active"), or the doctor run below would pass even
 # without the router. env, because sudo may drop LC_ALL.
 ja=$(sudo env LC_ALL=ja_JP.UTF-8 ufw status)
@@ -186,7 +186,7 @@ fi
 ok brave keeps its sandbox
 
 # desktop-final puts the user in the groups that Wireshark captures through and fusuma reads input through. The Electron
-# profile (Obsidian, Ferdium) is loaded where AppArmor runs; OrbStack's kernel has no AppArmor, so there is nothing to load.
+# profile (Obsidian, Ferdium) is loaded where AppArmor runs, and only that is checked: a kernel without it has nothing to load.
 getent group wireshark | grep -qw "$(id -un)"
 getent group input | grep -qw "$(id -un)"
 if [ -d /sys/kernel/security/apparmor ]; then

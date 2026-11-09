@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Fresh Ubuntu VM (incus, multipass or OrbStack): curl | sh install of the base and server, hardening, module removal"
+#MISE description="Fresh Ubuntu VM (incus or multipass): curl | sh install of the base and server, hardening, module removal"
 # cloud-init, the README's `curl | sh -s -- server` (cloning this tree instead of GitHub), then
-# tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux), multipass and OrbStack (`orb`) found.
+# tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux) and multipass found.
 # GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 (exactly 1) keeps the VM after the run, to inspect a failure.
 # -E: the ERR trap also fires inside vm_create and vm_sh
 set -Eeuo pipefail
@@ -62,25 +62,12 @@ elif command -v multipass >/dev/null 2>&1; then
     # over ssh without SSH_CONNECTION, which `sudo -i` would drop
     vm_sh() { multipass exec "$name" -- sudo --preserve-env=SSH_CONNECTION -iu dayjobdoor bash -c "$1"; }
     vm_delete() { multipass delete --purge "$name" >/dev/null 2>&1 || true; }
-elif command -v orb >/dev/null 2>&1; then
-    vm_create() {
-        # resolute is the codename of 26.04; orb reads user data from a file only
-        userdata_file=$(mktemp)
-        userdata >"$userdata_file"
-        orb create --user dayjobdoor -c "$userdata_file" ubuntu:resolute "$name" >/dev/null
-        cloud_init_wait
-    }
-    vm_root() { orb -m "$name" -w / sudo "$@"; }
-    # orb starts commands in the host's cwd, where mise would also read the host's mise.toml files
-    vm_sh() { orb -m "$name" -u dayjobdoor -w / bash -lc "cd && $1"; }
-    vm_delete() { orb delete -f "$name" >/dev/null 2>&1 || true; }
 else
-    echo "vm: needs incus, multipass or orb (OrbStack)" >&2
+    echo "vm: needs incus or multipass" >&2
     exit 2
 fi
 
-userdata_file=
-trap '[ -z "$userdata_file" ] || rm -f "$userdata_file"; [ "${DJD_KEEP_VM:-}" = 1 ] || vm_delete' EXIT
+trap '[ "${DJD_KEEP_VM:-}" = 1 ] || vm_delete' EXIT
 vm_create
 echo "vm: $name is up"
 
@@ -92,7 +79,7 @@ vm_sh 'git -c init.defaultBranch=main init -q ~/djd-src && cd ~/djd-src && git a
     git -c user.name=djd -c user.email=djd@localhost commit -qm test'
 
 # single quotes on purpose: these expand inside the VM. install.sh arrives on stdin as from curl, so it clones.
-# DJD_SKIP_SSH_CHECKS: the VM has no authorized key (it is reached through incus, multipass or orb), and the server
+# DJD_SKIP_SSH_CHECKS: the VM has no authorized key (it is reached through incus or multipass), and the server
 # module's post-packages hook refuses to turn passwords off for a user who has none. vm-checks.sh applies again, so
 # it needs the variable too.
 # shellcheck disable=SC2016
