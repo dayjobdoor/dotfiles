@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Sandbox image: offline tests, doctor (green and red), PATH, shell startup, backup and checkout re-apply, secrets round trip (builds it first)"
-#MISE depends=["build sandbox"]
-#USAGE arg "[image]" default="djd:sandbox" help="Image to test"
+#MISE description="The image: offline tests, doctor (green and red), PATH, shell startup, backup and checkout re-apply, secrets round trip (builds it first)"
+#MISE depends=["build"]
+#USAGE arg "[image]" default="djd:latest" help="Image to test"
 set -euo pipefail
 # set -e alone fails silently; name the check that stopped the run. GitHub lists ::error:: lines as annotations,
 # which `gh run view` shows without the log; the command is cut to one short line, and its text holds no secret
@@ -12,7 +12,7 @@ on_err() {
 }
 trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
-image=${usage_image:-${1:-djd:sandbox}}
+image=${usage_image:-${1:-djd:latest}}
 ok() { echo "ok $*"; }
 # exported so that the `docker run -e MISE_GITHUB_TOKEN` flags below forward it from the environment instead of
 # putting it on the command line
@@ -26,7 +26,7 @@ ok offline tests
 
 # `docker run IMAGE djd doctor` is the green path. The red paths run in a zsh -lc script, so every check goes
 # through doctor_says: zsh has no pipefail, and a `djd doctor | grep -q` would pass whatever doctor exits with.
-# Doctor's other checks fail in these containers (a missing sshd, no xrdp), which is why `ok` lines are matched
+# Doctor's other checks fail in these containers (a missing sshd), which is why `ok` lines are matched
 # by name and only a FAIL line also requires the non-zero exit.
 doctor_lib=$(
     cat <<'EOF'
@@ -54,13 +54,13 @@ doctor_says() {
 EOF
 )
 
-# the checks that apply to a plain image (no server, desktop or secrets selected) must each print their ok line:
+# the checks that apply to the plain image (no server or secrets selected) must each print their ok line:
 # a doctor that skipped one would still exit 0
 out=$(docker run --rm "$image" djd doctor 2>&1) || {
     printf '%s\n' "$out" >&2
     exit 1
 }
-for check in ubuntu mise-config login-shell bootstrap dotfiles; do
+for check in ubuntu mise-config login-shell bootstrap dotfiles plugins xrdp-tls xrdp-root-login; do
     grep -qx "ok $check" <<<"$out" || {
         printf 'djd doctor printed no "ok %s" line:\n%s\n' "$check" "$out" >&2
         exit 1
@@ -70,24 +70,47 @@ done
 docker run --rm "$image" rg --version >/dev/null
 ok tools on PATH without a login shell
 # env -i drops the image's ENV PATH, so only ~/.profile can put the shims there (agents start shells this way)
-docker run --rm "$image" env -i HOME=/home/ubuntu bash -lc 'rg --version' >/dev/null
+docker run --rm "$image" env -i HOME=/home/dayjobdoor bash -lc 'rg --version' >/dev/null
 ok .profile puts the shims on PATH
 
-# the agent module's [env] reaches a shimmed tool in a plain `docker run`, and pi and omp each get the global AGENTS.md
+# the agent module's [env] reaches a shimmed tool in a plain `docker run`, and pi and omp each get their config
 # PI_TELEMETRY is 0 and DO_NOT_TRACK is 1, so node prints their concatenation: 01
 docker run --rm "$image" sh -c 'node -p "process.env.PI_TELEMETRY + process.env.DO_NOT_TRACK"' | grep -qx 01
-# both files are links into the checkout's agent/ directory, not empty, and the same text
+docker run --rm "$image" sh -c 'node -p "process.env.PI_CODING_AGENT_DIR + process.env.OMP_PROFILE"' | grep -qx "/home/dayjobdoor/.config/pi/agentgod"
+# the global instructions are links into the checkout's home/.config, and not empty
 docker run --rm "$image" zsh -lc '
     set -e
-    for t in pi omp; do
-        f=$HOME/.$t/agent/AGENTS.md
-        test -L "$f"
-        test -s "$f"
-        [ "$(readlink -f "$f")" = "$HOME/.dotfiles/agent/.$t/agent/AGENTS.md" ]
+    for f in .config/pi/agent/AGENTS.md .config/omp/profiles/god/agent/RULES.md; do
+        test -L "$HOME/$f"
+        test -s "$HOME/$f"
+        [ "$(readlink -f "$HOME/$f")" = "$HOME/.dotfiles/home/$f" ]
     done
-    cmp ~/.pi/agent/AGENTS.md ~/.omp/agent/AGENTS.md
 '
-ok agent env without a login shell, global AGENTS.md for pi and omp
+ok agent env without a login shell, pi and omp config
+# an alias replaces a command and is a mise [shell_alias]; a shortcut is a zsh-abbr abbreviation (never both)
+docker run --rm "$image" mise shell-alias get cat | grep -qx 'bat -p'
+docker run --rm "$image" mise shell-alias get tree | grep -qx 'tree -NC'
+if docker run --rm "$image" mise shell-alias get ll >/dev/null 2>&1; then exit 1; fi
+if docker run --rm "$image" mise shell-alias get nosuch >/dev/null 2>&1; then exit 1; fi
+ok shell aliases come from mise
+# sheldon fetched the pinned plugins (offline: the image holds them), zsh-abbr loads with its submodule zsh-job-queue
+# and reads the abbreviations file, and a login zsh has zsh-defer. No .functions file is left to source.
+# no `set -e` here: zsh-abbr's own file returns non-zero on its last line, which errexit would turn into a failure
+docker run --rm "$image" zsh -lc '
+    f=$(sheldon source | sed -n "s/^zsh-defer source \"\(.*zsh-abbr.plugin.zsh\)\"$/\1/p")
+    [ -r "$f" ] || exit 1
+    [ -r "${f:h}/zsh-job-queue/zsh-job-queue.zsh" ] || exit 2
+    source $f
+    abbr list | grep -qxF "\"ll\"=\"ls -l\"" || exit 3
+    abbr list | grep -qxF "\"lh\"=\"xdg-open http://localhost:3000\"" || exit 4
+    [ ! -e ~/.config/zsh/.functions ] || exit 5
+'
+out=$(docker run --rm -t "$image" zsh -ic 'whence -w zsh-defer' | tr -d '\r')
+grep -q 'function' <<<"$out" || {
+    printf 'zsh-defer is not loaded in an interactive shell: %s\n' "$out" >&2
+    exit 1
+}
+ok sheldon plugins, zsh-abbr abbreviations
 
 # Every start is interactive, on a tty. Two caches are involved: the first zsh start fills the zsh init cache, so
 # its output is dropped (the plugins are bootstrap checkouts, not fetched at shell start). The second zsh start
@@ -238,9 +261,27 @@ docker run --rm "$image" zsh -lc "$doctor_lib"'
 '
 ok doctor checks the mise config link
 
-# desktop: each xrdp setting has its own line, and a commented-out default is not the setting
+# the sheldon lock: missing, older than the config, or naming a directory that is gone
 docker run --rm "$image" zsh -lc "$doctor_lib"'
-    printf "env = [\"agent\", \"desktop\"]\n" >~/.dotfiles/mise-config/miserc.local.toml
+    lock=~/.local/share/sheldon/plugins.lock
+    config=~/.config/sheldon/plugins.toml
+    doctor_says ok plugins
+    step a config newer than its lock
+    touch "$config"
+    doctor_says FAIL plugins "newer than its lock"
+    touch "$lock"
+    doctor_says ok plugins
+    step a plugin directory that is gone
+    rm -rf ~/.local/share/sheldon/repos/github.com/romkatv
+    doctor_says FAIL plugins "a plugin directory is missing"
+    step no lock at all
+    rm -f "$lock"
+    doctor_says FAIL plugins "no sheldon lock"
+'
+ok doctor checks the sheldon lock
+
+# each xrdp setting has its own line, and a commented-out default is not the setting
+docker run --rm "$image" zsh -lc "$doctor_lib"'
     sudo install -d /etc/xrdp
     xrdp() { printf "%s\n" "[Globals]" "$1" | sudo tee /etc/xrdp/xrdp.ini >/dev/null; }
     sesman() { printf "%s\n" "[Security]" "$1" | sudo tee /etc/xrdp/sesman.ini >/dev/null; }

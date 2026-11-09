@@ -17,3 +17,8 @@
 age.txt
 .DS_Store
 node_modules/
+# pi and omp model lists hold a Cloudflare account ID in their baseUrls (SECURITY.md); keep them in ~/.config, not here
+home/.config/pi/agent/models.json
+home/.config/omp/profiles/*/agent/models.yml
+# omp creates this lock next to config.yml at run time
+home/.config/omp/profiles/*/agent/config.yml.lock

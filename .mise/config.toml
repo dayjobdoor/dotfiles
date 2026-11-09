@@ -1,7 +1,7 @@
-# Repo development: lint, secret scan, image builds, the desktop container, tests and local CI. `make <task>` runs
-# `mise run <task>`. Longer tasks are files in mise-tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
+# Repo development: lint, secret scan, the image build, the desktop container, tests and local CI. `make <task>` runs
+# `mise run <task>`. Longer tasks are files in .mise/tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
 # A task that needs tools names them (`tools`, or a `#MISE tools=` header in a file task), so `mise run <task>`
-# installs only those and a job does not fetch unrelated tools. mise.lock pins their versions.
+# installs only those and a job does not fetch unrelated tools. .mise/mise.lock pins their versions.
 min_version = "2026.10.23"
 
 [tasks.lint]
@@ -25,8 +25,8 @@ tools.gitleaks = "latest"
 run = "gitleaks git --pre-commit --staged --redact --no-banner"
 
 [tasks.shell]
-description = "Open a shell in the sandbox image"
-run = "docker run --rm -it --init djd:sandbox"
+description = "Open a shell in the image"
+run = "docker run --rm -it --init djd:latest"
 
 [tasks.up]
 description = "Start the desktop container (RDP on 127.0.0.1:33389; PASSWORD in .devcontainer/.env)"
@@ -39,6 +39,6 @@ run = "docker compose -f .devcontainer/compose.yaml down"
 [settings]
 # `mise lock` covers these platforms whatever machine runs it (CI is linux-x64 and linux-arm64, a Mac is macos-arm64)
 lockfile_platforms = ["linux-x64", "linux-arm64", "macos-arm64"]
-# mise.lock records npm tools as an embedded-aube dependency graph, which installs only with aube;
+# .mise/mise.lock records npm tools as an embedded-aube dependency graph, which installs only with aube;
 # without this, djd machines would use the agent module's bun and refuse the locked install
 npm.package_manager = "aube"

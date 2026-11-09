@@ -3,7 +3,7 @@
 #MISE tools={shellcheck="latest", shfmt="latest"}
 #USAGE flag "--fix" help="Rewrite shell formatting instead of reporting it"
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 fix=${usage_fix:-false}
 
@@ -26,5 +26,5 @@ elif ! shfmt -i 4 -d "${shell[@]}"; then
     exit 1
 fi
 # one file per call: zsh takes the first operand as the script and the rest as its arguments
-for f in home/.zshenv home/.config/zsh/.z* home/.config/zsh/.functions; do zsh -n "$f"; done
+for f in home/.zshenv home/.config/zsh/.z*; do zsh -n "$f"; done
 echo "ok shell"

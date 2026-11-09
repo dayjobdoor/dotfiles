@@ -2,7 +2,7 @@
 #MISE description="designmd lint over DESIGN.md"
 #MISE tools={node="lts", "npm:@google/design.md"="latest"}
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 out=$(designmd lint DESIGN.md) || {
     echo "$out"

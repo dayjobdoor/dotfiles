@@ -2,12 +2,12 @@
 #MISE description="mise TOML formatting, task definitions (djd included) and the pinned mise release"
 #USAGE flag "--fix" help="Rewrite TOML formatting instead of reporting it"
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 fix=${usage_fix:-false}
 
 # --stdin, because mise only formats configs it would load from the current directory
-for f in mise.toml mise-config/*.toml; do
+for f in .mise/config.toml mise-config/*.toml; do
     # machine-local overrides are gitignored, and --fix must never rewrite them
     case "$f" in *.local.toml) continue ;; esac
     formatted=$(mise fmt --stdin <"$f")
@@ -38,7 +38,7 @@ collect() { # source, expected number of pins, then the pins that the source's s
 # unquoted: the words are the pins, and none contains a space
 # shellcheck disable=SC2046
 {
-    for f in mise.toml mise-config/config.toml; do
+    for f in .mise/config.toml mise-config/config.toml; do
         collect "$f" 1 $(sed -n 's/^min_version = "\(.*\)"$/\1/p' "$f")
     done
     for f in .github/workflows/*.yaml; do
@@ -46,7 +46,7 @@ collect() { # source, expected number of pins, then the pins that the source's s
     done
 }
 if [ "$(sort -u <<<"$pins" | grep -c .)" -ne 1 ]; then
-    echo "lint: the mise versions in mise.toml, mise-config/config.toml and the mise-action pins differ:" >&2
+    echo "lint: the mise versions in .mise/config.toml, mise-config/config.toml and the mise-action pins differ:" >&2
     sort <<<"$pins" | grep . | uniq -c >&2
     exit 1
 fi

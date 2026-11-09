@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Desktop image: xrdp TLS and root refusal, RDP login, XFCE session, audio, apps, logout and restart (see docs/ci.md)"
-#MISE depends=["build desktop"]
-#USAGE arg "[image]" default="djd:desktop" help="Image to test"
+#MISE description="The image's desktop: xrdp TLS and root refusal, RDP login, XFCE session, audio, apps, logout and restart (see docs/ci.md)"
+#MISE depends=["build"]
+#USAGE arg "[image]" default="djd:latest" help="Image to test"
 set -Eeuo pipefail
 # GitHub lists ::error:: lines as annotations, which `gh run view` shows without the log
 # shellcheck disable=SC2329 # invoked by the ERR trap
@@ -11,20 +11,20 @@ on_err() {
 }
 trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
-image=${usage_image:-${1:-djd:desktop}}
+image=${usage_image:-${1:-djd:latest}}
 net="djd-rdp-$$"
 server="djd-desktop-$$"
 client="djd-rdp-client-$$"
 control="djd-desktop-negotiate-$$"
 secret="djd-desktop-secret-$$"
-secret_file=
+secret_dir=
 
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
     docker rm -f "$server" "$client" "$control" "$secret" >/dev/null 2>&1 || true
     docker network rm "$net" >/dev/null 2>&1 || true
     # holds the test password; check_password_secret creates it, and a failed run must not leave it
-    [ -z "$secret_file" ] || rm -f "$secret_file"
+    [ -z "$secret_dir" ] || rm -rf "$secret_dir"
 }
 trap cleanup EXIT
 
@@ -48,10 +48,10 @@ wait_xrdp() {
 
 wait_session() {
     for _ in $(seq 120); do
-        docker exec "$server" pgrep -u ubuntu -x xfce4-session >/dev/null && return
+        docker exec "$server" pgrep -u dayjobdoor -x xfce4-session >/dev/null && return
         sleep 1
     done
-    fail "no xfce4-session for ubuntu after 120s"
+    fail "no xfce4-session for dayjobdoor after 120s"
 }
 
 # pipewire-module-xrdp loads the sink and source from an XDG autostart entry a few seconds after the session starts,
@@ -60,16 +60,16 @@ wait_session() {
 # otherwise) is what shows the script ran.
 check_audio() {
     local uid sink='' src=''
-    uid=$(docker exec -u ubuntu "$server" id -u)
+    uid=$(docker exec -u dayjobdoor "$server" id -u)
     for _ in $(seq 60); do
-        sink=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-sink 2>/dev/null || true)
+        sink=$(docker exec -u dayjobdoor -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-sink 2>/dev/null || true)
         [ "$sink" = xrdp-sink ] && break
         sleep 1
     done
     [ "$sink" = xrdp-sink ] || fail "the default audio sink is '${sink:-none}', not xrdp-sink: audio over RDP is not set up"
     echo "test:desktop: xrdp-sink is the default audio sink"
     for _ in $(seq 30); do
-        src=$(docker exec -u ubuntu -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-source 2>/dev/null || true)
+        src=$(docker exec -u dayjobdoor -e "XDG_RUNTIME_DIR=/run/user/$uid" "$server" pactl get-default-source 2>/dev/null || true)
         [ "$src" = xrdp-source ] && break
         sleep 1
     done
@@ -81,10 +81,10 @@ check_audio() {
 # starts without, so the check is that the new wireplumber has them again, not only that one is running.
 check_wireplumber_respawn() {
     local old new=''
-    old=$(docker exec "$server" pgrep -o -u ubuntu -x wireplumber) || fail "no wireplumber is running for ubuntu"
+    old=$(docker exec "$server" pgrep -o -u dayjobdoor -x wireplumber) || fail "no wireplumber is running for dayjobdoor"
     docker exec "$server" kill "$old"
     for _ in $(seq 30); do
-        new=$(docker exec "$server" pgrep -o -u ubuntu -x wireplumber 2>/dev/null || true)
+        new=$(docker exec "$server" pgrep -o -u dayjobdoor -x wireplumber 2>/dev/null || true)
         [ -n "$new" ] && [ "$new" != "$old" ] && break
         new=''
         sleep 1
@@ -95,7 +95,7 @@ check_wireplumber_respawn() {
 }
 
 audio_pids() {
-    docker exec "$server" pgrep -u ubuntu -x 'pipewire|pipewire-pulse|wireplumber' | sort | tr '\n' ' ' || true
+    docker exec "$server" pgrep -u dayjobdoor -x 'pipewire|pipewire-pulse|wireplumber' | sort | tr '\n' ' ' || true
 }
 
 # Logging out must end every daemon ~/.xsession started, and the next login must start new ones; a survivor would
@@ -103,8 +103,8 @@ audio_pids() {
 check_logout_cleanup() {
     local before after p
     before=$(audio_pids)
-    [ -n "$before" ] || fail "no audio daemon runs for ubuntu before the logout"
-    docker exec "$server" pkill -u ubuntu -x xfce4-session
+    [ -n "$before" ] || fail "no audio daemon runs for dayjobdoor before the logout"
+    docker exec "$server" pkill -u dayjobdoor -x xfce4-session
     for _ in $(seq 30); do
         [ -z "$(audio_pids)" ] && break
         sleep 1
@@ -173,7 +173,7 @@ check_legacy_refused() {
         fail "xrdp.log of the server does not show the legacy-layer request refused (exit $rc): the client ended for another reason"
     if docker exec "$server" pgrep -u probe >/dev/null; then fail "the legacy-layer client got a session"; fi
     docker exec "$server" test -d "/proc/$1" || fail "the first client's xfce4-session ($1) is gone"
-    docker exec "$client" pgrep -f 'xfreerdp3 /v:[^ ]* /u:ubuntu ' >/dev/null || fail "the first client lost its connection"
+    docker exec "$client" pgrep -f 'xfreerdp3 /v:[^ ]* /u:dayjobdoor ' >/dev/null || fail "the first client lost its connection"
     echo "test:desktop: a legacy-layer client is refused (exit $rc) where security_layer=negotiate accepts it"
 }
 
@@ -209,34 +209,37 @@ check_root_refused() {
 
 # The password reaches the entrypoint as a mounted secret as well as an argument (compose.yaml uses the secret, which
 # `docker inspect` and /proc/1/cmdline do not show). passwd -S says P once a password is set. The control is the
-# image itself, which has none, and a start with neither an argument nor a secret must refuse.
+# image itself, which has none, and a start with neither an argument nor a secret must refuse. The file goes in with
+# `docker cp`, not a bind mount: where the Docker daemon is not on the machine that runs this script (act in a
+# container, a remote context), the host path of a mount does not exist and the container would see no secret.
 check_password_secret() {
     local status='' rc=0
-    secret_file=$(mktemp)
-    printf 'djd-test-secret\n' >"$secret_file"
-    status=$(docker run --rm --user root --entrypoint passwd "$image" -S ubuntu | awk '{print $2}')
-    [ "$status" != P ] || fail "the image already has a password for ubuntu, so the secret check proves nothing"
-    docker run -d --name "$secret" --user root --entrypoint djd-desktop-entrypoint \
-        -v "$secret_file:/run/secrets/djd_rdp_password:ro" "$image" ubuntu >/dev/null
+    secret_dir=$(mktemp -d)
+    printf 'djd-test-secret\n' >"$secret_dir/djd_rdp_password"
+    status=$(docker run --rm --user root --entrypoint passwd "$image" -S dayjobdoor | awk '{print $2}')
+    [ "$status" != P ] || fail "the image already has a password for dayjobdoor, so the secret check proves nothing"
+    docker create --name "$secret" --user root --entrypoint djd-desktop-entrypoint "$image" dayjobdoor >/dev/null
+    docker cp "$secret_dir" "$secret:/run/secrets" # /run/secrets does not exist in the image, so the directory becomes it
+    docker start "$secret" >/dev/null
     for _ in $(seq 20); do
-        status=$(docker exec "$secret" passwd -S ubuntu | awk '{print $2}')
+        status=$(docker exec "$secret" passwd -S dayjobdoor | awk '{print $2}')
         [ "$status" = P ] && break
         sleep 1
     done
     [ "$status" = P ] || fail "the entrypoint set no password from /run/secrets/djd_rdp_password"
     docker rm -f "$secret" >/dev/null
-    rm -f "$secret_file"
-    docker run --rm --user root --entrypoint djd-desktop-entrypoint "$image" ubuntu >/dev/null 2>&1 || rc=$?
+    rm -rf "$secret_dir"
+    docker run --rm --user root --entrypoint djd-desktop-entrypoint "$image" dayjobdoor >/dev/null 2>&1 || rc=$?
     [ "$rc" = 2 ] || fail "the entrypoint started without a password (exit $rc)"
     echo "test:desktop: the RDP password comes from a mounted secret, and its absence is refused"
 }
 
 docker network create "$net" >/dev/null
 docker run -d --init --name "$server" --network "$net" --user root --entrypoint djd-desktop-entrypoint \
-    "$image" ubuntu djd-test-pass >/dev/null
+    "$image" dayjobdoor djd-test-pass >/dev/null
 wait_xrdp
 docker run -d --init --name "$control" --network "$net" --user root --entrypoint sh "$image" -c \
-    "sed -i 's/^security_layer=.*/security_layer=negotiate/' /etc/xrdp/xrdp.ini && sed -i 's/^AllowRootLogin=.*/AllowRootLogin=true/' /etc/xrdp/sesman.ini && exec djd-desktop-entrypoint ubuntu djd-test-pass" >/dev/null
+    "sed -i 's/^security_layer=.*/security_layer=negotiate/' /etc/xrdp/xrdp.ini && sed -i 's/^AllowRootLogin=.*/AllowRootLogin=true/' /etc/xrdp/sesman.ini && exec djd-desktop-entrypoint dayjobdoor djd-test-pass" >/dev/null
 
 # Install the client before the clock starts; the login itself gets 120s.
 docker run -d --name "$client" --network "$net" ubuntu:26.04 sleep infinity >/dev/null
@@ -244,18 +247,18 @@ docker exec -e DEBIAN_FRONTEND=noninteractive "$client" sh -c \
     'apt-get -o Acquire::Retries=3 update -qq && apt-get -o Acquire::Retries=3 install -y -qq freerdp3-x11 xvfb procps >/dev/null'
 login() {
     docker exec -d "$client" sh -c \
-        "xvfb-run -a xfreerdp3 /v:$server /u:ubuntu /p:djd-test-pass /cert:ignore >/tmp/xfreerdp.log 2>&1"
+        "xvfb-run -a xfreerdp3 /v:$server /u:dayjobdoor /p:djd-test-pass /cert:ignore >/tmp/xfreerdp.log 2>&1"
 }
 login
 
 wait_session
-# the variables that ~/.xsession exports (fcitx) and the system locale that PAM reads from /etc/default/locale
-# must reach the session, whatever the LANG of the container itself. Root cannot read another user's
+# the variables that ~/.xsession exports (fcitx, and the Japanese LANG) must reach the session, whatever the LANG of
+# the container itself. Root cannot read another user's
 # /proc/PID/environ in a container (permission denied), the session's owner can.
-pid=$(docker exec "$server" pgrep -o -u ubuntu -x xfce4-session)
-env=$(docker exec -u ubuntu "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
+pid=$(docker exec "$server" pgrep -o -u dayjobdoor -x xfce4-session)
+env=$(docker exec -u dayjobdoor "$server" sh -c "tr '\\0' '\\n' </proc/$pid/environ")
 for v in GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx LANG=ja_JP.UTF-8; do
-    grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession with the system locale"
+    grep -qx "$v" <<<"$env" || fail "xfce4-session has no $v: it did not start through ~/.xsession"
 done
 echo "test:desktop: xfce4-session started through ~/.xsession"
 wait_xrdp "$control"
@@ -265,8 +268,8 @@ check_root_refused
 check_password_secret
 check_audio
 check_wireplumber_respawn
-docker exec -e DJD_APPS_LAUNCH=1 -u ubuntu "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
-docker exec -u ubuntu "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
+docker exec -e DJD_APPS_LAUNCH=1 -u dayjobdoor "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
+docker exec -u dayjobdoor "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
 check_logout_cleanup
 
 # /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not

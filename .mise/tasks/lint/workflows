@@ -2,7 +2,7 @@
 #MISE description="jactionlint over the workflows and dependabot.yml, runner labels against .actrc, hadolint"
 #MISE tools={jactionlint="latest", hadolint="latest", shellcheck="latest"}
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 # the globs below match .yaml only, and GitHub runs .yml too: refuse the other extension instead of skipping it
 for stray in .github/workflows/*.yml; do

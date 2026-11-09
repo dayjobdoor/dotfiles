@@ -3,27 +3,27 @@
 lockfile_version = 3
 
 [[tools.act]]
-version = "0.2.92"
+version = "0.2.97"
 backend = "aqua:nektos/act"
 specifiers = ["latest"]
 
 [tools.act."platforms.linux-arm64"]
-checksum = "sha256:b604e8f3e5d844e2221caedd2396bd8455dcb10fb3b2f0a43b5d67a65f883e4a"
+checksum = "sha256:44d48e3d4a6409053fdec6fc6518322467d79a2d5be8f72c021b0421e2ac113d"
 checksum_source = "mise-versions"
-url = "https://github.com/nektos/act/releases/download/v0.2.92/act_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/nektos/act/releases/assets/685898566"
+url = "https://github.com/nektos/act/releases/download/v0.2.97/act_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/nektos/act/releases/assets/710157495"
 
 [tools.act."platforms.linux-x64"]
-checksum = "sha256:c9e13f0eb77948a6d02eb2e06fa7220addfc5b9927ed2a1b35bcdae5441ac7a1"
+checksum = "sha256:67b4976a56f33ea7870b798912e738ec44eef38e7578ae7b532f2def1c73a5ad"
 checksum_source = "mise-versions"
-url = "https://github.com/nektos/act/releases/download/v0.2.92/act_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/nektos/act/releases/assets/685898463"
+url = "https://github.com/nektos/act/releases/download/v0.2.97/act_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/nektos/act/releases/assets/710157441"
 
 [tools.act."platforms.macos-arm64"]
-checksum = "sha256:fb9594d4ebc589a5bb4a490fbb4abae9964a530b1e6316bbba3b788a754a3919"
+checksum = "sha256:6dbb1ef34a7e34bb1ee0db188d1682ea35b82d9d9012626497f6c659e55a7cb5"
 checksum_source = "mise-versions"
-url = "https://github.com/nektos/act/releases/download/v0.2.92/act_Darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/nektos/act/releases/assets/685898613"
+url = "https://github.com/nektos/act/releases/download/v0.2.97/act_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/nektos/act/releases/assets/710157431"
 
 [[tools.gitleaks]]
 version = "8.30.1"
@@ -72,25 +72,25 @@ url_api = "https://api.github.com/repos/hadolint/hadolint/releases/assets/496546
 provenance = "github-attestations"
 
 [[tools.jactionlint]]
-version = "2.4.0"
+version = "2.5.0"
 backend = "packslip:github.com/jdx/jactionlint"
 specifiers = ["latest"]
 
 [tools.jactionlint."platforms.linux-arm64"]
-checksum = "sha256:42413391c248f99ff4550d6c866ee717d5ea4ca2b966d9d54ad1503af955e22f"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.4.0/jactionlint_2.4.0_linux_arm64.tar.gz"
+checksum = "sha256:ad7e33b6264cea16b7e83ad2bb004824d5b1c15aedb35ba0dc84917f791c5525"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.5.0/jactionlint_2.5.0_linux_arm64.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/jactionlint/.github/workflows/release.yaml"
 repository_ids = { repository = "1404951382" }
 
 [tools.jactionlint."platforms.linux-x64"]
-checksum = "sha256:26ddba81db28fffc51163175c070ee1a9d1150260de4b5232f01d9b749f32d8e"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.4.0/jactionlint_2.4.0_linux_amd64.tar.gz"
+checksum = "sha256:5ac307b0499bb0eab45ae99c23e8e0790874fbc667c75224410954e0e3c6e0f5"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.5.0/jactionlint_2.5.0_linux_amd64.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/jactionlint/.github/workflows/release.yaml"
 repository_ids = { repository = "1404951382" }
 
 [tools.jactionlint."platforms.macos-arm64"]
-checksum = "sha256:349a13dbffdd25376898a256d195806afda08ba97ccc6378cbf2dd11a77ef8e7"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.4.0/jactionlint_2.4.0_darwin_arm64.tar.gz"
+checksum = "sha256:15b47d53e3b1aafbd674cca0e8fff0d5952f3cf2a7d7501a8f67576ef76397b4"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.5.0/jactionlint_2.5.0_darwin_arm64.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/jactionlint/.github/workflows/release.yaml"
 repository_ids = { repository = "1404951382" }
 
@@ -113,7 +113,7 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-arm64.tar.gz"
 
 [[tools."npm:@google/design.md"]]
 version = "0.4.0"
-aube = { path = ".mise/locks/npm-google-design-md/0.4.0", digest = "sha256:b30da38c6cab3395c304ae34e2f0597e9ac86bd45fe5deabcc081979f0e1f629" }
+aube = { path = "locks/npm-google-design-md/0.4.0", digest = "sha256:b30da38c6cab3395c304ae34e2f0597e9ac86bd45fe5deabcc081979f0e1f629" }
 backend = "npm:@google/design.md"
 specifiers = ["latest"]
 

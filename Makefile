@@ -1,4 +1,4 @@
-# `make <task> [ARGS=...]` runs `mise run <task> [ARGS]`, so the mise tasks (mise.toml, mise-tasks/) stay the single source;
+# `make <task> [ARGS=...]` runs `mise run <task> [ARGS]`, so the mise tasks (.mise/config.toml, .mise/tasks/) stay the single source;
 # `make help` lists them. Two exceptions: `make init` runs install.sh (works before mise exists), and
 # apply/update/status/doctor/module/secret go through `djd`, which sets the locale and runs from $HOME.
 # ARGS reaches the recipes as an environment variable that the shell splits into words but never parses as commands,

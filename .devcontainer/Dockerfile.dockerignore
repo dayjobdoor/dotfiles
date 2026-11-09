@@ -1,3 +1,5 @@
+# BuildKit reads this file because it sits next to .devcontainer/Dockerfile and is named after it; the patterns are
+# relative to the build context, the repository root. The classic builder (DOCKER_BUILDKIT=0) would ignore it.
 # the local overrides and credential files .gitignore lists; docker build sends untracked files too
 .git
 **/.env
@@ -18,3 +20,5 @@
 **/node_modules
 **/.DS_Store
 .jj
+home/.config/pi/agent/models.json
+home/.config/omp/profiles/*/agent/models.yml

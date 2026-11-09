@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-#MISE description="Build a Docker image: sandbox (default), desktop or full"
-#USAGE arg "[flavor]" default="sandbox" { choices "sandbox" "desktop" "full"; }
+#MISE description="Build the Docker image (djd:latest, agent module on the base with the desktop), or the CI-only full flavor (djd:full)"
+#USAGE arg "[flavor]" default="latest" { choices "latest" "full"; }
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
-flavor=${usage_flavor:-${1:-sandbox}}
+flavor=${usage_flavor:-${1:-latest}}
 case $flavor in
-sandbox) modules=agent ;;
-desktop) modules="agent desktop" ;;
+latest) modules=agent ;;
 full) modules="agent full" ;;
 *)
-    echo "usage: build [sandbox|desktop|full]" >&2
+    echo "usage: build [latest|full]" >&2
     exit 2
     ;;
 esac
