@@ -11,6 +11,9 @@ minimum_release_age = "3d"
 # the checkout is trusted, so its .mise/config.toml (the repo tasks) and the mise-config linked as ~/.config/mise load
 # without `mise trust`; this is why whoever can change that checkout runs code on the machine
 trusted_config_paths = ["~/.dotfiles"]
+# mise keeps every downloaded archive in ~/.cache/mise/downloads-cas next to the unpacked tool, 1.2 GB for the base and
+# agent tools. The default keeps a file for 30 days; a day is enough to retry an install, and `djd apply` prunes.
+cache_prune_age = "1d"
 # mise's tool directories stay ahead of PATH entries that a shell adds after `mise activate`
 activate_aggressive = true
 # parallel tool installs, written out although 8 is mise's default, so that a changed default does not slow the

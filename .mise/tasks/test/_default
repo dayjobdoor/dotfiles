@@ -69,6 +69,12 @@ done
 # `docker run IMAGE tool` and `docker exec` get no login shell; the image PATH must carry the shims
 docker run --rm "$image" rg --version >/dev/null
 ok tools on PATH without a login shell
+# the archives that mise downloaded stay out of the image: they are a second copy of every tool (1.2 GB)
+if docker run --rm "$image" sh -c 'test -e ~/.cache/mise/downloads-cas'; then
+    echo "the image keeps ~/.cache/mise/downloads-cas, a second copy of every tool" >&2
+    exit 1
+fi
+ok the mise download cache is not in the image
 # env -i drops the image's ENV PATH, so only ~/.profile can put the shims there (agents start shells this way)
 docker run --rm "$image" env -i HOME=/home/dayjobdoor bash -lc 'rg --version' >/dev/null
 ok .profile puts the shims on PATH

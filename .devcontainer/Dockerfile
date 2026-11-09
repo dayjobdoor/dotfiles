@@ -25,8 +25,11 @@ WORKDIR /home/dayjobdoor
 # hadolint ignore=SC2086,DL3004
 RUN DJD_BOOTSTRAP_FLAGS="--skip tools,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
     && sudo rm -rf /var/lib/apt/lists/*
+# mise keeps every downloaded archive in ~/.cache/mise/downloads-cas next to the unpacked tool (1.2 GB here), and a
+# `docker run` never needs it again; deleting it in the same RUN is what keeps it out of the layer.
 RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--only tools" \
-    ~/.dotfiles/install.sh
+    ~/.dotfiles/install.sh \
+    && rm -rf ~/.cache/mise/downloads-cas
 # Docker's default seccomp policy blocks namespace creation, so Brave aborts at startup unless it runs with
 # --no-sandbox, which also disables its renderer seccomp-bpf sandbox. The container is the isolation boundary
 # (SECURITY.md); VMs keep Brave's own sandbox because this override lives only here.
