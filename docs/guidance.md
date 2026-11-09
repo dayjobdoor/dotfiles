@@ -145,7 +145,7 @@ This repository has released since 0.0.1; the steps below are for a fork or a ne
 1. Run `gh workflow run push.yaml --ref X.Y.Z`.
 2. Find the run with `gh run list --workflow push.yaml --limit 1`, then follow it with `gh run watch <id> --exit-status`.
 
-The dispatch shares the concurrency group of `push.yaml` for that tag, so it cancels a tag-push run that is still going. A re-run of CI for a commit that already has a release does not dispatch a publish.
+The dispatch cancels a tag-push run that is still going, and a re-run of CI does not dispatch a publish ([maintenance.md](maintenance.md#release-chain) has the rules).
 
 ## Harden the repository settings
 

@@ -39,7 +39,7 @@ flowchart LR
 | --- | --- | --- |
 | `ci.yaml` `lint` | 15 min | 24 s |
 | `ci.yaml` `image` | 30 min | 657 s on amd64 and 514 s on arm64, of which `test:desktop` took 115 s and 111 s |
-| `ci.yaml` `vm` | 15 min | 212 s on amd64 and 204 s on arm64 |
+| `ci.yaml` `vm` | 25 min | 212 s on amd64 and 204 s on arm64; `test:vm` itself waits up to 900 s for cloud-init and prints why it failed, so the job limit has to stay above that |
 | `docs.yaml` `lint-docs` and `secrets` | 10 min each | 15 s and 8 s |
 | `push.yaml` `build-images` | 30 min | 449 s on amd64 and 514 s on arm64 |
 | `push.yaml` `merge` | 10 min | 14 s |
