@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Kanagawa Dragon Terminal (Ubuntu)
-description: Visual identity of the djd terminal and desktop stack, ported from budybye/dotfiles
+description: Visual identity of the djd terminal and desktop stack
 omitted:
   - section: rounded
     reason: Terminals and panes have no rounded corners; borders, gaps and padding separate them.
@@ -62,7 +62,7 @@ components:
 
 ## Overview
 
-The stack a person or agent sees on a djd machine. ghostty (installed by the desktop module) runs a login zsh with the starship prompt, and a login zsh on a real terminal starts herdr, which hosts pi/omp panes. The desktop module also installs XFCE and xrdp, but nothing sets ghostty as XFCE's default terminal. The Docker images set `DJD_NO_MUX=1` in the image environment, so a login shell that inherits it (`docker run`, `docker exec`) does not start herdr.
+The stack a person or agent sees on a djd machine: ghostty (part of the base) runs a login zsh with the starship prompt, and a login zsh starts herdr (when and how: [README.md](README.md#install-on-a-machine)). The base also installs XFCE and xrdp, but nothing sets ghostty as XFCE's default terminal.
 
 ghostty and the starship prompt use Kanagawa Dragon, and herdr uses its built-in `kanagawa` theme. That theme is probably the Wave palette, a sibling of Dragon in the same family (an inference: the herdr binary names `kanagawa` and `kanagawa-lotus`, and no palette was compared). ghostty overrides the theme's background and foreground with its own navy background and pale yellow-green text. lazygit, lazydocker, micro and lsd keep their own color settings, and fzf and XFCE have no theme in this repo. The look is dark, low-saturation and low-glare, and depth comes from transparency, never shadows.
 
@@ -72,7 +72,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 
 | Layer | Theme | Source in this repo |
 | --- | --- | --- |
-| ghostty | Kanagawa Dragon, background `#112233` (surface), foreground `#D4C69A` (on-surface) | `desktop/.config/ghostty/config` |
+| ghostty | Kanagawa Dragon, background `#112233` (surface), foreground `#D4C69A` (on-surface) | `home/.config/ghostty/config` |
 | starship | `[palettes.color]`, the dragon colors above (its unused `white` is left out) | `home/.config/starship.toml` |
 | herdr | built-in `kanagawa` | `home/.config/herdr/config.toml` |
 | lazygit, lazydocker | not themed; named ANSI colors (`green`, `blue`, `white`), so they follow the terminal palette | `home/.config/lazygit/config.yml`, `home/.config/lazydocker/config.yaml` |
@@ -85,7 +85,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 
 One monospace family in ghostty, the only themed terminal: HackGen35 Console NF (Nerd Font patched, Japanese full width at exactly two columns). Ghostty sets 13pt with `font-thicken = true`. TUIs inherit the terminal font. The token says 13px because the spec allows only px, em and rem.
 
-Ubuntu has no HackGen package. The desktop module installs the pinned HackGen NF release as the mise tool `http:hackgen` (`mise-config/config.desktop.toml`). mise checks its SHA-256, and the tool's postinstall copies the fonts to `~/.local/share/fonts/HackGen`. Noto CJK covers anything HackGen lacks. Japanese input is fcitx5-mozc.
+Ubuntu has no HackGen package, so the base installs the pinned release as the mise tool `http:hackgen` (`mise-config/config.toml`), and Noto CJK covers what HackGen lacks. Japanese input is fcitx5-mozc.
 
 ## Layout
 
