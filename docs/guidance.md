@@ -1,6 +1,6 @@
 # Guidance
 
-Task guides for working on this repository and for the per-machine settings that stay out of it (git identity, npm config). [reference.md](reference.md), [maintenance.md](maintenance.md) and [testing.md](testing.md) hold the facts, and [architecture.md](architecture.md) explains the design.
+Task guides for working on this repository and for the per-machine settings that stay out of it (git identity, npm config). [tech.md](tech.md), [maintenance.md](maintenance.md) and [testing.md](testing.md) hold the facts, and [architecture.md](architecture.md) explains the design.
 
 ## Run CI locally
 

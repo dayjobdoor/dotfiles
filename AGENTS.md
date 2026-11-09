@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Ubuntu 26.04-only dotfiles managed by mise. Read [docs/architecture.md](docs/architecture.md) and [docs/reference.md](docs/reference.md) before structural changes, and [docs/maintenance.md](docs/maintenance.md) before changing workflows and [docs/testing.md](docs/testing.md) before changing tests.
+Ubuntu 26.04-only dotfiles managed by mise. Read [docs/requirements.md](docs/requirements.md), [docs/architecture.md](docs/architecture.md) and [docs/directory.md](docs/directory.md) before structural changes, [docs/problems.md](docs/problems.md) before touching what it lists, [docs/maintenance.md](docs/maintenance.md) before changing workflows and [docs/testing.md](docs/testing.md) before changing tests.
 
 ## Rules
 
@@ -43,9 +43,9 @@ tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:latest zsh -lc 'mkdir /tm
 | zsh plugins, abbreviations | `home/.config/sheldon/plugins.toml` (sheldon, each plugin pinned by `rev`), `home/.config/zsh-abbr/user-abbreviations`; `home/.config/zsh/.zshrc` loads them. Aliases that replace a command are `[shell_alias]` in `mise-config/config.toml` |
 | djd commands | `mise-config/tasks/djd/<name>` (bash, `#MISE description=`, `#MISE quiet=true`) |
 | repo tasks (lint, build, test, test:offline, test:desktop, test:vm, ci) | `.mise/tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `.mise/tasks/lint/` of `lint:*` checks), short ones in `.mise/config.toml`. The `Makefile` runs `make <task>` as `mise run <task>`, except `init` (runs `install.sh`) and apply, update, status, doctor, module and secret (run `djd`) |
-| an offline test (no network, no token) | `tests/<name>.sh` with a `# Contract` header. Add its name to the `choices` and to the default list in `.mise/tasks/test/offline`, which `mise run test` calls, and name it in `docs/reference.md`; `lint:docs` fails when the docs or the tasks miss it |
+| an offline test (no network, no token) | `tests/<name>.sh` with a `# Contract` header. Add its name to the `choices` and to the default list in `.mise/tasks/test/offline`, which `mise run test` calls, and name it in the layout of `docs/directory.md`; `lint:docs` fails when the docs or the tasks miss it |
 | a check that needs systemd, RDP or an image (the [test map](docs/testing.md#test-map) lists every test) | `tests/vm-checks.sh` (it refuses to run unless `test:vm` sets `DJD_TEST_VM=1`), `.mise/tasks/test/desktop`, or a `doctor_says` scenario in `.mise/tasks/test/_default` |
-| docs | `docs/reference.md` for facts, `docs/architecture.md` for why, `docs/maintenance.md` for workflows and releases, `docs/testing.md` for tests, `docs/guidance.md` for procedures; `llms.txt` lists them |
+| docs | `docs/requirements.md` for what ships, `docs/architecture.md` for how and why, `docs/tech.md` for the stack and the lookup tables, `docs/directory.md` for where files live, `docs/problems.md` for pitfalls and limits, `docs/references.md` for terms and sources, `docs/maintenance.md` for workflows and releases, `docs/testing.md` for tests, `docs/guidance.md` for procedures; `ROADMAP.md` for what is planned and `CHANGELOG.md` for what shipped; `llms.txt` lists them |
 | repo tool versions | each task's `tools` (in `.mise/config.toml`, or a `#MISE tools=` header in `.mise/tasks/`), pinned in `.mise/mise.lock` plus `.mise/.mise/locks/` for npm tools (`mise lock --bump` advances them, and `lockfile_platforms` in `.mise/config.toml` names the platforms; commit both) |
 | colors, fonts, theme names | `DESIGN.md` first, then the files its Colors table names |
 

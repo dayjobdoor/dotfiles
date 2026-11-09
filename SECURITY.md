@@ -53,7 +53,7 @@ All of these are outside the repo or gitignored. The shell and git files are rea
 - Workflows run with `contents: read`, and `push.yaml` and `tag.yaml` declare `permissions: {}` at the top, so each job states its own grant. `GITHUB_TOKEN` goes to the steps that need it, not to the whole job. The checkout, metadata and build actions also receive `github.token` by default, and `full-weekly.yaml` passes it as `MISE_GITHUB_TOKEN` to `djd update`. The `lint` job installs from `.mise/mise.lock` (`MISE_LOCKED`) and sets no token for its steps. Only `jdx/mise-action` receives `github.token`, through its `github_token` input, for its own step that installs mise. Only `tag.yaml` (`contents: write`, `actions: write`, `checks: read`) and `push.yaml` (`packages: write`) can write, and `tag.yaml` accepts only successful push runs of this repository's `main`.
 - The release build passes the `packages: write` token to the tools layer only, as a BuildKit secret, so code that an upstream tool runs while installing could read it. That code could push over `ghcr.io/dayjobdoor/dotfiles:latest`, which agent sandboxes pull. A scope-less token stored as a repository secret and passed to the build instead of `GITHUB_TOKEN` would remove this. That change is not applied. It is a recommendation, and it costs one token to create and rotate. The job token would stay with the registry login.
 - The apt layer builds in a separate `RUN` without the secret, so the maintainer scripts of apt packages, which run as root and include Brave's deb, never see it. A throwaway Dockerfile that printed the token count in both layers showed 0 and 1.
-- `minimum_release_age = "3d"` in `mise-config/config.toml` delays brand-new releases of mise tools only. The exception is `pi` and `omp` ([reference.md](docs/reference.md#modules) gives the setting and the reason). They install on the day they ship, and they run with your full rights in every agent sandbox. apt packages, Brave included, get no delay.
+- `minimum_release_age = "3d"` in `mise-config/config.toml` delays brand-new releases of mise tools only. The exception is `pi` and `omp` ([tech.md](docs/tech.md#modules) gives the setting and the reason). They install on the day they ship, and they run with your full rights in every agent sandbox. apt packages, Brave included, get no delay.
 - A token stored with `djd secret set GITHUB_TOKEN` is visible to every process on that machine. Store a read-only one.
 
 ## Workflows and releases
@@ -86,7 +86,7 @@ The repository settings below are recommendations. Nothing in the repository enf
 - A `Match` block defeats "the first value wins". The hook evaluates `sshd -T -C` for the current user when a `Match` line exists, so it catches `Match all` and `Match User <current user>` that re-enable passwords. A `Match` for another user or an address, or in a file outside `sshd_config` and `sshd_config.d`, passes the hook ([scope](docs/architecture.md#a-module-is-a-mise-config-environment)).
 - ufw denies incoming by default, rate-limits 22/tcp, and opens RDP (3389/tcp) only to private networks (10/8, 172.16/12, 192.168/16, and IPv6 fc00::/7 and fe80::/10). Reach RDP from anywhere else through `ssh -L 33389:localhost:3389 <host>`.
 - `/etc/docker/daemon.json` binds published container ports to `127.0.0.1` when `-p` names no address, because Docker's port rules bypass ufw. Publish to the network on purpose with `-p 0.0.0.0:8080:80`. Networks created before the module was applied keep their old default.
-- `djd module remove server` brings back password logins and published ports on every address, and the command prints a warning. The firewall stays enabled ([details](docs/reference.md#modules)).
+- `djd module remove server` brings back password logins and published ports on every address, and the command prints a warning. The firewall stays enabled ([details](docs/tech.md#modules)).
 - `djd module add` warns when `secrets` and `agent` are both selected, because every agent tool on the machine would see the decrypted values. It does not refuse, since a personal workstation may want both; keep the combination off sandboxes.
 
 ## The desktop
@@ -103,15 +103,15 @@ The repository settings below are recommendations. Nothing in the repository enf
 
 ### Known limits of the RDP service
 
-These limits are known and the module does not change them. [docs/reference.md](docs/reference.md#rdp-security-and-known-limits) holds the probe results and the switch for each channel. A user with a long random `PASSWORD`, the loopback binding and a VM for untrusted work covers most of this.
+These limits are known and the module does not change them. [docs/problems.md](docs/problems.md#rdp-security-and-known-limits) holds the probe results and the switch for each channel. A user with a long random `PASSWORD`, the loopback binding and a VM for untrusted work covers most of this.
 
 - **Clipboard.** It is open in both directions. Any process in the session can read what you copy, a password manager entry included, or replace it to plant a command that you paste into your own terminal.
 - **No lockout across connections.** A new connection resets the retry counter, and `pam_faillock` and fail2ban are absent. Password strength and the loopback binding are the only defenses. The user has passwordless sudo, so one guessed password is root in the container.
-- **TLS 1.2 suites.** Static-RSA and CBC suites are still accepted, so an active attacker on the path gets weaker suites than a modern client needs. `tls_ciphers` is not set; the tested remedy is in the reference.
+- **TLS 1.2 suites.** Static-RSA and CBC suites are still accepted, so an active attacker on the path gets weaker suites than a modern client needs. `tls_ciphers` is not set; the tested remedy is in [problems.md](docs/problems.md#limits-and-exposure).
 - **New certificate at every container start.** Verification by name always fails and a pinned fingerprint changes with each start. FreeRDP's "host key has changed" on the first connect is its message, not a change.
 - **`security_layer=hybrid` is not valid.** xrdp silently falls back to `negotiate`, which re-opens the RDP layer. Only `tls` is right here, and `djd doctor` checks for it.
 - **No NLA.** This xrdp offers no CredSSP, so `/sec:nla` is refused.
-- **Drives, printers, microphone.** None of these channels is switched off. The reference lists the switch for each.
+- **Drives, printers, microphone.** None of these channels is switched off. [problems.md](docs/problems.md#channels) lists the switch for each.
 
 ## Checks
 

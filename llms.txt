@@ -7,18 +7,24 @@ A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise t
 ## Docs
 
 - [README](README.md): install and the `djd doctor` check, modules, djd, secrets, desktop over RDP, VMs, remove, fork, development tasks, and a table of which doc to read when
-- [Architecture](docs/architecture.md): why the design is what it is, covering symlinks, the install flow, modules, hooks, secrets, shell startup, the RDP service, Docker images, and CI decisions
-- [Reference](docs/reference.md): layout tree, module contents, djd commands, make targets, bootstrap order and hooks, shell startup files, environment variables, XDG locations, RDP security and known limits, Docker images
+- [Requirements](docs/requirements.md): scope, what ships, what does not, and what done looks like
+- [Architecture](docs/architecture.md): how it is built and why: symlinks, the install flow, modules, hooks, secrets, shell startup, the desktop apps, the RDP service, Docker images and CI decisions
+- [Tech](docs/tech.md): the stack, the constraints, the rejected options, and the lookup tables: modules and what they declare, djd commands, make targets, bootstrap order and hooks, shell startup files, environment variables, Docker images
+- [Directory](docs/directory.md): the layout tree, allowed names, forbidden paths and XDG locations
+- [Problems](docs/problems.md): pitfalls, tooling quirks, accepted costs, RDP security and known limits, and what is not verified
+- [References](docs/references.md): terms, the documentation of each part, and the repository of each tool, app and action
 - [Maintenance](docs/maintenance.md): workflows (including docs.yaml), the CI and release chain, timeouts, the release and publish rules, the workflow audit, repo tasks and the lock
 - [Testing](docs/testing.md): what each CI job and test proves, the image, desktop and VM tests, the test map and where a new test goes, failure output, running CI with act
 - [Guidance](docs/guidance.md): run CI locally, keep a VM after a failed test, test with multipass and OrbStack, update pinned tools, raise the mise release, set your git identity, move an npm config, keep an edit a program made, publish the first release, retry a failed publish, harden the repository settings
+- [Roadmap](ROADMAP.md): planned work by horizon
+- [Changelog](CHANGELOG.md): what each release changed
 - [AGENTS.md](AGENTS.md): rules for coding agents, verification commands including the fast offline tests, where each kind of change and each new test goes, definition of done
 - [SECURITY.md](SECURITY.md): what must never be committed, vulnerability reporting, local override files, age secrets and their limits, GitHub tokens, workflows and releases with recommended repository settings, Docker, server and desktop hardening, known limits of the RDP service, checks
 - [DESIGN.md](DESIGN.md): colors, fonts and theme tokens (google-labs-code/design.md format)
 
 ## Configuration
 
-The layout of the repository, with the purpose of each entry, is in [Reference](docs/reference.md#layout). These links are an index only.
+The layout of the repository, with the purpose of each entry, is in [Reference](docs/directory.md#layout). These links are an index only.
 
 - [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise
 - [home/](home/): dotfiles symlinked into ~

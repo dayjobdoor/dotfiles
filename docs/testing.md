@@ -26,7 +26,7 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 - Every `mise run` and `djd` command in a span names a real task or command, and every word after `make` does.
 - Every `DJD_` variable in the docs appears in the code.
 - Every `DJD_` variable in the code appears in some doc. `DJD_BAD`, `DJD_CHECK` and `DJD_CHECK2` (secret names that `test` makes up) and `DJD_COMMANDS` (a Makefile variable) are exempt.
-- Every `tests/*.sh` is named in `docs/reference.md` and is run by a task under `.mise/tasks/`. A bare name inside a quoted or space-delimited list counts as a reference, so a test with a common word for a name could pass trivially.
+- Every `tests/*.sh` is named in `docs/directory.md` and is run by a task under `.mise/tasks/`. A bare name inside a quoted or space-delimited list counts as a reference, so a test with a common word for a name could pass trivially.
 
 ### The image tests, on amd64 and arm64
 
@@ -172,12 +172,12 @@ Where a new test goes:
 
 | What it checks | Where |
 | --- | --- |
-| Logic of a djd task or hook, with stubs | `tests/<name>.sh` with a `# Contract` header, listed in `.mise/tasks/test/offline` and named in [reference.md](reference.md#layout) |
+| Logic of a djd task or hook, with stubs | `tests/<name>.sh` with a `# Contract` header, listed in `.mise/tasks/test/offline` and named in [directory.md](directory.md#layout) |
 | A `djd doctor` check | A `doctor_says` step in `.mise/tasks/test/_default` |
 | Something that needs systemd, ufw, sshd, or docker | `tests/vm-checks.sh` |
 | Something that needs RDP or X | `.mise/tasks/test/desktop` |
 
-`lint:docs` fails when a `tests/*.sh` is in no task or is not named in `docs/reference.md`.
+`lint:docs` fails when a `tests/*.sh` is in no task or is not named in `docs/directory.md`.
 
 ## Failure output
 

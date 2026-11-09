@@ -167,7 +167,7 @@ For Docker, add two `iptables -I DOCKER-USER` rules, the ones in `.github/workfl
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles, and the desktop: XFCE over xrdp (TLS only, no root login) with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), Wireshark, Obsidian, Vicinae, Ferdium and fusuma |
 | `agent` | node, bun, python, uv, build tools, the coding agents pi and omp (oh-my-pi), the `skills` CLI for agent skills, the global AGENTS.md of pi and omp, telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `full` | the whole personal toolbox (181 tools; plan for at least 10 GB of disk, an estimate that [reference.md](docs/reference.md#modules) explains); implies `agent` |
+| `full` | the whole personal toolbox (181 tools; plan for at least 10 GB of disk, an estimate that [tech.md](docs/tech.md#modules) explains); implies `agent` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
 ## djd
@@ -211,7 +211,7 @@ rm ~/.config/mise                        # the link to this repository's mise co
 rm -rf ~/.dotfiles                       # a clone; check `git -C ~/.dotfiles status` and push first. If it is a link to your own checkout, use `rm ~/.dotfiles` instead
 ```
 
-`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. These also stay, and you delete them by hand if you want them gone: `~/.config/djd` (your age key `age.txt`, `profile.local` and `bashrc.local`), `~/.local/state/djd` (the restart and sshd stamps), the zsh plugin checkouts in `~/.local/share/sheldon`, `~/.cache/zsh` and `~/.cache/bash`, and `/etc/locale.conf`. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` brings back password logins and published ports on every address, and `djd module remove` prints a warning ([reference.md](docs/reference.md#modules) has the details).
+`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. These also stay, and you delete them by hand if you want them gone: `~/.config/djd` (your age key `age.txt`, `profile.local` and `bashrc.local`), `~/.local/state/djd` (the restart and sshd stamps), the zsh plugin checkouts in `~/.local/share/sheldon`, `~/.cache/zsh` and `~/.cache/bash`, and `/etc/locale.conf`. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` brings back password logins and published ports on every address, and `djd module remove` prints a warning ([tech.md](docs/tech.md#modules) has the details).
 
 ## Fork
 
@@ -250,17 +250,23 @@ make ci                               # every CI job act can run: lint, image (A
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
-`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/reference.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([maintenance.md](docs/maintenance.md#workflows)).
+`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/tech.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([maintenance.md](docs/maintenance.md#workflows)).
 
 ## Documentation
 
 | Doc | Kind | Read when |
 | --- | --- | --- |
-| [docs/reference.md](docs/reference.md) | reference | you need a fact such as a file, command, variable, hook or image |
+| [docs/requirements.md](docs/requirements.md) | requirements | you want to know what ships, what does not, and what done looks like |
+| [docs/architecture.md](docs/architecture.md) | explanation | you want to know how it is built and why the design is what it is |
+| [docs/tech.md](docs/tech.md) | reference | you need the stack, a rejected option, or a lookup table: modules, `djd` commands, hooks, shell files, variables, images |
+| [docs/directory.md](docs/directory.md) | reference | you need to know where a file lives, which names are allowed and which paths never enter the repository |
+| [docs/problems.md](docs/problems.md) | reference | something behaves oddly, or you judge a limit such as the RDP security |
+| [docs/references.md](docs/references.md) | reference | you look for a term, the documentation of a part, or the repository of a tool |
 | [docs/guidance.md](docs/guidance.md) | how-to | you work on the repository, for example run CI, raise the mise release or publish a release |
-| [docs/architecture.md](docs/architecture.md) | explanation | you want to know why the design is what it is, or what is planned |
 | [docs/maintenance.md](docs/maintenance.md) | reference | you change a workflow, cut a release or need the release chain |
 | [docs/testing.md](docs/testing.md) | reference | you change a test, or need to know what a CI job proves |
+| [ROADMAP.md](ROADMAP.md) | plan | you look for planned work by horizon |
+| [CHANGELOG.md](CHANGELOG.md) | history | you want to know what a release changed |
 | [SECURITY.md](SECURITY.md) | reference | you report a vulnerability, store a secret or judge a hardening claim |
 | [AGENTS.md](AGENTS.md) | reference | you are a coding agent that changes this repository |
 | [DESIGN.md](DESIGN.md) | reference | you change colors, fonts or theme names |

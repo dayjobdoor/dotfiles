@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 
-docs="README.md AGENTS.md SECURITY.md DESIGN.md llms.txt docs/*.md"
+docs="README.md AGENTS.md SECURITY.md DESIGN.md ROADMAP.md CHANGELOG.md llms.txt docs/*.md"
 
 broken=0
 # shellcheck disable=SC2086
@@ -49,7 +49,7 @@ fail() {
 # agent, desktop: a module and a compose service of those names; their directories were folded into home/ and still
 # count as past top-level names
 allow_paths=" .devcontainer/.env agent desktop "
-# the planned-work section of docs/architecture.md: planned, not implemented, and removed
+# djd menu: planned in ROADMAP.md, not implemented
 allow_cmds=" djd:menu "
 
 # Top-level names that a path may start with: those now, and those of every commit when there is a git history
@@ -136,13 +136,13 @@ while IFS= read -r var; do
     }
 done < <(grep -rhoE --exclude=docs 'DJD_[A-Z][A-Z0-9_]*' $code | sort -u)
 
-# 4. test scripts: each is listed in reference.md and run by a task. A task names a test by its path, or by its bare
+# 4. test scripts: each is listed in directory.md and run by a task. A task names a test by its path, or by its bare
 # name in a list of test:offline. A bare name that occurs in any task file passes, so tighten the pattern if a test
 # gets a common word for a name.
 for t in tests/*.sh; do
     name=${t##*/}
-    grep -qF -- "$name" docs/reference.md || {
-        echo "lint: docs/reference.md does not name $t" >&2
+    grep -qF -- "$name" docs/directory.md || {
+        echo "lint: docs/directory.md does not name $t" >&2
         broken=1
     }
     grep -rqE -- "[ \"/]${name%.sh}(\.sh|[ \"])" .mise/tasks || {
