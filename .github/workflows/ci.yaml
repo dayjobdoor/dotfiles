@@ -56,7 +56,7 @@ jobs:
       matrix:
         runner: [ubuntu-26.04, ubuntu-26.04-arm]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       # the tasks only drive docker; their tools run inside the image
       MISE_TASK_RUN_AUTO_INSTALL: "false"
@@ -84,7 +84,7 @@ jobs:
       matrix:
         runner: [ubuntu-26.04, ubuntu-26.04-arm]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    timeout-minutes: 15
     env:
       MISE_TASK_RUN_AUTO_INSTALL: "false"
     steps:
