@@ -1,8 +1,8 @@
 # Changelog
 
-What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md).
+What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
-## Unreleased
+## 0.0.12 (2026-11-09)
 
 - OrbStack is no longer a VM target: the README recipe, the `orb` backend of `test:vm` and the OrbStack guard in `cloud-init/vm.yaml` are gone. Use Docker (OrbStack's Docker works on a Mac) or multipass; the VM tests run on incus and multipass.
 - Docs: `references.md`, `tech.md` and `directory.md` replace `reference.md`; `requirements.md` and `problems.md` come out of `architecture.md`; `ROADMAP.md` and this file replace the planned-work section.
