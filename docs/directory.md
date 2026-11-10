@@ -11,7 +11,7 @@ install.sh              entry point: checks for Ubuntu 26.04, links ~/.dotfiles 
 Makefile                make <task> runs mise run <task>, with a few exceptions
 .mise/                  the repo's own mise project, separate from mise-config/
   config.toml           repo tasks and the tools each task declares
-  mise.lock, .mise/locks/  those tools pinned, with checksums, and the npm dependency graph (mise looks for locks/ in a .mise/ beside the lock)
+  mise.lock, .mise/locks/  those tools pinned, with checksums, and the npm dependency graph (`mise lock` writes locks/ in the .mise/ of the project root)
   tasks/                repo file tasks: lint/, build, test/ (_default, offline, desktop, vm), ci
 .actrc                  act runner images for mise run ci
 README.md, SECURITY.md  the entry page, and the security policy with the hardening and its limits

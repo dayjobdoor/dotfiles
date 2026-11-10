@@ -56,9 +56,9 @@ To refresh `.mise/mise.lock`, follow these steps on a machine where you trust th
    MISE_CONFIG_DIR=$(mktemp -d) mise lock --bump
    ```
 
-   The empty directory keeps the tools of your own global config out of the npm graph in `.mise/.mise/locks/`.
+   The empty directory keeps the tools of your own global config out of the npm graph in `.mise/locks/`.
 
-2. Commit `.mise/mise.lock` and the changes under `.mise/.mise/locks/`.
+2. Commit `.mise/mise.lock` and the changes under `.mise/locks/`.
 
 Dependabot covers the pinned actions. It does not cover mise tools.
 
