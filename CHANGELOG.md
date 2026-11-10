@@ -2,6 +2,17 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## 0.0.13 (2026-11-10)
+
+- Compose: the service is `ubuntu`, not `desktop`. Stop it with `docker compose -f .devcontainer/compose.yaml stop ubuntu`; `mise run up` and `mise run down` are unchanged.
+- xrdp: `hooks/desktop-final` drops the generic `vnc-any` and `neutrinordp-any` sessions from `xrdp.ini`, and `test:desktop` asserts that none is left.
+- Server: `hooks/sshd-keys-only` falls back to `sshd -T` when the `10-djd.conf` drop-in is missing, instead of passing on the stock layout.
+- Shell: `chpwd` lists with `command ls`, and the `tree` alias no longer passes `-N`, so the control bytes of a file name are escaped; ghostty asks before a program writes the clipboard (`clipboard-write = ask`).
+- Tests: `tests/tree.sh` leaves nested git repositories, worktrees and submodule entries out of the archive, and `tests/tree-check.sh` has a fixture for them.
+- Agents: the pi extensions and the omp plugins are pinned to a version or commit, and the pi thinking level `middium` is `medium`. `docs/guidance.md` says how to bump a pin.
+- Mise: the npm lock graph lives in `.mise/locks/` only (the copy nested one `.mise/` level deeper is gone), and `cheat` comes from the aqua backend, which ships linux/arm64.
+- Docs: claims that had drifted from the code are fixed (push smoke test, `postinstall` scripts, locale, `djd` commands, directory layout), and `djd doctor` points at `mise dot add` for keeping an edit that a program made.
+
 ## 0.0.12 (2026-11-10)
 
 - OrbStack is no longer a VM target: the README recipe, the `orb` backend of `test:vm` and the OrbStack guard in `cloud-init/vm.yaml` are gone. Use Docker (OrbStack's Docker works on a Mac) or multipass; the VM tests run on incus and multipass.
