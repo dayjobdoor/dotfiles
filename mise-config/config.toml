@@ -54,7 +54,8 @@ ruby = "latest"
 
 # Shell aliases, set by `mise activate` in every interactive bash and zsh. These are the ones that replace a command;
 # the shortcuts (l, ll, cx, ...) are zsh-abbr abbreviations in home/.config/zsh-abbr/user-abbreviations. Nothing else
-# defines an alias. No `command -v` guard is needed: lsd, bat, tree and ping are on every machine.
+# defines an alias. No `command -v` guard is needed: lsd and bat are tools here, tree is a package here, and ping is on
+# every machine but the container image, where the alias fails like the missing command itself ("command not found").
 [shell_alias]
 mv = "mv -i"
 cp = "cp -i"
