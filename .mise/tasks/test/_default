@@ -209,6 +209,13 @@ EOF
     step stock layout, stub reporting passwords on
     sshd_t yes
     doctor_says ok sshd
+    # without the keys-only drop-in the greps have nothing to vouch for, so sshd -T decides (the stub still says yes)
+    step the stock layout without the keys-only drop-in
+    sudo rm /etc/ssh/sshd_config.d/10-djd.conf
+    doctor_says FAIL sshd "not keys-only"
+    sshd_t no
+    doctor_says ok sshd
+    sudo touch /etc/ssh/sshd_config.d/10-djd.conf
     # the server module is selected but was never applied in this image, so bootstrap is not converged
     doctor_says FAIL bootstrap "not converged"
 
