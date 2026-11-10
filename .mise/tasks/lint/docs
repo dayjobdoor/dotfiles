@@ -46,7 +46,7 @@ fail() {
 }
 
 # gitignored, so absent in a fresh checkout
-# agent, desktop: a module and a compose service of those names; their directories were folded into home/ and still
+# agent (a module) and desktop (the compose service before it became ubuntu): their directories were folded into home/ and still
 # count as past top-level names
 allow_paths=" .devcontainer/.env agent desktop "
 # djd menu: planned in ROADMAP.md, not implemented

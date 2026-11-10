@@ -83,7 +83,7 @@ The desktop over RDP runs from a clone of this repository, through compose:
 ```sh
 git clone https://github.com/dayjobdoor/dotfiles && cd dotfiles
 cp .devcontainer/.env.example .devcontainer/.env   # set PASSWORD
-mise run up                                         # or: docker compose -f .devcontainer/compose.yaml up -d --build desktop
+mise run up                                         # or: docker compose -f .devcontainer/compose.yaml up -d --build ubuntu
 ```
 
 Connect an RDP client to `localhost:33389` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The tests use xfreerdp3; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
@@ -93,7 +93,7 @@ Connect an RDP client to `localhost:33389` as `dayjobdoor` with that `PASSWORD`.
 | Command | Effect | Files, browser profiles and settings in the container |
 | --- | --- | --- |
 | `mise run up` | builds the image and starts the container | kept while the container stays. When the image is rebuilt, compose replaces the container, and the new one has none of them (compose behavior, not tested here) |
-| `docker compose -f .devcontainer/compose.yaml stop desktop` | stops the container | kept |
+| `docker compose -f .devcontainer/compose.yaml stop ubuntu` | stops the container | kept |
 | `mise run down` | removes the container | deleted |
 
 A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens. A `PASSWORD` or `RDP_PORT` exported in your shell wins over that file.

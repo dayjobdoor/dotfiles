@@ -1,6 +1,6 @@
 name: djd
 services:
-  desktop:
+  ubuntu:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
@@ -8,7 +8,7 @@ services:
         DJD_MODULES: "agent"
       secrets:
         - github_token
-    hostname: vm
+    hostname: container
     user: root
     entrypoint: ["djd-desktop-entrypoint"]
     # the password comes from the djd_rdp_password secret, so it is in neither argv nor `docker inspect`
@@ -22,7 +22,7 @@ services:
     init: true # docker-init is PID 1: it forwards signals to xrdp and reaps zombies
 
   # Optional remote access through a Cloudflare Tunnel: set TUNNEL_TOKEN in the env file, uncomment this, and point
-  # the tunnel's public hostname at desktop:3389 in the Cloudflare dashboard. Clients need cloudflared. It opens
+  # the tunnel's public hostname at ubuntu:3389 in the Cloudflare dashboard. Clients need cloudflared. It opens
   # password RDP beyond this machine, so keep Cloudflare Access in front of it.
   # tunnel:
   #   image: cloudflare/cloudflared
