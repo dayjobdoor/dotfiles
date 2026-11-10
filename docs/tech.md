@@ -37,7 +37,7 @@ Each row is something that was tried or weighed and left out, with the reason th
 | Native `[bootstrap.users]` and `[bootstrap.groups]` for the docker group | They need a fixed user name, while the install runs as whoever calls it, so `hooks/server-post-packages` stays. |
 | `[bootstrap.repos]` for the zsh plugins | It clones no submodules, so zsh-abbr (which needs zsh-job-queue) failed to initialize. sheldon checks submodules out at the commit a plugin pins. |
 | `github:` tools for the pinned desktop apps | They would depend on the GitHub API (60 requests an hour anonymously), and the newest Obsidian release can be mobile-only. The `http:` tools are pinned to a version and a SHA-256 per platform. |
-| A seccomp profile that allows user namespaces, instead of `--no-sandbox` in the image | It applies only to containers started with it, so `docker run` of the published image would still abort. The repository ships none, and no one has run Brave under one ([problems.md](problems.md#brave-in-a-container-runs-without-its-sandbox)). |
+| A seccomp profile that allows user namespaces, instead of `--no-sandbox` in the image | It applies only to containers started with it, so `docker run` of the published image would still abort. The repository ships none. One that added `clone`, `unshare` and `setns` to Docker's default made `unshare -Ur true` work, but it killed the XFCE session about 4 s after login (`xfce4-panel` aborted in libwnck with `default_icon_at_size: assertion failed`), and `test:desktop` failed on it twice out of two. The cause was not established (a guess: image loading falls back to a sandbox that needs more syscalls once user namespaces work). ([problems.md](problems.md#brave-in-a-container-runs-without-its-sandbox)). |
 | `security_layer=hybrid` or NLA for xrdp | This xrdp has no NLA, and `hybrid` is not a valid value; it falls back to `negotiate` and re-enables the legacy RDP layer. |
 | A global lockfile for machine tools | The Docker image digest is the reproducible artifact; the plan is in [ROADMAP.md](../ROADMAP.md). |
 | `APT::Install-Recommends "false"` | Another 0.46 GB, but 359 packages go ([below](#apt-recommends-stay-on)). |
@@ -59,14 +59,15 @@ mise has four secret features, and this repository uses one of them.
 
 ## Modules
 
-A module is the file `mise-config/config.<module>.toml`. `djd module add` and `djd module remove` write the selection to `~/.config/mise/miserc.local.toml` as `env = [...]`, in the order `agent server full secrets`.
+A module is the file `mise-config/config.<module>.toml`. `djd module add` and `djd module remove` write the selection to `~/.config/mise/miserc.local.toml` as `env = [...]`, in the order `agent server full warp secrets`.
 
 | Module | apt packages | mise tools | Runs in |
 | --- | --- | --- | --- |
-| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree sqlite3 openssh-client gnupg fastfetch make`, and for the desktop `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool wireshark apparmor libinput-tools libnss3 libgbm1 libcups2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libxkbcommon0 libxss1 libxtst6 libsecret-1-0 libnotify4` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt`, and `zed` and `zen` from GitHub releases; `hackgen`, the HackGen NF font, `obsidian`, `vicinae` and `ferdium`, from pinned `http:` URLs; `ruby` and the gem `fusuma` | every machine, the Docker image included |
+| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree sqlite3 openssh-client gnupg fastfetch make`, and for the desktop `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp freerdp3-x11 pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool wireshark apparmor libinput-tools libnss3 libgbm1 libcups2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libxkbcommon0 libxss1 libxtst6 libsecret-1-0 libnotify4` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt`, and `zed` and `zen` from GitHub releases; `hackgen`, the HackGen NF font, `obsidian`, `vicinae` and `ferdium`, from pinned `http:` URLs; `ruby` and the gem `fusuma` | every machine, the Docker image included |
 | `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | the Docker image, machines for agents |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
-| `full`, which requires `agent` | 33 packages, counted in the section below | 181 tools | opt-in, and the weekly CI |
+| `full`, which requires `agent` | 33 packages, counted in the section below | 183 tools | opt-in, and the weekly CI |
+| `warp` | `cloudflare-warp`, from Cloudflare's apt repository | none | VMs and real hosts, never the Docker image |
 | `secrets` | none | none | machines you own, never sandboxes |
 
 What each module declares besides packages and tools, by `mise bootstrap` part:
@@ -77,9 +78,10 @@ What each module declares besides packages and tools, by `mise bootstrap` part:
 | `agent` | | | | | | | npm and bun locations, `PI_TELEMETRY`, `DO_NOT_TRACK`, `PI_CODING_AGENT_DIR`, `OMP_PROFILE`, `PI_CONFIG_DIR`, `PI_NATIVES_DIR` |
 | `server` | `10-djd.conf`, `daemon.json` | docker restarts when `daemon.json` changes, ufw rules | | | | `post-packages`, `pre-dotfiles` | |
 | `full` | | | | | | | |
+| `warp` | | | | | | | |
 | `secrets` | | | | | | | age ciphertext values, none committed today |
 
-`full` declares only packages, tools, and the cargo and rust `[settings]`. `secrets` sets `experimental`, `age.key_file`, and `age.strict` in `[settings]`. The base also declares the apt source of Brave under `[bootstrap.apt.sources.brave-browser]`.
+`full` declares only packages, tools, and the cargo and rust `[settings]`. `secrets` sets `experimental`, `age.key_file`, and `age.strict` in `[settings]`. The base also declares the apt source of Brave under `[bootstrap.apt.sources.brave-browser]`. `warp` declares only the apt source of Cloudflare under `[bootstrap.apt.sources.cloudflare-warp]` (suite `resolute`, one pinned key fingerprint) and the package `cloudflare-warp` (77 MB to download, 218 MB installed, 45 packages with its dependencies, WebKitGTK among them). It stays out of the image because a connected client takes over the routes and DNS of the machine, and a tunnel in a container needs `NET_ADMIN` and `/dev/net/tun`, which compose does not grant; `warp-svc` did start in a container, but no tunnel was tried there.
 
 ### Files that modules manage
 
@@ -88,7 +90,7 @@ Base:
 - The dotfile group `home`.
 - The login shell `zsh`.
 - `/etc/locale.conf` set to `C.UTF-8`.
-- Eight zsh plugins, named in `home/.config/sheldon/plugins.toml` and pinned to a commit each with `rev`: zsh-defer, zsh-completions, fast-syntax-highlighting, zsh-autosuggestions, zsh-autopair, zsh-abbr, forgit and git-open. sheldon, a base tool, checks them out under `~/.local/share/sheldon/repos` and writes `plugins.lock` beside them; `hooks/sheldon-lock` runs `sheldon lock` in the `final` hook, and the Dockerfile runs it after its dotfiles pass. zsh-abbr's submodule zsh-job-queue comes with it. To update a plugin, set a newer `rev` and run `djd apply`. The abbreviations are `home/.config/zsh-abbr/user-abbreviations`, and the aliases that replace a command are `[shell_alias]` entries of `config.toml`.
+- Ten zsh plugins, named in `home/.config/sheldon/plugins.toml` and pinned to a commit each with `rev`: zsh-defer, zsh-completions, fast-syntax-highlighting, zsh-autosuggestions, zsh-autopair, zsh-abbr, forgit, git-open, autojump and enhancd. autojump's `rev` is a master commit, because the release starts with `python`, which Ubuntu does not have. enhancd replaces `cd` and keeps its history in `$XDG_STATE_HOME/enhancd`; autojump and zoxide both stay. fzf is not a plugin: `fzf --zsh` comes from the mise tool, so the scripts always match the binary. sheldon, a base tool, checks them out under `~/.local/share/sheldon/repos` and writes `plugins.lock` beside them; `hooks/sheldon-lock` runs `sheldon lock` in the `final` hook, and the Dockerfile runs it after its dotfiles pass. zsh-abbr's submodule zsh-job-queue comes with it. To update a plugin, set a newer `rev` and run `djd apply`. The abbreviations are `home/.config/zsh-abbr/user-abbreviations`, and the aliases that replace a command are `[shell_alias]` entries of `config.toml`.
 
 `agent`:
 
@@ -150,14 +152,14 @@ flowchart TD
 
 The `full` module has 33 apt packages. 21 are CLI packages, such as build libraries and network tools. 12 are GUI libraries and programs that no longer wait for a desktop selection, because the desktop is part of the base. They are GTK and WebKit development libraries, flatpak, and a terminal music stack (`mpd`, `mpc`, `ncmpcpp`). ruby comes from mise only, and sqlite3 and fastfetch come from the base apt list. dotnet is commented out because its installer rejects 26.04, and vegeta and taskctl install on amd64 only.
 
-These commands regenerate the counts. They print 181 tools and 33 apt packages.
+These commands regenerate the counts. They print 183 tools and 33 apt packages.
 
 ```sh
 awk '/^\[tools\]/{t=1;next} /^\[/{t=0} t&&/^"?[a-z]/' mise-config/config.full.toml | wc -l
 awk '/^\[bootstrap.packages\]/{p=1;next} /^\[/{p=0} p&&/^"apt:/' mise-config/config.full.toml | wc -l
 ```
 
-Plan for at least 10 GB of free disk. That figure is an estimate. One install of 155 of the 181 tools used 7.5 GB of installs plus 2.5 GB of cache. It was measured once, in October 2026, on an arm64 Mac running OrbStack. The other 26 tools were not measured.
+Plan for at least 10 GB of free disk. That figure is an estimate. One install of 155 of the 181 tools that the module had then (before `fnox` and `vhs` joined) used 7.5 GB of installs plus 2.5 GB of cache. It was measured once, in October 2026, on an arm64 Mac running OrbStack. The other 26 tools, and the two added since, were not measured.
 
 ## djd commands
 
@@ -230,6 +232,8 @@ The sshd check of `hooks/sshd-keys-only` covers the effective settings of the cu
 | `~/.config/zsh/.zlogout` | interactive zsh login shells, on exit | Runs fastfetch, or prints a short banner when it is missing. `zsh -lc` does not read it, and `zsh -lic cmd` reads it but prints nothing. |
 | `~/.bash_profile` and `~/.bashrc` | bash | `.bash_profile` sources `.profile` and `.bashrc`; `.bashrc` sources `.profile` only when `DJD_DIR` is unset. They run the interactive-only setup: history (appended, not overwritten), starship, zoxide, omp completions, and `mise activate` before them, then reads `~/.config/djd/bashrc.local`, so that the cached inits are keyed by the installed binary's path. starship's init keeps the `PROMPT_COMMAND` it finds, so mise's hook survives. `.bashrc` exports `DJD_ARCH` like `.zshrc`. |
 
+Three tool configs are linked from `home/.config/` and have no table of their own. `cheat/` holds `conf.yml` and 16 personal sheets (the tools of this repository; `cheat` itself is a `full` tool). `gh/config.yml` sets the git protocol to https (the same path as the gh credential helper in `git/config`, and the sandboxes hold no SSH key for GitHub) and an alias; the login (`gh/hosts.yml`) is gitignored. `ripgrep/config` adds `--hidden` and leaves out `.git` and `vendor`; only the `rg` alias points `RIPGREP_CONFIG_PATH` at it, for what is typed at a prompt. An exported variable would reach every child of a herdr pane, the rg of pi and omp included, and `--hidden` would make their searches cover dotfiles. `git/config` has the `[filter "lfs"]` of `git-lfs`, a base tool, with `required = true`.
+
 ## Environment variables
 
 The tables group the variables by where they matter. The scope names are install (`install.sh` and the djd tasks), login (login shells and anything that sources `.profile`), shim (a program started through a mise shim), image (the Docker image environment), build (a Docker build), tasks (the repo tasks), and compose (`.devcontainer/compose.yaml`).
@@ -276,11 +280,10 @@ The tables group the variables by where they matter. The scope names are install
 
 | Variable | Scope | Default | Effect |
 | --- | --- | --- | --- |
-| `RDP_PORT` | compose | `33389` | Host port that `compose.yaml` publishes on `127.0.0.1` for RDP. Set it in `.devcontainer/.env`. |
 | `PASSWORD` | compose | required | RDP password of the desktop container. Set it in `.devcontainer/.env`. It must not contain a newline: the entrypoint exits 2 for one, because `chpasswd` reads one `user:password` pair per line. |
 | `TUNNEL_TOKEN` | compose | none | Token of the optional cloudflared service, which is commented out in `compose.yaml`. When you enable it, the token goes in `environment` and not on the command line. |
 
-A value that you export in your shell wins over `.devcontainer/.env` for `RDP_PORT` and `PASSWORD`. `PASSWORD` feeds the `djd_rdp_password` secret, which `docker compose config` does not render, so this was checked by reading `/run/secrets/djd_rdp_password` in a throwaway compose project whose `.env` held another value: the exported value was the one in the file. These names are generic, so a stray export silently becomes the RDP password or port. `PASSWORD` and `TUNNEL_TOKEN` are secrets.
+A value that you export in your shell wins over `.devcontainer/.env` for `PASSWORD`. `PASSWORD` feeds the `djd_rdp_password` secret, which `docker compose config` does not render, so this was checked by reading `/run/secrets/djd_rdp_password` in a throwaway compose project whose `.env` held another value: the exported value was the one in the file. The name is generic, so a stray export silently becomes the RDP password. `PASSWORD` and `TUNNEL_TOKEN` are secrets.
 
 Precedence in login shells and tools:
 
@@ -296,7 +299,7 @@ Precedence in login shells and tools:
 
 | Image | Modules | Use |
 | --- | --- | --- |
-| `ghcr.io/dayjobdoor/dotfiles:latest`, also tagged `X.Y.Z` and `X.Y` | `agent` on the base, which includes the desktop | Agent sandbox, devcontainer and XFCE over RDP. `.devcontainer/compose.yaml` builds the same image locally and publishes RDP on `127.0.0.1:33389`. `mise run up` starts it. |
+| `ghcr.io/dayjobdoor/dotfiles:latest`, also tagged `X.Y.Z` and `X.Y` | `agent` on the base, which includes the desktop | Agent sandbox, devcontainer and XFCE over RDP. `.devcontainer/compose.yaml` builds the same image locally and publishes RDP on `127.0.0.1:3589`. `mise run up` starts it. |
 | `djd:full`, local only and not published | `agent` and `full` | The full toolbox. `mise run build full` builds it. `full-weekly.yaml` builds it weekly, runs `djd doctor` in it, and then runs `djd update && djd doctor`. |
 
 Every image sets `DJD_NO_MUX=1`, `DEBIAN_FRONTEND=noninteractive`, and `LANG=C.UTF-8`, and puts the mise shims on `PATH`. The images that `mise run build` and `push.yaml` build also carry the commit in `DJD_REVISION`. Start the containers with `--init`, so that an init process reaps zombies. `compose.yaml` and `devcontainer.json` set it, and `mise run shell` passes it.

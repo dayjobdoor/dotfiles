@@ -94,7 +94,7 @@ Ubuntu has no HackGen package, so the base installs the pinned release as the mi
 | ghostty window padding | 8px x/y, balanced | ghostty config |
 | herdr sidebar | 28 columns | herdr config `[ui]` |
 | herdr pane shell | `zsh`, non-login | herdr config `[terminal]` |
-| RDP session | one XFCE session per user, `127.0.0.1:33389` in Docker | `.devcontainer/compose.yaml` |
+| RDP session | one XFCE session per user, `127.0.0.1:3589` in Docker | `.devcontainer/compose.yaml` |
 
 ## Elevation & Depth
 

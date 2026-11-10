@@ -1,6 +1,6 @@
 # dayjobdoor/dotfiles
 
-> Ubuntu 26.04 (amd64, arm64) dotfiles managed entirely by mise: packages, system files, firewall, dotfiles, login shell and tools come from `mise bootstrap`. Modules (agent, server, full, secrets) are mise config environments on a base that includes the desktop; `djd` is the CLI. Ships one Docker image, the base with the XFCE/RDP desktop plus `agent`.
+> Ubuntu 26.04 (amd64, arm64) dotfiles managed entirely by mise: packages, system files, firewall, dotfiles, login shell and tools come from `mise bootstrap`. Modules (agent, server, full, warp, secrets) are mise config environments on a base that includes the desktop; `djd` is the CLI. Ships one Docker image, the base with the XFCE/RDP desktop plus `agent`.
 
 A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise trust` only on a machine that can be thrown away (a container or a VM), as AGENTS.md says. A person installs on a real machine as README.md describes. Never commit secrets; values go in age ciphertext through `djd secret set`. Start with AGENTS.md if you change the repository, and with README.md if you install it.
 
@@ -31,7 +31,7 @@ The layout of the repository, with the purpose of each entry, is in [Directory](
 - [.mise/tasks/](.mise/tasks/): repo tasks
 - [.mise/config.toml](.mise/config.toml): the short repo tasks and mise settings
 - [.env.example](.env.example): the variable names for agent providers and tokens, no values
-- [.devcontainer/.env.example](.devcontainer/.env.example): the compose variables (`RDP_PORT`, `PASSWORD`); copy it to `.devcontainer/.env`
+- [.devcontainer/.env.example](.devcontainer/.env.example): the compose variable `PASSWORD`; copy it to `.devcontainer/.env`
 - [.editorconfig](.editorconfig): editor formatting rules
 - [.shellcheckrc](.shellcheckrc): shellcheck settings
 - [install.sh](install.sh): the installer that `curl | sh` runs

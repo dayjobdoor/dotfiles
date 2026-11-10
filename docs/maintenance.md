@@ -86,7 +86,7 @@ jactionlint audits the workflows, and lint runs it.
 - Checkouts drop the token with `persist-credentials: false`, except in `tag.yaml`, which pushes the tag.
 - Every `uses:` is pinned to a commit.
 - `push.yaml` and `tag.yaml` set `permissions: {}` at the top, and every job sets its own. Values such as `matrix.platform` and the build digest reach scripts through `env:`, not through `${{ }}` in the script.
-- Both `setup-buildx` steps in `push.yaml` set `cache-binary: false`. The input has no effect while no buildx version is pinned; it keeps a pinned binary out of the Actions cache if one is added. The release builds use no layer cache because they set no `cache-from` or `cache-to`.
+- Both `setup-buildx` steps in `push.yaml` set `cache-binary: false`. The input has no effect while no buildx version is pinned; it keeps a pinned binary out of the Actions cache if one is added. The release builds use no layer cache because they set no `cache-from` or `cache-to`. The Dockerfile's cache mounts (apt archives, `~/.cache/mise`) start empty on those ephemeral runners, so they only speed up local rebuilds.
 - Three findings are ignored inline, each with its reason beside it. One is the guarded `workflow_run` trigger in `tag.yaml`. The other two are the locally built image that two steps of `full-weekly.yaml` run.
 
 [SECURITY.md](../SECURITY.md#github-tokens) lists the token permissions of each workflow.
@@ -99,5 +99,3 @@ Repo tasks are mise file tasks in `.mise/tasks/`, plus a few in `.mise/config.to
 `.mise/mise.lock` pins tool versions with checksums for the platforms in `lockfile_platforms` in `.mise/config.toml`: `linux-x64`, `linux-arm64`, and `macos-arm64`. `mise lock --bump` moves the pins without installing anything. The npm graph that sits beside the lock is in `.mise/locks/`. `npm.package_manager = "aube"` in `.mise/config.toml` selects it, because the bun of the agent module cannot install a locked aube graph.
 
 The `lint` job of `ci.yaml` and the `secrets` job of `docs.yaml` set `MISE_LOCKED=true`. Their installs use only the URLs and checksums in `.mise/mise.lock`, so they call no GitHub API and need no token, and they fail when the lock lacks a tool. [SECURITY.md](../SECURITY.md#github-tokens) says which token each workflow step receives. `min_version` in `.mise/config.toml` and in `mise-config/config.toml` makes an older mise stop with an error.
-
-

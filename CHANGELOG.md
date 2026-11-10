@@ -2,6 +2,16 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## 0.0.14 (2026-11-10)
+
+- Compose: the RDP port is fixed at 3589 on 127.0.0.1 (`127.0.0.1:3589:3389`); `RDP_PORT` is gone, so a value in your `.devcontainer/.env` is ignored.
+- Image build: the apt archives and `~/.cache/mise` are BuildKit cache mounts, so a rebuild of those layers downloads nothing again (the apt download alone took 104 to 270 s cold and 12 s warm); the image is the same. `docker builder prune` clears them.
+- Module `warp`: Cloudflare WARP from Cloudflare's apt repository, for VMs and real hosts (`djd module add warp`; register with `warp-cli registration new`). The Docker image does not carry it, and `test:vm` installs it and checks that `warp-svc` is active.
+- Image: `freerdp3-x11` (`xfreerdp3`) is in the base, and `git-lfs` with the `[filter "lfs"]` of `git/config`. The `full` module adds `vhs` and `fnox` (183 tools).
+- Dotfiles: `cheat` (conf and 16 personal sheets), `gh/config.yml` (https) and `ripgrep/config`, which only the typed `rg` alias reads, so the rg of agents keeps its defaults.
+- Shell: autojump and enhancd are sheldon plugins pinned to a commit, next to zoxide; fzf stays a mise tool.
+- Docs: Brave keeps `--no-sandbox` in the container, and `problems.md` records why a seccomp profile that allows user namespaces was rejected (it killed the XFCE session).
+
 ## 0.0.13 (2026-11-10)
 
 - Compose: the service is `ubuntu`, not `desktop`. Stop it with `docker compose -f .devcontainer/compose.yaml stop ubuntu`; `mise run up` and `mise run down` are unchanged.

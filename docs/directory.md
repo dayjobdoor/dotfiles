@@ -24,7 +24,7 @@ llms.txt                index of the docs for language-model readers
 docs/                   requirements, architecture, problems, tech, directory, references, testing, maintenance and guidance, one .md each
 mise-config/            linked as ~/.config/mise, the global config
   config.toml           base module: settings, core tools, base apt packages, locale, login shell, dotfile group home, the sheldon tool
-  config.<module>.toml  the modules agent, server, full, and secrets
+  config.<module>.toml  the modules agent, server, full, warp, and secrets
   tasks/djd/            the djd commands, as global file tasks
   hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, desktop-final and sheldon-lock: hook scripts that are too long for an inline [bootstrap.hooks] string; sshd-keys-only is not a hook of its own but the check that server-pre-dotfiles and `djd doctor` both run
 home/                   dotfile group home, symlinked file by file into ~ (home/.config/pi and home/.config/omp hold the pi and omp config)
@@ -44,7 +44,7 @@ cloud-init/vm.yaml      the cloud-init file for incus and multipass
 | --- | --- |
 | Global mise config | `mise-config/`. A mise project file or a `mise/` or `.config/mise/` directory at the top of the checkout would make mise treat the checkout itself as a project config, so none exists. |
 | Repo tasks, their tools and lock | `.mise/` only: `tasks/<name>`, `config.toml` and the lock beside it. The tasks, the config and the lock do not live at the root. |
-| Modules | `mise-config/config.<module>.toml` for `agent`, `server`, `full` and `secrets`. The desktop is part of `config.toml`, so there is no `config.desktop.toml`. |
+| Modules | `mise-config/config.<module>.toml` for `agent`, `server`, `full`, `warp` and `secrets`. The desktop is part of `config.toml`, so there is no `config.desktop.toml`. |
 | Dotfiles | `home/`, under the literal name they have in `~`. |
 | Hooks and djd commands | `mise-config/hooks/<name>` and `mise-config/tasks/djd/<name>`, both executable bash. |
 | Tests | `tests/<name>.sh` (every offline test has a `# Contract` header), named in the layout above and run by a task. |

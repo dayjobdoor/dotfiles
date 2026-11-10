@@ -86,7 +86,7 @@ cp .devcontainer/.env.example .devcontainer/.env   # set PASSWORD
 mise run up                                         # or: docker compose -f .devcontainer/compose.yaml up -d --build ubuntu
 ```
 
-Connect an RDP client to `localhost:33389` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The tests use xfreerdp3; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
+Connect an RDP client to `localhost:3589` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The image has xfreerdp3 (`xfreerdp3 /v:localhost:3589 /u:dayjobdoor`), which the tests use; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
 
 `mise run up` and `make up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). The compose build reads `GITHUB_TOKEN` from the environment, a token without scopes or an empty one.
 
@@ -96,7 +96,7 @@ Connect an RDP client to `localhost:33389` as `dayjobdoor` with that `PASSWORD`.
 | `docker compose -f .devcontainer/compose.yaml stop ubuntu` | stops the container | kept |
 | `mise run down` | removes the container | deleted |
 
-A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens. A `PASSWORD` or `RDP_PORT` exported in your shell wins over that file.
+A devcontainer mounts the whole checkout, so keep only the RDP password (and the optional tunnel token) in `.devcontainer/.env`, never GitHub or other tokens. A `PASSWORD` exported in your shell wins over that file.
 
 ## VMs
 
@@ -148,10 +148,11 @@ For Docker, add two `iptables -I DOCKER-USER` rules, the ones in `.github/workfl
 
 | Module | Adds |
 | --- | --- |
-| base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles, and the desktop: XFCE over xrdp (TLS only, no root login) with audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), Wireshark, Obsidian, Vicinae, Ferdium and fusuma |
+| base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles, and the desktop: XFCE over xrdp (TLS only, no root login) with an RDP client (xfreerdp3), audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), Wireshark, Obsidian, Vicinae, Ferdium and fusuma |
 | `agent` | node, bun, python, uv, build tools, the coding agents pi and omp (oh-my-pi), the `skills` CLI for agent skills, the global AGENTS.md of pi and omp, telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `full` | the whole personal toolbox (181 tools; plan for at least 10 GB of disk, an estimate that [tech.md](docs/tech.md#modules) explains); implies `agent` |
+| `full` | the whole personal toolbox (183 tools; plan for at least 10 GB of disk, an estimate that [tech.md](docs/tech.md#modules) explains); implies `agent` |
+| `warp` | Cloudflare WARP (`cloudflare-warp`, from Cloudflare's apt repository); for VMs and real hosts, not the container; register once with `warp-cli registration new` and `warp-cli connect` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
 ## djd

@@ -30,7 +30,7 @@ All of these are outside the repo or gitignored. The shell and git files are rea
 | `~/.config/djd/bashrc.local` | interactive bash additions |
 | `~/.config/git/user.conf` | git identity and signing key |
 | `~/.config/mise/miserc.local.toml` | module selection (gitignored inside `mise-config/`) |
-| `.devcontainer/.env` | Compose values `PASSWORD` and `RDP_PORT`, and `TUNNEL_TOKEN` if you use the optional tunnel in `compose.yaml`. A value exported in your shell wins over this file, so a stray `PASSWORD` or `RDP_PORT` in the environment becomes the RDP password or port. A devcontainer mounts the whole checkout, so an agent inside it can read this file. Put nothing else in it, and no GitHub or other tokens |
+| `.devcontainer/.env` | Compose value `PASSWORD`, and `TUNNEL_TOKEN` if you use the optional tunnel in `compose.yaml`. A value exported in your shell wins over this file, so a stray `PASSWORD` in the environment becomes the RDP password. A devcontainer mounts the whole checkout, so an agent inside it can read this file. Put nothing else in it, and no GitHub or other tokens |
 | `~/.config/djd/age.txt` | age identity that decrypts the secrets module |
 
 ## age-encrypted secrets
@@ -78,6 +78,11 @@ The repository settings below are recommendations. Nothing in the repository enf
 - The image takes its RDP password at container start, never at build time. `compose.yaml` passes it as the `djd_rdp_password` secret (from `PASSWORD` in `.devcontainer/.env`), mounted at `/run/secrets/djd_rdp_password`, so it is in neither `docker inspect` nor `/proc/1/cmdline`. Only a password given to the entrypoint as an argument, as `test:desktop` does for its throwaway containers, shows in both. A process that runs as root in the container, including the `dayjobdoor` user through passwordless sudo, can still read the secret file. Keep `.devcontainer/.env` at mode 600, and single-quote a `PASSWORD` that contains a `$`. The entrypoint refuses a password with a newline (exit 2), because `chpasswd` would take the second line as another account's password.
 - The optional Cloudflare tunnel in `compose.yaml` (commented out) takes `TUNNEL_TOKEN` through `environment`, not on the command line, so `ps` on the host does not show it. `docker inspect` still does.
 - Compose publishes RDP on `127.0.0.1` (`ports` in `compose.yaml`). The image itself does not restrict where the port is published.
+
+## Warp module
+
+- `cloudflare-warp` comes from `https://pkg.cloudflareclient.com`, declared in `config.warp.toml` with suite `resolute` and one pinned key fingerprint. The fingerprint is read from the same `pubkey.gpg` that mise downloads, and Cloudflare publishes no second place to compare it with, so it is trust on first use: it stops a later key swap, not a wrong first key. The key has no expiry date.
+- The package runs `warp-svc` as root, and a connected client takes over the routes and the DNS of the machine. The module is for VMs and real hosts; the Docker image does not carry it. `djd module add warp` does not register or connect: that is a manual `warp-cli registration new`, which creates a device on Cloudflare's side (`warp-cli registration delete` removes it).
 
 ## Server module
 

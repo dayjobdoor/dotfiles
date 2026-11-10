@@ -155,7 +155,7 @@ The task uses the first of incus and multipass that it finds. CI installs incus 
 | `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses | `test:offline` | The image |
 | `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, nests a git repository and a submodule entry with ignored files inside, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
 | `tests/desktop-apps.sh` | The four desktop apps, and that Wireshark, Obsidian, Vicinae, Ferdium and fusuma are on `PATH` with a working menu entry | `test:desktop`, `tests/vm-checks.sh` | The image, VM |
-| `tests/vm-checks.sh` | The base and server install, including that xrdp runs with the hardened settings | `test:vm` | incus or multipass |
+| `tests/vm-checks.sh` | The base, server and warp install, including that xrdp runs with the hardened settings and that `warp-svc` is active and waiting for a registration | `test:vm` | incus or multipass |
 | `tests/tree.sh` | Helper, not a test | `ci`, `test:vm`, `test:offline`, the no-trust flow in AGENTS.md | Host |
 
 The tasks:
