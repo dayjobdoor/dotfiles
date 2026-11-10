@@ -27,7 +27,7 @@ jobs:
       group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
-    # waits for the push.yaml run; its build job has a 45-minute timeout (2 to 5 minutes measured)
+    # waits for the push.yaml run; its build job has a 30-minute timeout (about 8 minutes measured, docs/maintenance.md#timeouts)
     timeout-minutes: 60
     permissions:
       contents: write # push the tag, create the release

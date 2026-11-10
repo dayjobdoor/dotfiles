@@ -22,3 +22,4 @@
 .jj
 home/.config/pi/agent/models.json
 home/.config/omp/profiles/*/agent/models.yml
+home/.config/omp/profiles/*/agent/config.yml.lock
