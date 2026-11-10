@@ -37,7 +37,8 @@ packages:
 # passwordless sudo, so that account gets root over SSH on the VM. Forks: replace it with your own GitHub user before
 # launching. The server module refuses to turn passwords off for a user without a key, so a failed import (GitHub's API
 # limits anonymous callers) stops the install instead of locking the VM.
-# Both run as dayjobdoor, after the packages.
+# Both run as dayjobdoor, after the packages. pipefail: a failed download would otherwise leave sh an empty script,
+# which exits 0, and cloud-init would report a successful launch.
 runcmd:
   - su - dayjobdoor -c 'ssh-import-id gh:dayjobdoor'
-  - su - dayjobdoor -c 'curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server'
+  - su - dayjobdoor -c "bash -c 'set -o pipefail; curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- server'"

@@ -20,6 +20,14 @@ services:
     shm_size: 512m # browsers in the session crash with the 64m default
     restart: unless-stopped
     init: true # docker-init is PID 1: it forwards signals to xrdp and reaps zombies
+    # xrdp listening is what a client needs; with `up --wait` (mise run up) a container that crash-loops, as it does
+    # with an empty PASSWORD, fails the command instead of reporting a start that did not hold
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3389"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Optional remote access through a Cloudflare Tunnel: set TUNNEL_TOKEN in the env file, uncomment this, and point
   # the tunnel's public hostname at ubuntu:3389 in the Cloudflare dashboard. Clients need cloudflared. It opens

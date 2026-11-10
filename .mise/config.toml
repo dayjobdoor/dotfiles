@@ -30,7 +30,7 @@ run = "docker run --rm -it --init djd:latest"
 
 [tasks.up]
 description = "Start the desktop container (RDP on 127.0.0.1:3589; PASSWORD in .devcontainer/.env)"
-run = "docker compose -f .devcontainer/compose.yaml up -d --build ubuntu"
+run = "docker compose -f .devcontainer/compose.yaml up -d --build --wait ubuntu"
 
 [tasks.down]
 description = "Stop and remove the desktop container"

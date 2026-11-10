@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Fresh Ubuntu VM (incus or multipass): curl | sh install of the base and server, hardening, module removal"
+#MISE description="Fresh Ubuntu VM (incus or multipass): curl | sh install of the base, server and warp, hardening, module removal"
 # cloud-init, the README's `curl | sh -s -- server` plus the warp module (cloning this tree instead of GitHub), then
 # tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux) and multipass found.
 # GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 (exactly 1) keeps the VM after the run, to inspect a failure.
@@ -38,6 +38,11 @@ cloud_init_wait() {
 # cloud-init/vm.yaml above its "djd-install-below" marker: the part that sets the machine up. Below it are the owner's
 # SSH key and the install from GitHub, which this test replaces with its own checkout and no key.
 userdata() { sed '/^# djd-install-below$/,$d' cloud-init/vm.yaml; }
+# without the marker sed would pass the whole file on, and the VM would run the real install from GitHub main
+grep -qx '# djd-install-below' cloud-init/vm.yaml || {
+    echo "vm: cloud-init/vm.yaml has no '# djd-install-below' line" >&2
+    exit 2
+}
 
 if command -v incus >/dev/null 2>&1; then
     vm_create() {

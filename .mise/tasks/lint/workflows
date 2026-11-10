@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="jactionlint over the workflows and dependabot.yml, runner labels against .actrc, hadolint"
+#MISE description="jactionlint over the workflows and dependabot.yml, runner labels against .actrc, hadolint, the dockerignore patterns, compose config"
 #MISE tools={jactionlint="latest", hadolint="latest", shellcheck="latest"}
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -21,4 +21,18 @@ while IFS= read -r label; do
 done < <(sed 's/^[[:space:]]*#.*//' .github/workflows/*.yaml | grep -oE 'ubuntu-[0-9a-z.-]+' | sort -u)
 # DL3066: the Dockerfile renames the base image's ubuntu user to dayjobdoor before USER, so the name always resolves
 hadolint --ignore DL3066 .devcontainer/Dockerfile
+# the dockerignore is what keeps credentials out of a locally built image, and nothing else would notice a pattern
+# going missing from it
+for pattern in '**/.env' '**/.env.*' '**/*.local.toml' '**/age.txt' '**/gh/hosts.yml' '**/*.pem' '**/*.key' '.secrets' \
+    'home/.config/pi/agent/models.json' 'home/.config/omp/profiles/*/agent/models.yml'; do
+    grep -qxF -- "$pattern" .devcontainer/Dockerfile.dockerignore || {
+        echo "lint: .devcontainer/Dockerfile.dockerignore lost the pattern $pattern" >&2
+        exit 1
+    }
+done
+# compose.yaml is otherwise only exercised by a person; the docker lint run has no docker, and CI does. PASSWORD and
+# GITHUB_TOKEN are the variables its secrets read: config needs them defined, not meaningful
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    PASSWORD=lint GITHUB_TOKEN='' docker compose -f .devcontainer/compose.yaml config -q
+fi
 echo "ok workflows and Dockerfile"

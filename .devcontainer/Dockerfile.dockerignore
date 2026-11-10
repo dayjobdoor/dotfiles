@@ -23,3 +23,8 @@
 home/.config/pi/agent/models.json
 home/.config/omp/profiles/*/agent/models.yml
 home/.config/omp/profiles/*/agent/config.yml.lock
+# nothing in the image reads these, and a change to one would otherwise rerun the last COPY and the sheldon lock
+docs
+.github
+/*.md
+llms.txt

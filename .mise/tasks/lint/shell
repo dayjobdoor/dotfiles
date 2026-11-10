@@ -13,9 +13,10 @@ shell=(home/.profile home/.bash_profile home/.bashrc)
 while IFS= read -r -d '' f; do
     # || true: a file without a final newline still fills first, but read exits 1
     IFS= read -r first <"$f" || true
-    case $first in
-    '#!/bin/sh' | '#!/usr/bin/sh' | '#!/bin/bash' | '#!/usr/bin/bash' | '#!/usr/bin/env sh' | '#!/usr/bin/env bash' | '#!/usr/bin/env -S bash') shell+=("${f#./}") ;;
-    esac
+    # sh or bash, directly or through env, with or without options (`#!/bin/bash -e`, `#!/usr/bin/env -S bash -eu`)
+    if [[ $first =~ ^'#!'[[:space:]]*(/usr)?/bin/(env[[:space:]]+(-S[[:space:]]+)?)?(ba)?sh([[:space:]]|$) ]]; then
+        shell+=("${f#./}")
+    fi
 done < <(find . \( -name .git -o -name .jj -o -name node_modules \) -prune -o -type f -print0)
 shellcheck "${shell[@]}"
 # printer flags make shfmt ignore .editorconfig, so -i 4 holds for every script in the list

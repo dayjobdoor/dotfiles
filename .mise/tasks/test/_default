@@ -375,7 +375,9 @@ docker run --rm "$image" zsh -lc '
     set -e
     rm -rf ~/.config/lsd
     ln -s ~/.dotfiles/home/.config/lsd ~/.config/lsd
-    [ -f ~/.config/lsd/config.yaml ] && [ ! -L ~/.config/lsd/config.yaml ]
+    # two lines: under set -e only the last command of an && list can fail the script
+    [ -f ~/.config/lsd/config.yaml ]
+    [ ! -L ~/.config/lsd/config.yaml ]
     ~/.dotfiles/mise-config/hooks/dotfile-conflicts home
     [ -f ~/.dotfiles/home/.config/lsd/config.yaml ]
     [ -z "$(find ~/.dotfiles/home ~/.config -name "*.djd-backup-*")" ]
