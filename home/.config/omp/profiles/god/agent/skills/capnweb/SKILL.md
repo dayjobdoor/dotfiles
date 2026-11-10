@@ -35,6 +35,6 @@ Load a reference ONLY when its route matches the task — never preload. For API
 - Treat every remote call as fallible and latency-sensitive; do not hide network calls behind APIs that look purely local without documenting that contract.
 - Keep the RPC interface capability-oriented: return the smallest `RpcTarget` or callback capability needed for the next operation rather than a broad ambient service.
 - Keep serialization boundaries explicit. Pass data by value when a snapshot is intended; pass an `RpcTarget` or function only when the recipient should retain a callable capability.
-- Do not assume arbitrary application classes, cycles, `Map`, or `Set` serialize. Check the installed version and the core reference before choosing a value shape.
+- Do not assume arbitrary application classes, cycles, or `Map` serialize; `Set` and `RegExp` depend on the installed release. Check the installed version and the core reference before choosing a value shape.
 - Do not send secrets through logs, error stacks, serialized payloads, or debug traces. Redact RPC arguments and returned errors in observability code.
 - Prefer the built-in transport helpers and runtime adapters before implementing `RpcTransport`; custom transports are a protocol and flow-control responsibility, not merely a `send()` wrapper.

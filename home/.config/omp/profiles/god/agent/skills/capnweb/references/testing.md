@@ -29,7 +29,7 @@ Use behavior-focused tests. The official repository's [tests](https://github.com
 
 Prefer the project's existing test runner (Vitest is used by the upstream repository) and avoid coupling unit tests to private implementation details. Use a real transport for request-count assertions; mocks alone cannot prove framing, batching, or disposal. Keep fixtures deterministic and remove credentials from snapshots/logs.
 
-To exercise a local HTTP server from real browser/mobile clients without deploying, a public tunnel built on Cap'n Web such as `captun` (`npx captun 3000`, programmatic `createCaptunTunnel`) forwards an HTTPS URL to a local port; keep auth enabled when exposing beyond localhost.
+To exercise a local HTTP server from real browser/mobile clients without deploying, a public tunnel built on Cap'n Web such as the third-party `captun` package (`npx captun 3000`, programmatic `createCaptunTunnel`) forwards an HTTPS URL to a local port; keep auth enabled when exposing beyond localhost.
 
 When a test hangs:
 

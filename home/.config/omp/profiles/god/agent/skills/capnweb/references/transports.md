@@ -1,19 +1,19 @@
 # Transports and runtimes
 
-Choose the smallest built-in adapter that fits the deployment. The official [README runtime examples](https://github.com/cloudflare/capnweb/blob/main/README.md) are the source of truth for current signatures.
+Choose the smallest built-in adapter that fits the deployment. The official runtime pages (`servers/*.mdx` and `transports/*.mdx` under `packages/docs/src/content/docs/` in [cloudflare/capnweb](https://github.com/cloudflare/capnweb)) and the installed types are the source of truth for current signatures.
 
 ## Selection
 
 | Need | Client/session | Server helper |
 | --- | --- | --- |
 | One request, finite calls | `newHttpBatchRpcSession` | `newHttpBatchRpcResponse` or `nodeHttpBatchRpcResponse` |
-| Long-lived calls/callbacks | `newWebSocketRpcSession` | `newWorkersWebSocketRpcResponse` or `newWebSocketRpcSession` |
+| Long-lived calls/callbacks | `newWebSocketRpcSession` | `newWorkersWebSocketRpcResponse`, `newWebSocketRpcSession` (Node `ws`, Deno), or `newBunWebSocketRpcHandler` (Bun) |
 | iframe/worker/message channel | `newMessagePortRpcSession` | same helper on the other port |
 | unusual bidirectional channel | `new RpcSession(transport, localMain)` | implement `RpcTransport` |
 
 ## Cloudflare Workers
 
-Use `newWorkersRpcResponse(request, localMain)` to accept POST batch calls and WebSocket upgrades at one route. Route the path yourself before handing the request to Cap'n Web. Create a fresh `RpcTarget` per request/session when it contains user or connection state. For Durable Objects and Service Bindings, read the current Workers RPC interoperability guidance; Cap'n Web stubs can interoperate with Workers RPC stubs, but feature differences and compatibility dates matter.
+Use `newWorkersRpcResponse(request, localMain)` to accept POST batch calls and WebSocket upgrades at one route. Route the path yourself before handing the request to Cap'n Web. Create a fresh `RpcTarget` per request/session when it contains user or connection state. For Durable Objects and Service Bindings, read the current Workers RPC interoperability guidance; Cap'n Web stubs can interoperate with Workers RPC stubs; for matching stub-ownership rules set the compatibility date to at least `2026-01-20` or enable `rpc_params_dup_stubs`, and expect feature differences (for example `.map()` and `onRpcBroken()` exist only in Cap'n Web).
 
 ```ts
 export default {
@@ -52,7 +52,7 @@ import { upgradeWebSocket } from 'hono/cloudflare-workers' // runtime-specific
 app.all('/api', c => newRpcResponse(c, new Api(), { upgradeWebSocket }))
 ```
 
-On Node.js, the upgrade needs `createNodeWebSocket({ app })` from `@hono/node-ws` plus `injectWebSocket(server)` after `serve`; import `upgradeWebSocket` from the adapter matching the deployment target (`hono/cloudflare-workers`, `@hono/node-ws`, Deno equivalent). Standard route middleware (`bearerAuth`, CORS, logging) runs before the RPC route.
+On Node.js, the upgrade needs `createNodeWebSocket({ app })` from `@hono/node-ws` plus `injectWebSocket(server)` after `serve`; import `upgradeWebSocket` from the module matching the deployment target (`hono/cloudflare-workers`, `hono/deno`, `hono/bun` with its `websocket` export passed to the Bun server config, or the object returned by `createNodeWebSocket` on Node). Standard route middleware (`bearerAuth`, CORS, logging) runs before the RPC route.
 
 ## MessagePort
 

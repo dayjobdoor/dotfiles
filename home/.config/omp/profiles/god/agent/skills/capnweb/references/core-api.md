@@ -1,6 +1,6 @@
 # Core API reference
 
-Read this for API design, call semantics, serialization choices, and lifecycle bugs. Confirm details against the installed `capnweb` version and the official [README](https://github.com/cloudflare/capnweb/blob/main/README.md).
+Read this for API design, call semantics, serialization choices, and lifecycle bugs. Confirm details against the installed `capnweb` version and the official docs (`packages/docs/src/content/docs/` in [cloudflare/capnweb](https://github.com/cloudflare/capnweb), published at capnweb.com); the README is only an index to them.
 
 ## Minimal shape
 
@@ -36,9 +36,9 @@ console.log(await api.hello('World'))
 
 ## Pass by value vs reference
 
-Common pass-by-value values include primitives, plain objects, arrays, `bigint`, `Date`, `RegExp`, byte containers, `Error` subclasses, `Blob`, `URL`, Fetch `Headers`/`Request`/`Response`, and readable/writable streams. Values are copied and must form a tree; do not rely on cycles or aliases. Check the package source/types before using less common platform values. `Map`, `Set`, and application classes that do not extend `RpcTarget` are not portable assumptions.
+Common pass-by-value values include primitives, plain objects, arrays, `Set`, `bigint`, `Date`, `RegExp`, byte containers, `Error` subclasses, `Blob`, `URL`, Fetch `Headers`/`Request`/`Response`, and readable/writable streams. Values are copied and must form a tree; do not rely on cycles or aliases. A `Set` cannot directly contain a promise or `Blob`. Check the installed package source/types before using `Set`, `RegExp`, or other less common platform values, because documentation on the main branch can run ahead of the release. `Map` is not yet supported, and application classes that do not extend `RpcTarget` are intentionally unsupported.
 
-Use a `RpcTarget` when the receiver needs a live capability. Own instance properties are not exposed as remote properties; prototype methods are callable. TypeScript `private` is erased at runtime and is not a security boundary. Use JavaScript `#private` names for methods that must be inaccessible over RPC.
+Use a `RpcTarget` when the receiver needs a live capability. Prototype methods and getters are callable. Own instance properties (constructor assignments and class fields) are not exposed, and reading one throws. A setter can never fire over RPC (assigning to a stub throws), so expose writes as methods. TypeScript `private` is erased at runtime and is not a security boundary for methods. Use JavaScript `#private` names for members that must be inaccessible over RPC.
 
 Plain functions also cross by reference as callable stubs. A callback retained after the delivering method returns must be duplicated with `.dup()` on the receiving side.
 
@@ -47,7 +47,7 @@ Plain functions also cross by reference as callable stubs. A callback retained a
 - `RpcStub<T>` is a proxy for a remote object or function. It is typed by `T` but runtime method existence is discovered only when the call resolves.
 - An RPC method returns an `RpcPromise<T>`, a thenable proxy rather than a native `Promise`. It can be awaited, chained with `.then()`, or used as a stub before resolution.
 - A property access such as `stub.userId` produces an `RpcPromise`; await it to obtain the value.
-- `onRpcBroken(callback)` reports a disconnected session or rejected promise.
+- `stub.onRpcBroken(callback)` reports a disconnected session or rejected promise.
 - `RpcStub(target)` can make a local object behave like a stub when a uniform local/remote abstraction is useful.
 
 ## HTTP batch
@@ -89,7 +89,7 @@ const names = await ids.map(id => [id, api.getUserName(id)])
 
 ## Disposal and ownership
 
-Remote references are not reclaimed reliably by local garbage collection. Use explicit resource management:
+Remote references are not reclaimed reliably by local garbage collection. HTTP batch sessions implicitly dispose every stub when the batch ends, so explicit disposal matters most for long-lived sessions (WebSocket, `MessagePort`, custom). Use explicit resource management:
 
 ```ts
 using api = newWebSocketRpcSession<Api>('wss://example.com/api')
@@ -111,4 +111,4 @@ Practical ownership rules:
 
 ## Errors
 
-Remote throws arrive as rejected promises. Surface stable application errors to clients and keep stack traces/logs private. Test rejected calls, disconnects, cancellation, and calling a disposed or broken stub.
+Remote throws arrive as rejected promises. Surface stable application errors to clients and keep stack traces/logs private. By default stacks are omitted on the wire, but extra own enumerable properties, `cause`, and `AggregateError.errors` are serialized with the error; use `RpcSessionOptions.onSendError` to log and redact errors before they are sent (a returned `Error` with a `stack` property sends that stack). Test rejected calls, disconnects, cancellation, and calling a disposed or broken stub.

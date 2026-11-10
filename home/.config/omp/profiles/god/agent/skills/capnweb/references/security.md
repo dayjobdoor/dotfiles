@@ -1,6 +1,6 @@
 # Security and threat review
 
-Read this for any public endpoint, browser client, callback, remote object, custom transport, or security review. The official [README security section](https://github.com/cloudflare/capnweb/blob/main/README.md) and the runtime's current limits take precedence.
+Read this for any public endpoint, browser client, callback, remote object, custom transport, or security review. The official [security guide](https://capnweb.com/guides/security/) (`guides/security.mdx`) and the runtime's current limits take precedence.
 
 ## Threat model
 

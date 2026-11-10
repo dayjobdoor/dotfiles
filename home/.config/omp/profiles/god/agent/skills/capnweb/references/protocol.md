@@ -1,6 +1,6 @@
 # Protocol and custom transport reference
 
-Read this only when implementing a custom transport, inspecting wire traffic, analyzing framing, or debugging serialization. Use the official [protocol reference](https://capnweb.com/reference/protocol/) or `packages/docs/src/content/docs/reference/protocol.md` in the repository for exact current details.
+Read this only when implementing a custom transport, inspecting wire traffic, analyzing framing, or debugging serialization. Use the official [protocol reference](https://capnweb.com/reference/protocol/) or `packages/docs/src/content/docs/reference/protocol.mdx` in the repository for exact current details.
 
 ## Model
 
@@ -32,7 +32,7 @@ The default `RpcTransport` is:
 
 ```ts
 interface RpcTransport {
-  send(message: string): Promise<void>
+  send(message: string): void | Promise<void>
   receive(): Promise<string>
   abort?(reason: unknown): void
 }

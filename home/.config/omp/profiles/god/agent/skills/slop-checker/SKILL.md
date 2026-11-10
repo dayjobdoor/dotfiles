@@ -3,7 +3,7 @@ name: slop-checker
 description: Detect and remove AI writing tells ("slop") from prose while preserving the author's voice. Load when drafting or reviewing prose, blog posts, essays, white papers, marketing copy, emails, docs, or reports, and when a human asks to make writing sound less AI-generated or to review someone else's writing for AI tells. Triggers on "sounds like AI", "slop", "AI tell", "make this more human", "editorial pass", or "review my writing".
 ---
 
-## Slop-Checker: Writing and Reviewing Human-Sounding Prose
+# Slop-Checker: Writing and Reviewing Human-Sounding Prose
 
 "Slop" is phrasing that signals machine authorship and erodes a reader's trust. The goal is not to strip personality — it is to remove the patterns that make a reader think "a model wrote this".
 
