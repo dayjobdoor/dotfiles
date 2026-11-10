@@ -14,6 +14,7 @@ Makefile                make <task> runs mise run <task>, with a few exceptions
   mise.lock, .mise/locks/  those tools pinned, with checksums, and the npm dependency graph (`mise lock` writes locks/ in the .mise/ of the project root)
   tasks/                repo file tasks: lint/, build, test/ (_default, offline, desktop, vm), ci
 .actrc                  act runner images for mise run ci
+LICENSE, .editorconfig, .shellcheckrc  license, editor settings, shellcheck settings
 README.md, SECURITY.md  the entry page, and the security policy with the hardening and its limits
 AGENTS.md               rules for coding agents, where each kind of change goes, verification commands
 DESIGN.md               design tokens in the google-labs-code/design.md format
@@ -25,12 +26,13 @@ mise-config/            linked as ~/.config/mise, the global config
   config.toml           base module: settings, core tools, base apt packages, locale, login shell, dotfile group home, the sheldon tool
   config.<module>.toml  the modules agent, server, full, and secrets
   tasks/djd/            the djd commands, as global file tasks
-  hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, desktop-final and sheldon-lock: hook scripts that are too long for an inline [bootstrap.hooks] string, and the helpers they share
+  hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, desktop-final and sheldon-lock: hook scripts that are too long for an inline [bootstrap.hooks] string; sshd-keys-only is not a hook of its own but the check that server-pre-dotfiles and `djd doctor` both run
 home/                   dotfile group home, symlinked file by file into ~ (home/.config/pi and home/.config/omp hold the pi and omp config)
 tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and server-hooks.sh
 cloud-init/vm.yaml      the cloud-init file for incus and multipass
-.devcontainer/          Dockerfile, desktop entrypoint, compose.yaml, devcontainer.json
+.devcontainer/          Dockerfile, Dockerfile.dockerignore, desktop-entrypoint.sh, compose.yaml, devcontainer.json, .env.example
 .githooks/              pre-commit hook that runs gitleaks
+.github/dependabot.yml  dependency updates
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml, docs.yaml
 ```
 
@@ -45,13 +47,13 @@ cloud-init/vm.yaml      the cloud-init file for incus and multipass
 | Modules | `mise-config/config.<module>.toml` for `agent`, `server`, `full` and `secrets`. The desktop is part of `config.toml`, so there is no `config.desktop.toml`. |
 | Dotfiles | `home/`, under the literal name they have in `~`. |
 | Hooks and djd commands | `mise-config/hooks/<name>` and `mise-config/tasks/djd/<name>`, both executable bash. |
-| Tests | `tests/<name>.sh` with a `# Contract` header, named in the layout above and run by a task. |
+| Tests | `tests/<name>.sh` (every offline test has a `# Contract` header), named in the layout above and run by a task. |
 | Workflows | `.github/workflows/<name>.yaml`; a `*.yml` fails lint. |
 | Docs | `docs/<name>.md` for the nine names above. There is no `README.md` inside `docs/`. Root Markdown is `README.md`, `AGENTS.md`, `SECURITY.md`, `DESIGN.md`, `ROADMAP.md` and `CHANGELOG.md`. |
 
 These paths never enter the repository, and `.gitignore` enforces most of them:
 
-- `.env` and `.env.*`, except `.env.example`; `*.local.toml` and `*.local`; `age.txt`, `*.pem`, `*.key`, `auth.json`, `gh/hosts.yml` and `rclone/rclone.conf`.
+- `.env` and `.env.*`, except `.env.example`; `.secrets` and `.vars` (act); `*.local.toml` and `*.local`; `age.txt`, `*.pem`, `*.key`, `auth.json`, `gh/hosts.yml` and `rclone/rclone.conf`.
 - The pi and omp model lists (`models.json` and `models.yml` under `home/.config/`): they hold a Cloudflare account ID in their base URLs. They stay in `~/.config`.
 - `home/.config/omp/profiles/*/agent/config.yml.lock`, which omp creates at run time.
 - A `passwd:` entry in a cloud-init file, and a plaintext value in `mise-config/config.secrets.toml`.

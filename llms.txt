@@ -24,12 +24,16 @@ A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise t
 
 ## Configuration
 
-The layout of the repository, with the purpose of each entry, is in [Reference](docs/directory.md#layout). These links are an index only.
+The layout of the repository, with the purpose of each entry, is in [Directory](docs/directory.md#layout). These links are an index only.
 
 - [mise-config/](mise-config/): the global mise config, linked as ~/.config/mise
 - [home/](home/): dotfiles symlinked into ~
 - [.mise/tasks/](.mise/tasks/): repo tasks
 - [.mise/config.toml](.mise/config.toml): the short repo tasks and mise settings
+- [.env.example](.env.example): the variable names for agent providers and tokens, no values
+- [.devcontainer/.env.example](.devcontainer/.env.example): the compose variables (`RDP_PORT`, `PASSWORD`); copy it to `.devcontainer/.env`
+- [.editorconfig](.editorconfig): editor formatting rules
+- [.shellcheckrc](.shellcheckrc): shellcheck settings
 - [install.sh](install.sh): the installer that `curl | sh` runs
 - [Makefile](Makefile): `make <task>` runs `mise run <task>`
 - [.mise/mise.lock](.mise/mise.lock): the pinned versions of the repo tools
@@ -41,5 +45,5 @@ The layout of the repository, with the purpose of each entry, is in [Reference](
 
 ## Optional
 
-- [.github/workflows/](.github/workflows/): CI, docs, tag, release image and weekly full-module workflows
-- [.github/dependabot.yml](.github/dependabot.yml): Dependabot for the pinned actions
+- [.github/workflows/](.github/workflows/): `ci.yaml` (CI), `docs.yaml` (Docs), `push.yaml` (Push to ghcr), `tag.yaml` (Tag and Release) and `full-weekly.yaml` (Full module)
+- [.github/dependabot.yml](.github/dependabot.yml): Dependabot updates for the pinned GitHub Actions

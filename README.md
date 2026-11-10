@@ -39,7 +39,7 @@ What it changes on the machine:
 
 - `TZ` defaults to Asia/Tokyo in `~/.profile`. Override it in `~/.config/djd/profile.local`.
 - zsh becomes the login shell, and the `server` module adds your user to the `docker` group. Both need a new login.
-- A real file that a dotfile would replace is moved to `<file>.djd-backup-<epoch>-<pid>` (the time in seconds, and the process ID), just before the dotfiles are linked. `djd apply --dry-run` moves nothing.
+- A real file that a dotfile would replace is moved to `<file>.djd-backup-<epoch>-<pid>` just before the dotfiles are linked ([how](docs/tech.md#bootstrap-phases-and-hooks)). `djd apply --dry-run` moves nothing.
 - A login zsh on a real terminal starts herdr, a terminal multiplexer (panes and a sidebar) that hosts the pi and omp coding agents, through `herdr-dev`, which also creates a dev workspace with a few tabs (`btm`, `fastfetch`, a dev layout, pi and lazydocker where they exist). Export `DJD_NO_MUX=1` (for example in `~/.config/djd/profile.local`) to skip it.
 - The `server` module's firewall denies every inbound port except SSH (rate-limited) and RDP from private networks. Docker's published ports bypass it (the module makes them bind to `127.0.0.1` by default), and mDNS multicast stays open.
 - The `server` module turns password and root logins off for ssh. Its `post-packages` hook refuses to continue when your user has no key in `~/.ssh/authorized_keys`, when the apply runs as root, or when sshd listens on a port other than 22, because each would lock you out. `DJD_SKIP_SSH_CHECKS=1` skips the refusals on a machine that you reach another way (a console, `incus exec`, `multipass exec`).
@@ -234,7 +234,7 @@ make ci                               # every CI job act can run: lint, image (A
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
-`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/tech.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead ([maintenance.md](docs/maintenance.md#workflows)).
+`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/tech.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead, except for `DESIGN.md` (both run) and the Markdown under `home/.config/pi` and `home/.config/omp` (only `ci.yaml` runs) ([maintenance.md](docs/maintenance.md#workflows)).
 
 ## Documentation
 

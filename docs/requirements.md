@@ -34,5 +34,5 @@ What the repository has to deliver, what it does not, and how you tell that a ma
 
 - On a machine, `djd doctor` exits 0 and prints an `ok` line for each of `ubuntu`, `mise-config`, `login-shell`, `bootstrap`, `dotfiles`, `plugins`, `xrdp-tls` and `xrdp-root-login`, plus `sshd` with the `server` module and `secrets` with the `secrets` module. `mise bootstrap plan --detailed-exitcode` reports no change.
 - For a change, `mise run lint` and the narrowest test that covers it pass, and every Markdown mention of a changed name is updated ([AGENTS.md](../AGENTS.md)).
-- For CI, the jobs `lint`, `image` and `vm` pass on amd64 and arm64.
+- For CI, the jobs `lint`, `image` and `vm` of `ci.yaml` pass: `lint` on amd64 only, `image` and `vm` on amd64 and arm64.
 - For a release, a green push run on `main` makes `tag.yaml` publish the next `X.Y.Z`, and `push.yaml` pushes images that pass `djd doctor` by digest before any floating tag moves ([maintenance.md](maintenance.md#release-chain)).

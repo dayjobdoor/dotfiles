@@ -43,7 +43,7 @@ Each module is a mise config environment, the file `mise-config/config.<module>.
 
 The `server` module owns the sshd hardening. Its `pre-dotfiles` hook fails an apply unless the drop-in `10-djd.conf` is in effect. The check lives in `hooks/sshd-keys-only`, which `djd doctor` runs too. It reads the setting without sudo from the `sshd_config` layout of Ubuntu and falls back to `sudo sshd -T`. After the drop-in changes, `server-pre-dotfiles` (not `sshd-keys-only`) reloads a running sshd once. The check fails with a message when `/etc/ssh/sshd_config.d` does not exist. It also falls back to `sudo sshd -T` when a drop-in contains an `Include` or cannot be read by the user, because the greps cannot see those settings. On 26.04, sshd is socket-activated. `ssh.socket` stays active, and `ssh.service` stays idle until a connection arrives. [SECURITY.md](../SECURITY.md#server-module) lists the rest of the hardening.
 
-`/etc/locale.conf`, the Docker image and the `djd` wrapper all use `LANG=C.UTF-8`, so tool output stays English for agents, ssh logins included. Only the RDP desktop session is Japanese: `~/.xsession` exports `LANG=ja_JP.UTF-8` before it starts XFCE. A selection from your own `MISE_ENV` would replace the module selection, which is why the `djd` wrapper unsets it. [tech.md](tech.md#modules) describes the case of a project that uses mise environments itself.
+`/etc/locale.conf` and the Docker image use `LANG=C.UTF-8`, and the `djd` wrapper sets `LC_ALL=C.UTF-8`, so tool output stays English for agents, ssh logins included. Only the RDP desktop session is Japanese: `~/.xsession` exports `LANG=ja_JP.UTF-8` before it starts XFCE. A selection from your own `MISE_ENV` would replace the module selection, which is why the `djd` wrapper unsets it. [tech.md](tech.md#modules) describes the case of a project that uses mise environments itself.
 
 ## The desktop is part of the base
 
@@ -58,13 +58,13 @@ mise runs the hooks of every selected module in order, base first, so two module
 - Base declares `pre-user`. It switches the login shell through sudo, because the plain `chsh` that mise runs asks for a password that cloud users lack.
 - Base and `server` each declare `pre-dotfiles`. The base runs `hooks/dotfile-conflicts` for its dotfile group. It moves a real file that a dotfile would replace aside, because symlink entries refuse real files. It is a hook and not part of `djd apply`: mise runs the hooks of a part only when that part runs, so `--dry-run`, `--skip dotfiles`, and a bootstrap that stops earlier leave your files alone. The hooks of all selected modules run in order, base first, so a failing `server` hook still comes after the base hooks have moved files.
 - The `server` module declares `post-packages`, which runs `hooks/server-post-packages`: it refuses the apply while sshd is still as it was, and only after its checks pass (also on the `DJD_SKIP_SSH_CHECKS` path, which skips the refusals) does it add the user to the `docker` group. sshd is socket-activated, so the drop-in that the files part writes next turns passwords and root login off from the next connection, whether or not the rest of the apply succeeds. A root apply, a user with no authorized key, or an sshd on another port than the firewall's 22 would be locked out, so those three stop the apply first, in that order. Its `pre-dotfiles` hook runs `hooks/server-pre-dotfiles` after the files part wrote the sshd drop-in, because the drop-in must exist before the check.
-- The base declares `final`, which runs `hooks/desktop-final`. It purges the screen lockers and sets the xrdp security values after the packages exist. It makes no download. HackGen NF is the `http:hackgen` tool, which mise downloads and checks against a pinned checksum.
+- The base declares `final`, which runs `hooks/desktop-final` and then `hooks/sheldon-lock`. `desktop-final` purges the screen lockers and sets the xrdp security values after the packages exist. It makes no download. HackGen NF is the `http:hackgen` tool, which mise downloads and checks against a pinned checksum.
 
 ## Removal uses mise, and tools track latest
 
 The repository has no migrations framework. Machine tools have no lockfile. Only the dev tools of the repository are locked, in `.mise/mise.lock`.
 
-Removing things uses mise itself: `mode = "absent"` entries, `mise bootstrap --prune-dotfiles`, and `djd module remove`. That command runs `mise bootstrap unapply` and then `mise dot unapply --group`, because the first skips dotfile groups. apt packages stay installed.
+Removing things uses mise itself: `mode = "absent"` entries, `mise bootstrap --prune-dotfiles`, and `djd module remove`. That command runs `mise bootstrap unapply` for each removed module and then `djd apply`. apt packages stay installed.
 
 Tools track `latest` behind `minimum_release_age = "3d"`, so a release must be three days old before mise installs it. `pi` and `omp` are the exception ([tech.md](tech.md#modules) gives the setting and the reason). The Docker image digest is the reproducible artifact. Bit-for-bit matching of the machines and a runner for imperative steps are open ([ROADMAP.md](../ROADMAP.md)).
 
@@ -149,7 +149,7 @@ Two facts explain the settings, and the probe results are in [problems.md](probl
 
 ## Docker images are one Dockerfile in two passes
 
-`.devcontainer/Dockerfile` builds the image from `ubuntu:26.04`. The modules go in as `DJD_MODULES`: `agent` for the published image, and `agent full` for the `full-weekly.yaml` smoke build. The Dockerfile runs `install.sh` as `ubuntu` in two passes, and the first pass is two `RUN`s.
+`.devcontainer/Dockerfile` builds the image from `ubuntu:26.04`. The modules go in as `DJD_MODULES`: `agent` for the published image, and `agent full` for the `full-weekly.yaml` smoke build. The Dockerfile runs `install.sh` as `dayjobdoor` (the renamed `ubuntu` user) in two passes, and the first pass is two `RUN`s.
 
 | `RUN` of `install.sh` | Sees | `DJD_BOOTSTRAP_FLAGS` | Token | Why |
 | --- | --- | --- | --- | --- |

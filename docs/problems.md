@@ -120,7 +120,7 @@ A script sent an X.224 request for TLS, then pinned each version.
 | `TerminalServerUsers` | `tsusers`, a group that does not exist, with `AlwaysGroupCheck=false`, so everyone may log in. |
 | `MaxSessions`, `KillDisconnected` | 50, and `false`: disconnected sessions live on, so agent work survives. |
 | Sudo | `dayjobdoor` has passwordless sudo, so one guessed password is root in the container. |
-| Password in argv | Only when it is passed as an argument, `djd-desktop-entrypoint dayjobdoor <password>`, which shows in `/proc/1/cmdline` of the container and in `docker inspect`. `compose.yaml` passes it as the `djd_rdp_password` secret instead, mounted at `/run/secrets/djd_rdp_password`, which neither shows. Inside the container, a process that runs as root can still read the file. |
+| Password in argv | Only when it is passed as an argument, `djd-desktop-entrypoint dayjobdoor <password>`, which shows in `/proc/1/cmdline` of the container and in `docker inspect`. `compose.yaml` passes it as a secret instead ([SECURITY.md](../SECURITY.md#docker)). Inside the container, a process that runs as root can still read the file. |
 | Listener | Only `xrdp`, on `[::]:3389` inside the container. `compose.yaml` publishes it on IPv4 loopback only. |
 | `AUTHFAIL` log lines | They go to `/var/log/xrdp-sesman.log`, where a log watcher could read them. |
 

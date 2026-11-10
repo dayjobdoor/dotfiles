@@ -33,6 +33,7 @@ Pointers before you search: the terms of this repository, the documentation of t
 | --- | --- |
 | mise (bootstrap, dotfiles, tasks, settings, the cache) | [mise.jdx.dev](https://mise.jdx.dev) and its [cache behavior](https://mise.jdx.dev/cache-behavior.html) |
 | sheldon, zsh-abbr, zsh-job-queue | [sheldon.cli.rs](https://sheldon.cli.rs), [olets/zsh-abbr](https://github.com/olets/zsh-abbr), [olets/zsh-job-queue](https://github.com/olets/zsh-job-queue) |
+| the zsh plugins in `home/.config/sheldon/plugins.toml` | [romkatv/zsh-defer](https://github.com/romkatv/zsh-defer), [zsh-users/zsh-completions](https://github.com/zsh-users/zsh-completions), [zdharma-continuum/fast-syntax-highlighting](https://github.com/zdharma-continuum/fast-syntax-highlighting), [zsh-users/zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions), [hlissner/zsh-autopair](https://github.com/hlissner/zsh-autopair), [wfxr/forgit](https://github.com/wfxr/forgit), [paulirish/git-open](https://github.com/paulirish/git-open) |
 | age | [age-encryption.org](https://age-encryption.org) |
 | cloud-init | [cloudinit.readthedocs.io](https://cloudinit.readthedocs.io) |
 | multipass, incus | [multipass](https://documentation.ubuntu.com/multipass/latest/), [incus](https://linuxcontainers.org/incus/docs/main/) |
@@ -125,6 +126,7 @@ The `full` module's tools are listed in `mise-config/config.full.toml`, one per 
 | `gitleaks` | [gitleaks/gitleaks](https://github.com/gitleaks/gitleaks) |  |
 | `shellcheck` | [koalaman/shellcheck](https://github.com/koalaman/shellcheck) |  |
 | `shfmt` | [mvdan/sh](https://github.com/mvdan/sh) |  |
+| `node` | [nodejs/node](https://github.com/nodejs/node) | for `@google/design.md` |
 | `@google/design.md` | [google-labs-code/design.md](https://github.com/google-labs-code/design.md) |  |
 
 ### GitHub Actions

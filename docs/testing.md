@@ -35,23 +35,25 @@ The `test` task builds the image and then runs these steps in order. Each step u
 | # | Step | Must hold |
 | --- | --- | --- |
 | 1 | Offline tests | `mise run test:offline` passes (see the test map below). |
-| 2 | Doctor | `djd doctor` passes and prints an `ok` line for each of `ubuntu` (the OS check), `mise-config`, `login-shell`, `bootstrap`, `dotfiles`, `plugins`, `xrdp-tls`, and `xrdp-root-login`, because a doctor that skipped a check would still exit 0. |
+| 2 | Doctor | `djd doctor` passes and prints an `ok` line for each check that [requirements.md](requirements.md#what-done-looks-like) lists (`ubuntu` is the OS check), because a doctor that skipped a check would still exit 0. |
 | 3 | Tools on `PATH` | A plain `docker run` finds `rg` without a login shell, and the image holds no `~/.cache/mise/downloads-cas` (a second copy of every tool, 1.2 GB). |
 | 4 | `.profile` | `~/.profile` alone puts the shims on `PATH`, tested with `env -i`. |
 | 5 | Agent module | A shimmed `node` sees `PI_TELEMETRY=0`, `DO_NOT_TRACK=1`, `PI_CODING_AGENT_DIR` and `OMP_PROFILE` without a login shell. `~/.config/pi/agent/AGENTS.md` and `~/.config/omp/profiles/god/agent/RULES.md` are non-empty links into the checkout's `home/.config/`. |
-| 6 | Silent shells | Interactive zsh and bash start silently on a tty. The first zsh start fills the init cache, so the test drops its output. The second zsh start and a bash start must print nothing. |
-| 7 | Login banner | `zsh -lc` and `zsh -lic` output contain no `.zlogin` banner. With the banner tools stubbed to print distinct text, an interactive login shell that reads its commands from stdin prints exactly the two banners and the `.zlogout` farewell. |
-| 8 | Doctor, release and shell | `djd doctor` fails for an `os-release` that is not Ubuntu 26.04 and for a login shell that is not zsh, and passes again after each repair. |
-| 9 | Doctor, sshd | The scenarios in the stub table below. |
-| 10 | Doctor, xrdp | The xrdp scenarios in the stub table below. |
-| 11 | Backup and relink | One container backs up a conflicting file, relinks a moved checkout through `install.sh`, and converges (next list). |
-| 12 | Directory link | A directory link into the checkout (`~/.config/lsd`) is not moved aside by `hooks/dotfile-conflicts`, and no tracked file is renamed. |
-| 13 | Status | `djd status` exits 0 and prints the revision, which the image carries because it has no `.git`. |
-| 14 | `install.sh` | It replaces a mise older than `min_version` and leaves the image's own mise alone, and its own apply succeeds on the image. A stub `curl` (which honors `-o`, as `install.sh` saves the script to a file) records `MISE_VERSION`, and a stub mise reports 2000.1.1. The run must end at the version check, with the message `installing mise failed`. It records `v<min_version>` by default and `v2099.1.1` for `MISE_VERSION` with or without the `v`. |
-| 15 | Secrets | A secrets round trip works (the list after the stub table). |
-| 16 | Plugins and aliases | An alias that replaces a command is a mise `[shell_alias]` (`cat`, `tree`), and a shortcut (`ll`) is not. sheldon's pinned plugins are in the image, zsh-abbr's submodule zsh-job-queue is checked out, the abbreviations file loads, no `.functions` is left, and an interactive zsh has `zsh-defer`. |
+| 6 | Plugins and aliases | An alias that replaces a command is a mise `[shell_alias]` (`cat`, `tree`), and a shortcut (`ll`) is not. sheldon's pinned plugins are in the image, zsh-abbr's submodule zsh-job-queue is checked out, the abbreviations file loads, no `.functions` is left, and an interactive zsh has `zsh-defer`. |
+| 7 | Silent shells | Interactive zsh and bash start silently on a tty. The first zsh start fills the init cache, so the test drops its output. The second zsh start and a bash start must print nothing. |
+| 8 | Login banner | `zsh -lc` and `zsh -lic` output contain no `.zlogin` banner. With the banner tools stubbed to print distinct text, an interactive login shell that reads its commands from stdin prints exactly the two banners and the `.zlogout` farewell. |
+| 9 | Doctor, release and shell | `djd doctor` fails for an `os-release` that is not Ubuntu 26.04 and for a login shell that is not zsh, and passes again after each repair. |
+| 10 | Doctor, sshd | The scenarios in the stub table below. |
+| 11 | Doctor, mise config | The `mise-config` scenario in the stub table below. |
+| 12 | Doctor, plugin lock | The `plugins` scenarios in the stub table below. |
+| 13 | Doctor, xrdp | The xrdp scenarios in the stub table below. |
+| 14 | Backup and relink | One container backs up a conflicting file, relinks a moved checkout through `install.sh`, and converges (next list). |
+| 15 | Directory link | A directory link into the checkout (`~/.config/lsd`) is not moved aside by `hooks/dotfile-conflicts`, and no tracked file is renamed. |
+| 16 | Status | `djd status` exits 0 and prints the revision, which the image carries because it has no `.git`. |
+| 17 | `install.sh` | It replaces a mise older than `min_version` and leaves the image's own mise alone, and its own apply succeeds on the image. A stub `curl` (which honors `-o`, as `install.sh` saves the script to a file) records `MISE_VERSION`, and a stub mise reports 2000.1.1. The run must end at the version check, with the message `installing mise failed`. It records `v<min_version>` by default and `v2099.1.1` for `MISE_VERSION` with or without the `v`. |
+| 18 | Secrets | A secrets round trip works (the list after the stub table). |
 
-Step 11 in detail:
+Step 14 in detail:
 
 - `djd apply --dry-run` leaves a conflicting file in place and creates no backup.
 - A real apply moves the file aside.
@@ -84,7 +86,7 @@ Step 11 in detail:
 
 Every `FAIL sshd` line must also say `not keys-only`. The hook cannot see a `Match` for another user or for an address ([scope](architecture.md#a-module-is-a-mise-config-environment)), so the test stops at `Match all` and a harmless `Match`. A real sshd evaluates `Match` blocks only with `-C`, which is why the stub does the same.
 
-The secrets round trip, step 15:
+The secrets round trip, step 18:
 
 - The key has mode 600 and its directory mode 700, and `djd secret keygen` refuses to overwrite it and leaves it unchanged.
 - The first `djd secret set` runs with the module unselected, the usual case, and the module is selected before the second. Both values decrypt through `mise exec`. This is the test of the `raw=true` task ([architecture.md](architecture.md#secrets-use-the-age-support-of-mise)).

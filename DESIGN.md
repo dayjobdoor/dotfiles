@@ -79,7 +79,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 | micro | not themed; micro's own `default` colorscheme | `home/.config/micro/settings.json` |
 | lsd | not themed; its own palette of ANSI names and 256-color numbers | `home/.config/lsd/colors.yaml` |
 | fzf, XFCE | not themed; this repo sets no fzf colors and no XFCE theme | none |
-| pi / omp | their own dark themes | per-user, not in this repo |
+| pi, omp | not themed here; pi sets no theme and uses its own default, omp sets `dark-monokai` (dark) and `titanium` (light) | `home/.config/omp/profiles/god/agent/config.yml` |
 
 ## Typography
 

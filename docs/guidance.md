@@ -80,7 +80,7 @@ The mise release is pinned in several files, and no bot bumps them.
    grep -nE '^min_version|^ +version: [0-9]' .mise/config.toml mise-config/config.toml .github/workflows/*.yaml
    ```
 
-2. Change every pin to the new release. None has a `v` prefix. `install.sh` has no pin of its own. It reads `min_version` from `mise-config/config.toml` after the checkout is linked, installs that release when mise is missing or older, and adds the `v`. `MISE_VERSION` in the environment overrides the release for one run, but `install.sh` refuses a value older than `min_version`.
+2. Change every pin to the new release. None has a `v` prefix. `install.sh` has no pin of its own: it reads `min_version` ([how](architecture.md#one-install-path-covers-three-situations)).
 3. Run `mise run lint:config`. It fails while two pins differ, and while a file has fewer pins than it should.
 
 ## Set your git identity
@@ -108,7 +108,7 @@ The last command deletes the old cache. bun leaves its old install cache in `~/.
 
 ## Keep an edit that a program made
 
-A program that saves a managed file through a rename replaces its link with a regular file. `djd doctor` then reports `differs` for that file. To keep the edit, follow these steps.
+A program that saves a managed file through a rename replaces its link with a regular file. `djd doctor` then reports `FAIL dotfiles` and lists that file. To keep the edit, follow these steps.
 
 1. Copy the file into the checkout. For `~/.config/starship.toml`, run:
 
@@ -158,7 +158,7 @@ The dispatch cancels a tag-push run that is still going, and a re-run of CI does
 
 ## Harden the repository settings
 
-These settings are not files, so nothing in the repository enforces them, and they are not applied. [SECURITY.md](../SECURITY.md#workflows-and-releases) says why. The steps below were not tested, and GitHub may name the pages differently. The state was read on 2026-11-01 with `gh api repos/dayjobdoor/dotfiles/rulesets` (it returned `[]`) and `gh api repos/dayjobdoor/dotfiles/branches/main` (`"protected": false`). In a fork, use your own owner and name.
+These settings are not files, so nothing in the repository enforces them, and they are not applied. [SECURITY.md](../SECURITY.md#workflows-and-releases) says why. The steps below were not tested, and GitHub may name the pages differently. The state was read on 2026-11-10 with `gh api repos/dayjobdoor/dotfiles/rulesets` (it returned `[]`) and `gh api repos/dayjobdoor/dotfiles/branches/main` (`"protected": false`). In a fork, use your own owner and name.
 
 - [ ] Add a tag ruleset for the pattern `refs/tags/[0-9]*` that restricts updates and deletions. Do not restrict creations, because `tag.yaml` pushes the tag.
 - [ ] Block force pushes and deletions on `main`, with a ruleset or a branch protection rule.
