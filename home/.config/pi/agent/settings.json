@@ -12,7 +12,6 @@
     "sakura/preview/Kimi-K2.7-Code"
   ],
   "enableInstallTelemetry": false,
-  "shellCommandPrefix": "shopt -s expand_aliases\neval \"$(grep '^alias ' ~/.aliases | grep -vE '^alias (rm|cp|mv)=')\"",
   "npmCommand": [
     "bun"
   ],

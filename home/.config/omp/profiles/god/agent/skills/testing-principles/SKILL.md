@@ -53,7 +53,7 @@ test('retries on 429', () => {
 });
 ```
 
-Prefer stable first-argument tags plus `expect.any(Error)`; assert call count when deterministic.
+Prefer stable first-argument tags plus `expect.any(Error)`; assert a call count only when the log line itself is the contract and the count is deterministic; a count on any other mock is an implementation detail (see t-wada-tdd).
 
 When the guard fails a test, classify the failing tag before silencing it:
 

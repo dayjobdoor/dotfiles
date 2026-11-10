@@ -2,7 +2,7 @@
   "name": "omp-plugins",
   "private": true,
   "dependencies": {
-    "@dietrichgebert/ponytail": "https://github.com/DietrichGebert/ponytail#96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+    "@dietrichgebert/ponytail": "5.3.3",
     "context-mode": "2.1.7"
   }
 }

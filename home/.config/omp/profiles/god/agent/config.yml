@@ -17,8 +17,6 @@ advisor:
   reviewMode: turn
 magicKeywords:
   enabled: true
-autoLearn:
-  enabled: true
 vault:
   enabled: true
 marketplace:

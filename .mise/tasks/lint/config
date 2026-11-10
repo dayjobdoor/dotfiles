@@ -50,4 +50,9 @@ if [ "$(sort -u <<<"$pins" | grep -c .)" -ne 1 ]; then
     sort <<<"$pins" | grep . | uniq -c >&2
     exit 1
 fi
+# pi reads AGENTS.md and omp reads RULES.md; they are meant to be the same text, and nothing else keeps them so
+if ! cmp -s home/.config/pi/agent/AGENTS.md home/.config/omp/profiles/god/agent/RULES.md; then
+    echo "lint: home/.config/pi/agent/AGENTS.md and home/.config/omp/profiles/god/agent/RULES.md differ; keep them identical" >&2
+    exit 1
+fi
 echo "ok mise"
