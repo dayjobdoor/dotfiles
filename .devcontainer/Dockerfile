@@ -22,14 +22,22 @@ WORKDIR /home/dayjobdoor
 # token. mise bootstrap refills the apt lists; deleting them in this layer is what shrinks the image. The build
 # runs as dayjobdoor (mise calls sudo itself), so the cleanup needs sudo too (DL3004). SC2086: $DJD_MODULES is a list
 # of words on purpose.
+# The apt cache is a BuildKit cache mount, so a rebuild of this layer does not download the 750 MB of packages again
+# (the mount lives outside the image). The image's docker-clean hook deletes the .deb files after each install, so it
+# is moved away for this RUN and put back at its end; the apt lists are not cached, because mise runs `apt-get update`
+# only when they are empty. `--no-cache` also starts the mount empty.
 # hadolint ignore=SC2086,DL3004
-RUN DJD_BOOTSTRAP_FLAGS="--skip tools,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
+RUN --mount=type=cache,id=djd-apt,target=/var/cache/apt,sharing=locked \
+    sudo mv /etc/apt/apt.conf.d/docker-clean /tmp/docker-clean \
+    && DJD_BOOTSTRAP_FLAGS="--skip tools,dotfiles" ~/.dotfiles/install.sh $DJD_MODULES \
+    && sudo mv /tmp/docker-clean /etc/apt/apt.conf.d/docker-clean \
     && sudo rm -rf /var/lib/apt/lists/*
 # mise keeps every downloaded archive in ~/.cache/mise/downloads-cas next to the unpacked tool (1.2 GB here), and a
-# `docker run` never needs it again; deleting it in the same RUN is what keeps it out of the layer.
-RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN DJD_BOOTSTRAP_FLAGS="--only tools" \
-    ~/.dotfiles/install.sh \
-    && rm -rf ~/.cache/mise/downloads-cas
+# `docker run` never needs it again. ~/.cache/mise is a cache mount, so the archives stay out of the layer and a
+# rebuild of it downloads each tool once.
+RUN --mount=type=secret,id=github_token,env=MISE_GITHUB_TOKEN \
+    --mount=type=cache,id=djd-mise,target=/home/dayjobdoor/.cache/mise,uid=1000,gid=1000 \
+    DJD_BOOTSTRAP_FLAGS="--only tools" ~/.dotfiles/install.sh
 # Docker's default seccomp policy blocks namespace creation, so Brave aborts at startup unless it runs with
 # --no-sandbox, which also disables its renderer seccomp-bpf sandbox. The container is the isolation boundary
 # (SECURITY.md); VMs keep Brave's own sandbox because this override lives only here.
