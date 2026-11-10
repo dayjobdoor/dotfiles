@@ -36,19 +36,24 @@ zstyle ':completion:*' use-cache on
 # mise first: its hook runs at once and puts the installed tools' own directories before the shims, so
 # $commands[tool] resolves inside the tool's directory. Not cached: mise activate output embeds the current PATH.
 if (( $+commands[mise] )); then
+    # mise's hook runs a full compinit when compdef is missing, which writes a .zcompdump into ZDOTDIR and makes the
+    # cached compinit -C below the second one of the shell. A stand-in compdef keeps it away; it is removed straight
+    # after, and compinit defines the real one.
+    compdef() { :; }
     eval "$(mise activate zsh)"
+    unfunction compdef
 fi
 
 # Tool init scripts are cached (omp completions alone cost ~650ms per shell). The file name carries the tool, its
-# resolved path (`:A`, so mise's `latest` link counts as the version behind it) and a checksum of the whole command
+# resolved path (`:A`, so mise's `latest` link counts as the version behind it) and the whole command
 # line: an upgrade that prunes the old version, or an edited argument below, regenerates the script instead of
 # loading a stale one. `djd apply` clears the cache, so a tool that moved without a new path or arguments
 # regenerates its script on the next shell.
 _djd_init() {
     local file sum
     (( $+commands[$1] )) || return 0
-    sum=$(printf '%s\0' "${@:2}" | cksum)
-    file=$XDG_CACHE_HOME/zsh/init/$1-${${commands[$1]:A}//[^[:alnum:]]/_}-${sum%% *}.zsh
+    sum=${${(j: :)@:2}//[^[:alnum:]]/_} # the command line itself, no fork for a checksum
+    file=$XDG_CACHE_HOME/zsh/init/$1-${${commands[$1]:A}//[^[:alnum:]]/_}-$sum.zsh
     if [[ ! -s $file ]]; then
         mkdir -p ${file:h}
         # write aside and rename, so an interrupted or concurrent shell never leaves a partial file
@@ -61,7 +66,15 @@ _djd_init() {
 # hooks/sheldon-lock. Cached like the tool inits below; `djd apply` clears the cache after a changed pin. It runs before
 # compinit, because zsh-completions only adds its directory to fpath and compinit indexes what is there when it runs.
 export ENHANCD_DIR=$XDG_STATE_HOME/enhancd
-_djd_init sheldon sheldon source
+# Only on a current lock: `sheldon source` clones what a missing or stale lock lacks, which in a shell without
+# network took 18 s and printed ten errors at every start. djd doctor says when the lock needs `djd apply`.
+_djd_lock=$XDG_DATA_HOME/sheldon/plugins.lock
+# And only on a terminal: zsh-defer needs a line editor, and `zsh -ic cmd` without a terminal (an agent) has none, where it
+# printed `can't change option: zle` at every start.
+if [[ -t 0 && -s $_djd_lock && $_djd_lock -nt $XDG_CONFIG_HOME/sheldon/plugins.toml ]]; then
+    _djd_init sheldon sheldon source
+fi
+unset _djd_lock
 
 # a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh
 # starts a fresh dump (the version is in the file name)
@@ -89,12 +102,23 @@ chpwd() {
 [[ $CPUTYPE == x86_64 ]] && export DJD_ARCH=x86_64 # the arch badge of starship.toml
 _djd_init starship starship init zsh --print-full-init
 _djd_init zoxide zoxide init zsh
-_djd_init fzf fzf --zsh
-# after fzf: both bind Ctrl-R, and the later one wins
-_djd_init atuin atuin init zsh
-_djd_init uv uv generate-shell-completion zsh
-_djd_init omp omp completions zsh
-_djd_init mise mise completion zsh
+# key bindings need a terminal: without one (`zsh -ic cmd` of an agent) fzf's script fails with
+# `can't change option: zle`
+if [[ -t 0 ]]; then
+    _djd_init fzf fzf --zsh
+    # after fzf: both bind Ctrl-R, and the later one wins
+    _djd_init atuin atuin init zsh
+fi
+# completions are sourced after the prompt (uv's alone is 569 KB and took 72 ms), through the zsh-defer that sheldon
+# loaded; without sheldon they load at once
+for _djd_c in "uv generate-shell-completion zsh" "omp completions zsh" "mise completion zsh"; do
+    if (( $+functions[zsh-defer] )); then
+        zsh-defer _djd_init ${_djd_c%% *} ${=_djd_c}
+    else
+        _djd_init ${_djd_c%% *} ${=_djd_c}
+    fi
+done
+unset _djd_c
 
 if [[ -r $ZDOTDIR/.zshrc.local ]]; then
     source $ZDOTDIR/.zshrc.local

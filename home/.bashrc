@@ -29,7 +29,7 @@ if command -v mise >/dev/null 2>&1; then
 fi
 
 # Tool init scripts are cached (omp completions alone cost ~650ms per shell). The file name carries the tool, its
-# resolved path and a checksum of the whole command line: an upgrade that prunes the old version, or an edited
+# resolved path and the whole command line: an upgrade that prunes the old version, or an edited
 # argument below, regenerates the script instead of loading a stale one. `djd apply` clears the cache, so a tool
 # that moved without a new path or arguments regenerates its script on the next shell.
 _djd_init() {
@@ -37,8 +37,9 @@ _djd_init() {
     bin=$(command -v "$1") || return 0
     # resolved: mise's `latest` directory stays the same path while the version behind it changes
     bin=$(readlink -f "$bin")
-    sum=$(printf '%s\0' "${@:2}" | cksum)
-    file="$XDG_CACHE_HOME/bash/init/$1-${bin//[!A-Za-z0-9]/_}-${sum%% *}.bash"
+    sum="${*:2}"
+    sum=${sum//[!A-Za-z0-9]/_} # the command line itself, no fork for a checksum
+    file="$XDG_CACHE_HOME/bash/init/$1-${bin//[!A-Za-z0-9]/_}-$sum.bash"
     if [ ! -s "$file" ]; then
         mkdir -p "${file%/*}"
         # write aside and rename, so an interrupted or concurrent shell never leaves a partial file
