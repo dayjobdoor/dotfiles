@@ -143,7 +143,7 @@ HackGen NF has no Ubuntu package and no GitHub asset digest, so it is the `http:
 
 ## The RDP service is TLS only and keeps the other xrdp defaults
 
-The image and every machine set `security_layer=tls` and `AllowRootLogin=false`, and `djd doctor` and the image test check both. The values are the hardening that this repository chose. The rest of the xrdp defaults stay as the package ships them, and some are weak. [problems.md](problems.md#rdp-security-and-known-limits) lists the probe results and the open limits, and [SECURITY.md](../SECURITY.md#known-limits-of-the-rdp-service) summarizes them.
+The image and every machine set `security_layer=tls` and `AllowRootLogin=false`, and `djd doctor` and the image test check both. The values are the hardening that this repository chose. The rest of the xrdp defaults stay as the package ships them, except that the hook drops the generic proxy sessions `vnc-any` and `neutrinordp-any`, which let the login screen name any host and port; the sessions of this repository are `Xorg` and `Xvnc`. Some of the remaining defaults are weak. [problems.md](problems.md#rdp-security-and-known-limits) lists the probe results and the open limits, and [SECURITY.md](../SECURITY.md#known-limits-of-the-rdp-service) summarizes them.
 
 Two facts explain the settings, and the probe results are in [problems.md](problems.md#rdp-security-and-known-limits). `security_layer=hybrid` is not a valid value in this xrdp, so a typo or an upgrade to it silently re-enables the legacy RDP layer. And this xrdp has no NLA at all, so the choice is TLS or negotiate, not TLS or NLA.
 

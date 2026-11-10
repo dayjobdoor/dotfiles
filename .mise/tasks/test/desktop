@@ -154,6 +154,15 @@ check_tls_key() {
     echo "test:desktop: each container has its own xrdp TLS key"
 }
 
+# vnc-any and neutrinordp-any are package sessions that let the login screen name any host and port; the hook drops them
+check_no_proxy_modules() {
+    local found
+    found=$(docker exec "$server" grep -E '^\[(vnc-any|neutrinordp-any)\]' /etc/xrdp/xrdp.ini || true)
+    if [ -n "$found" ]; then fail "xrdp.ini in the server still offers a generic proxy session: $found"; fi
+    docker exec "$server" grep -qx '\[Xorg\]' /etc/xrdp/xrdp.ini || fail "xrdp.ini in the server lost its [Xorg] session"
+    echo "test:desktop: xrdp offers no generic proxy session"
+}
+
 # $control is the same image with security_layer=negotiate and AllowRootLogin=true. It must accept the legacy-layer
 # client, or a client that cannot speak that layer would make the refusal below pass for any server; its xrdp.log
 # shows the RDP layer was selected there and refused on $server. The legacy client then tries a second account on
@@ -263,6 +272,7 @@ done
 echo "test:desktop: xfce4-session started through ~/.xsession"
 wait_xrdp "$control"
 check_tls_key
+check_no_proxy_modules
 check_legacy_refused "$pid"
 check_root_refused
 check_password_secret
