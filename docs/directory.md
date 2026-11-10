@@ -34,7 +34,7 @@ cloud-init/vm.yaml      the cloud-init file for incus and multipass
 .github/workflows/      ci.yaml, tag.yaml, push.yaml, full-weekly.yaml, docs.yaml
 ```
 
-`tests/tree.sh` writes the tracked and unignored files as a tar stream, judged by the repository's own `.gitignore` alone: the git configuration and the global ignore file of the machine have no effect. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [testing.md](testing.md#test-map) maps each test script to the task that runs it.
+`tests/tree.sh` writes the tracked and unignored files as a tar stream, judged by the repository's own `.gitignore` alone: the git configuration and the global ignore file of the machine have no effect, and a nested git repository is left out whole. `mise run ci`, `test:vm`, `test:offline`, and the no-trust flow in [AGENTS.md](../AGENTS.md) use it. `tests/vm-checks.sh` holds the assertions that `test:vm` runs inside the VM, and it refuses to run anywhere else (see `DJD_TEST_VM`). [testing.md](testing.md#test-map) maps each test script to the task that runs it.
 
 ## Allowed names and forbidden paths
 

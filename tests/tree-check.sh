@@ -12,6 +12,8 @@
 #     default ~/.config/git/ignore, hides nothing and adds nothing. Both are planted here and tree.sh must ignore
 #     them, so deleting a rule from the repository's .gitignore makes this test fail.
 #   - A tracked file that was deleted from the worktree is skipped instead of making tar fail.
+#   - A nested git repository, whether untracked or staged as a submodule entry, is left out whole: git lists it as one
+#     directory, and tar would read its ignored files (.env, age.txt) and its .git without the outer .gitignore.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -56,6 +58,14 @@ echo secret >rclone/rclone.conf
 echo secret >auth.json
 echo secret >key.pem
 echo secret >id.key
+mkdir nested sub
+git -C nested init -q
+echo secret >nested/.env
+echo secret >nested/age.txt
+git -C sub init -q
+git -C sub -c user.name=t -c user.email=t@localhost commit -q --allow-empty -m sub
+echo secret >sub/.env
+git add sub 2>/dev/null
 
 # A hostile machine, planted after the commit so that the setup above is not affected: *.txt is ignored by the
 # default file (~/.config/git/ignore) and, for the second run, by an excludesfile named in the git config. Neither
@@ -71,7 +81,7 @@ check_archive() {
         grep -qxF -- "$want" <<<"$list" || fail "$label: $want is missing from the archive:
 $list"
     done
-    for unwanted in age.txt .env .devcontainer/.env mise-config/miserc.local.toml mise-config/config.local.toml .secrets .env.production .vars token.local gh/hosts.yml rclone/rclone.conf auth.json key.pem id.key gone.txt; do
+    for unwanted in age.txt .env .devcontainer/.env mise-config/miserc.local.toml mise-config/config.local.toml .secrets .env.production .vars token.local gh/hosts.yml rclone/rclone.conf auth.json key.pem id.key gone.txt nested/.env nested/age.txt nested/.git/config sub sub/.env; do
         if grep -qxF -- "$unwanted" <<<"$list"; then fail "$label: $unwanted is in the archive"; fi
     done
 }

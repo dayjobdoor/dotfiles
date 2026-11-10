@@ -151,7 +151,7 @@ The task uses the first of incus and multipass that it finds. CI installs incus 
 | `tests/xsession-audio.sh` | The `~/.xsession` supervisor | `test:offline`, `test:desktop` | The image, the desktop container |
 | `tests/djd-module.sh` | `djd module` with a stub `mise`: selection order, the secrets-with-agent warning, empty `MISE_ENV` items, the server-removal warning, the exit 2 and message for a missing or unknown module name, and the removal of Brave's apt source | `test:offline` | The image |
 | `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses | `test:offline` | The image |
-| `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
+| `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, nests a git repository and a submodule entry with ignored files inside, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
 | `tests/desktop-apps.sh` | The four desktop apps, and that Wireshark, Obsidian, Vicinae, Ferdium and fusuma are on `PATH` with a working menu entry | `test:desktop`, `tests/vm-checks.sh` | The image, VM |
 | `tests/vm-checks.sh` | The base and server install, including that xrdp runs with the hardened settings | `test:vm` | incus or multipass |
 | `tests/tree.sh` | Helper, not a test | `ci`, `test:vm`, `test:offline`, the no-trust flow in AGENTS.md | Host |
@@ -191,6 +191,6 @@ Two failures do not annotate their cause. A failure inside a container script of
 
 - `.actrc` maps the `ubuntu-26.04` runners to `ghcr.io/catthehacker/ubuntu:act-24.04`, because catthehacker publishes no 26.04 image.
 - `mise run ci --dry-run` plans every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml`, and `push.yaml` without running steps, and it rejects job names. It feeds the release workflows a sample tag push and a sample CI `workflow_run` event.
-- act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged and ignores the git configuration and global ignore file of the host. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
+- act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged and nested git repositories, and ignores the git configuration and global ignore file of the host. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
 - Lint fails on any `ubuntu-*` runner label that `.actrc` does not map, because act stops at an interactive image prompt for an unmapped label.
 
