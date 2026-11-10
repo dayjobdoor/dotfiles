@@ -14,13 +14,12 @@ rust.rustup_home = "~/.local/share/rustup"
 "apt:moreutils" = "latest"
 "apt:autoconf" = "latest"
 "apt:lsb-release" = "latest"
-# development libraries for compiling native extensions (ruby itself comes from mise below, not apt)
+# development libraries for compiling native extensions (ruby itself comes from mise, in the base, not apt)
 "apt:libdb-dev" = "latest"
 "apt:libgdbm-dev" = "latest"
 "apt:libgmp-dev" = "latest"
 "apt:libgmpxx4ldbl" = "latest"
 "apt:libgdbm-compat-dev" = "latest"
-"apt:libstd-rust-dev" = "latest"
 "apt:libncurses-dev" = "latest"     # libncurses5-dev is gone in 26.04
 "apt:libffi-dev" = "latest"
 # network and system utilities
@@ -127,7 +126,6 @@ watchexec = "latest" # auto runner
 "npm:@cyberstrike-io/cyberstrike" = "latest"
 "npm:console-ninja" = "latest"
 # "npm:omp-web" = "latest" 
-# "npm:spynel" = "latest" # agents
 # "npm:specsmd" = "latest" # agents spec
 # "npm:react-scan" = "latest"
 # "npm:jj-ryu" = "latest"
@@ -143,7 +141,6 @@ watchexec = "latest" # auto runner
 # "npm:docsify-cli" = "latest"
 # "npm:plash" = "latest"
 
-# "npm:pyright" = "latest" # github:microsoft/pyright below is used
 "npm:vscode-langservers-extracted" = "latest"
 "npm:typescript-language-server" = "latest"
 "npm:yaml-language-server" = "latest"
@@ -287,7 +284,6 @@ ast-grep = "latest"
 
 # github (Rust)
 # "github:Dicklesworthstone/pi_agent_rust" = "latest"
-# "github:sharkdp/hyperfine" = "latest" # hyperfine above is used
 "github:tsl0922/ttyd" = "latest"
 "github:vercel-labs/opensrc" = "latest"          # context
 "github:vercel-labs/agent-browser" = "latest"    # test
@@ -301,10 +297,9 @@ ast-grep = "latest"
 "github:vi/websocat" = "latest"                  # websocket
 "github:DecapodLabs/decapod" = "latest"          # context
 "github:meilisearch/meilisearch" = "latest"      # search
-"github:GyulyVGC/sniffnet" = "latest"            # monitor; a GUI app, but [tools] has no env gating
+"github:GyulyVGC/sniffnet" = "latest"            # monitor; a GUI app
 "github:EasyTier/EasyTier" = "latest"            # VPN
 "github:fish-shell/fish-shell" = "latest"        # fish 4+ is Rust
-"github:Rigellute/spotify-tui" = "latest"        # spotify
 "github:asciinema/asciinema" = "latest"          # recorder
 "github:pemistahl/grex" = "latest"
 "github:tursodatabase/agentfs" = "latest"        # fs
@@ -319,7 +314,6 @@ ast-grep = "latest"
 # "cargo:denoland/celld" = "latest" # self-host durable objects
 # "cargo:orhun/kmon" = "latest"
 # "cargo:cloudflare/boringtun" = "latest" # tunnel
-# "cargo:orhun/duckduckgo-cli" = "latest" # web; npm:duckduckgo-cli is used
 # "cargo:choose" = "latest"
 # "cargo:alacritty" = "latest"
 # "cargo:gitlogue" = "latest"
@@ -354,10 +348,7 @@ yt-dlp = "latest"
 # claude = "latest"        # anthropics/claude-code (primary: Python)
 
 # github (Python)
-"github:microsoft/pyright" = "latest"
 "github:microsoft/apm" = "latest"
-"github:pandas-dev/pandas" = "latest"
-"github:hacs/integration" = "latest"
 
 "pipx:pytest" = "latest"       # test
 "pipx:opendoor" = "latest"
@@ -387,18 +378,12 @@ yt-dlp = "latest"
 # "pipx:markitdown-ocr" = "latest"
 
 # "conda:pdftotext" = "latest" # pdf
-"conda:openai" = "latest"
-"conda:pypdf" = "latest"
-"conda:lxml" = "latest"
-"conda:defusedxml" = "latest"
 
 # =============================================================================
 # C / C++: build tools / native DBs / systems tools
 # =============================================================================
 # build
 ninja = "latest"
-# cmake = "latest" # apt:cmake above is used
-# make = "latest"
 # bpkg = "latest"
 
 # "vfox:version-fox/vfox-cmake" = "latest"
@@ -418,7 +403,6 @@ solidity = "latest" # ethereum/solidity (C++)
 # "github:apple/foundationdb" = "latest" # db
 
 # "github:ClickHouse/ClickHouse" = "latest" # db
-# "github:folkertvanheusden/multitail" = "latest" # cli
 
 # =============================================================================
 # Java
@@ -432,7 +416,6 @@ maven = "latest"
 # =============================================================================
 # Other languages: niche runtimes
 # =============================================================================
-ruby = "latest"
 # dotnet = "latest" # linux: dotnet-install.sh rejects Ubuntu 26.04 ("Refer to: https://aka.ms/dotnet-os-lifecycle")
 # flutter = "latest"
 # php = "latest"
@@ -455,21 +438,18 @@ neovim = "latest"
 ffmpeg = "latest"   # C
 # ansible = "latest"
 # android-sdk = "latest"
-# vim = "latest"
 # mongosh = "latest"
 # tmux = "latest"
 # zprint = "latest"
 # aws = "latest"
 
-"github:scop/bash-completion" = "latest"
 
-# desktop / GUI (currently disabled)
+# GUI apps (disabled)
 # "github:ownself/wewa" = "latest" # rust web-wall-paper
 # "github:webadderallorg/Recordly" = "latest" # TypeScript
 
 # joke tools
 "npm:cowsay" = "latest"
 "npm:figlet" = "latest"
-"npm:cmatrix" = "latest"
 "pipx:fortune" = "latest"
 "pipx:lolcat" = "latest"

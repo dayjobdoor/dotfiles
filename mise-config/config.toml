@@ -99,7 +99,7 @@ tree = "tree -C"
 "apt:xfce4-xkb-plugin" = "latest"
 "apt:xrdp" = "latest"
 "apt:xorgxrdp" = "latest"
-"apt:freerdp3-x11" = "latest"         # xfreerdp3, the RDP client the tests use
+"apt:freerdp3-x11" = "latest"         # xfreerdp3, an RDP client on the machine (test:desktop installs its own in a client container)
 # Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
 # a PipeWire server in the session (home/.xsession starts one where systemd does not). That package's autostart
 # script calls pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card

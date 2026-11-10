@@ -85,7 +85,7 @@ main() {
         mise_sh=$(mktemp)
         trap 'rm -f "$mise_sh"' EXIT
         curl -fsSL --proto '=https' --tlsv1.2 https://mise.run -o "$mise_sh" || die "downloading mise.run failed"
-        MISE_VERSION="$version" sh "$mise_sh"
+        MISE_VERSION="$version" sh "$mise_sh" || die "the mise installer failed"
         rm -f "$mise_sh"
         # a failed install leaves a missing binary, or the old one that was there before
         [ -x "$HOME/.local/bin/mise" ] || die "installing mise failed"
