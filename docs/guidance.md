@@ -105,12 +105,13 @@ A program that saves a managed file through a rename replaces its link with a re
 1. Copy the file into the checkout. For `~/.config/starship.toml`, run:
 
    ```sh
-   cp ~/.config/starship.toml ~/.dotfiles/home/.config/starship.toml
+   mise dot add ~/.config/starship.toml
    ```
 
-2. Run `git -C ~/.dotfiles diff` and check the change.
-3. Run `djd apply`. It moves the regular file aside as `~/.config/starship.toml.djd-backup-<epoch>-<pid>` and links the checkout file again.
-4. Delete the backup file when the edit looks right.
+   `mise dot add` saves the regular file as `~/.dotfiles/home/.config/starship.toml`, because the file lies in the tree of the `home` dotfile group, and then applies the whole group again. The `pre-dotfiles` hook does not run for it, so when another regular file blocks a link, mise stops with `refusing to overwrite existing files` and saves nothing. Then copy the file by hand with `cp ~/.config/starship.toml ~/.dotfiles/home/.config/starship.toml` and run `djd apply`, which moves the regular files aside and links the checkout files.
+2. Run `git -C ~/.dotfiles diff` and check the change. To drop it, run `git -C ~/.dotfiles checkout -- home/.config/starship.toml`.
+
+If you run `djd apply` without `mise dot add`, it moves the regular file aside as `~/.config/starship.toml.djd-backup-<epoch>-<pid>` and links the checkout file again, but the edit stays in the backup until you copy it into the checkout by hand.
 
 ## Publish the first release
 

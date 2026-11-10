@@ -32,7 +32,7 @@ if out=$(mise bootstrap status --missing 2>&1); then ok bootstrap; else
 fi
 # --json, because the plain output also reports history capture, which this repository does not use
 if out=$(mise dot status --missing --json 2>/dev/null); then ok dotfiles; else
-    fail dotfiles "not deployed; run djd apply, which moves a file that a program rewrote aside as *.djd-backup-<time>"
+    fail dotfiles "not deployed; run djd apply, which moves a file that a program rewrote aside as *.djd-backup-<time>, or mise dot add <path> to keep the edit"
     jq -r '.files[] | select(.state != "applied") | "  \(.state): \(.reason // .source)"' <<<"$out" 2>/dev/null ||
         mise dot status --missing 2>&1 || true
 fi
