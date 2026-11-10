@@ -1,0 +1,33 @@
+---
+syntax: sh
+tags: [ agent, omp ]
+---
+# start
+omp
+omp --profile god
+omp -p "prompt"
+omp --model anthropic/claude-sonnet-5-5:high
+
+# models / usage
+omp models anthropic
+omp models find <substring>
+omp models --json
+omp usage
+omp usage accounts
+
+# config
+omp config get modelRoles
+omp config set prewalk.enabled false
+
+# in-session slash commands
+/model                  # roles view: assign role models
+/modelpreset switch deep   # deep | eco
+/advisor status
+/prewalk off
+/extended-context on
+/slow on
+/new
+
+# xd:// devices (read docs before first use)
+read xd://lsp
+read xd://ast_edit

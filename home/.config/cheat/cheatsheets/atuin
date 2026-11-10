@@ -1,0 +1,20 @@
+---
+syntax: sh
+tags: [ shell, atuin ]
+---
+# search history
+atuin search <query>
+atuin search -i
+atuin search --exit 0 --cwd .
+
+# stats / list
+atuin history list
+atuin stats
+
+# sync
+atuin login
+atuin sync
+atuin import auto
+
+# init (shell rc)
+eval "$(atuin init zsh)"

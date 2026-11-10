@@ -1,0 +1,28 @@
+---
+syntax: sh
+tags: [ python, uv ]
+---
+# project
+uv init
+uv add <pkg>
+uv remove <pkg>
+uv sync
+uv lock
+uv run <cmd>
+uv run --with <pkg> python
+
+# python versions
+uv python list
+uv python install 3.13
+uv python pin 3.13
+
+# venv / pip interface
+uv venv
+uv pip install <pkg>
+uv pip compile requirements.in -o requirements.txt
+
+# tools
+uv tool install <pkg>
+uv tool run <pkg>        # alias: uvx <pkg>
+uv tool list
+uv tool upgrade --all

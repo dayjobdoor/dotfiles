@@ -1,0 +1,23 @@
+---
+syntax: sh
+tags: [ tasks, just ]
+---
+# run
+just
+just --list
+just <recipe> [args]
+just --choose
+just --dry-run <recipe>
+just --evaluate
+
+# justfile
+set shell := ["bash", "-euc"]
+
+default:
+    @just --list
+
+build target="debug":
+    cargo build --{{target}}
+
+test *args:
+    cargo test {{args}}

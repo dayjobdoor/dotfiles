@@ -1,0 +1,20 @@
+---
+syntax: sh
+tags: [ http, xh ]
+---
+# requests
+xh httpbin.org/get
+xh post httpbin.org/post name=foo age:=30
+xh put <url> Authorization:'Bearer x'
+xh <url> q==search           # query param
+xh -f post <url> field=value # form
+
+# output
+xh -b <url>                  # body only
+xh -h <url>                  # headers only
+xh --download <url>
+xh --offline post <url> a=1  # print request, don't send
+
+# files
+xh post <url> @file.json
+xh post <url> < file.json

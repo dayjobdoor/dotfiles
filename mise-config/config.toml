@@ -37,6 +37,8 @@ yq = "latest"
 delta = "latest"
 gh = "latest"
 lazygit = "latest"
+# the [filter "lfs"] of home/.config/git/config runs it
+git-lfs = "latest"
 jj = "latest"
 "github:dmmulroy/jj-starship" = "latest" # the prompt's git and jj segment (starship.toml custom.jj)
 bottom = "latest"
@@ -63,6 +65,8 @@ rm = "rm -i"
 mkdir = "mkdir -p"
 ls = "lsd --group-directories-first"
 cat = "bat -p"
+# the options live in home/.config/ripgrep/config; the variable is set for this one command, not exported
+rg = "RIPGREP_CONFIG_PATH=$XDG_CONFIG_HOME/ripgrep/config rg"
 ping = "ping -c 3"
 # -C colors even into a pipe, as `ls --color` does; no -N, which would print the control bytes of a file name raw (without it
 # tree still prints UTF-8 names as they are)
@@ -95,6 +99,7 @@ tree = "tree -C"
 "apt:xfce4-xkb-plugin" = "latest"
 "apt:xrdp" = "latest"
 "apt:xorgxrdp" = "latest"
+"apt:freerdp3-x11" = "latest"         # xfreerdp3, the RDP client the tests use
 # Audio over RDP. pipewire-module-xrdp loads xrdp-sink and xrdp-source from an XDG autostart entry, which needs
 # a PipeWire server in the session (home/.xsession starts one where systemd does not). That package's autostart
 # script calls pactl, from pulseaudio-utils, to make the two the defaults; without it a machine with a sound card

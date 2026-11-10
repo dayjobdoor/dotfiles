@@ -1,0 +1,26 @@
+---
+syntax: sh
+tags: [ web, ax ]
+---
+# fetch (JSON envelope with status/headers/body)
+ax https://api.example.com/users
+ax <url> -H 'authorization: Bearer x' -X POST -d '{"a":1}'
+ax <url> -d @payload.json
+
+# discover
+ax <url> --outline
+ax <url> --locate 'some text'
+ax <url> '.card' --count
+
+# extract
+ax <url> '.card' --row 'title=a, href=a@href, id=@data-id'
+ax <url> 'table' --table --where 'Stars >= 30000'
+ax <url> --text
+
+# read docs as markdown
+ax <url> --md --budget 800
+
+# paging / cache
+ax <url> --all
+ax <url> --json-envelope --offset <n>
+ax <url> --fresh

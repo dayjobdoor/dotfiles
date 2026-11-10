@@ -1,0 +1,25 @@
+---
+syntax: sh
+tags: [ search, rg ]
+---
+# search
+rg 'pattern'
+rg -i 'pattern'
+rg -w 'word'
+rg -F 'literal.string'
+rg -n -C 2 'pattern'
+
+# filter files
+rg -t py 'pattern'
+rg -g '*.toml' 'pattern'
+rg -g '!node_modules' 'pattern'
+rg --hidden --no-ignore 'pattern'
+
+# output
+rg -l 'pattern'
+rg -c 'pattern'
+rg --files
+rg --json 'pattern'
+
+# replace (print only)
+rg 'old' -r 'new'

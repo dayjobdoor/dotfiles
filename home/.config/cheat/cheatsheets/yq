@@ -1,0 +1,20 @@
+---
+syntax: sh
+tags: [ data, yq ]
+---
+# read
+yq '.a.b' file.yml
+yq '.items[].name' file.yml
+yq -r '.name' file.yml
+
+# edit in place
+yq -i '.a.b = "new"' file.yml
+yq -i 'del(.a.b)' file.yml
+
+# convert
+yq -o=json file.yml
+yq -P file.json              # json -> pretty yaml
+
+# merge
+yq '. *= load("other.yml")' file.yml
+yq ea '. as $item ireduce ({}; . * $item)' a.yml b.yml

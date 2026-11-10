@@ -1,0 +1,35 @@
+---
+syntax: sh
+tags: [ vcs, jj ]
+---
+# status / log / diff
+jj st
+jj log -r 'all()' --no-graph -T 'change_id.short() ++ " " ++ description.first_line() ++ "\n"'
+jj diff --stat
+jj diff --git <path>
+
+# describe current change / start a new one
+jj describe -m "feat: message"
+jj new
+jj commit -m "feat: message"
+
+# split selected paths into a separate commit
+jj split -m "chore: message" <path>...
+
+# stop tracking (path must be ignored first)
+jj file untrack <path>
+jj file list -r @ <dir>
+
+# rebase / squash / abandon
+jj rebase -r <rev> -d <dest>
+jj squash
+jj abandon <rev>
+
+# undo
+jj op log
+jj undo
+
+# git remotes (colocated)
+jj git fetch
+jj bookmark set main -r @-
+jj git push -b main

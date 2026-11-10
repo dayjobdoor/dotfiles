@@ -1,0 +1,22 @@
+---
+syntax: sh
+tags: [ terminal, zellij ]
+---
+# sessions
+zellij
+zellij -s <name>
+zellij ls
+zellij attach <name>
+zellij kill-session <name>
+zellij delete-all-sessions
+
+# default keys (Ctrl-p pane / Ctrl-t tab / Ctrl-n resize / Ctrl-s scroll / Ctrl-o session)
+Ctrl-p n            # new pane
+Ctrl-p x            # close pane
+Ctrl-p f            # fullscreen pane
+Ctrl-t n            # new tab
+Ctrl-o d            # detach
+
+# layouts / actions
+zellij --layout <file.kdl>
+zellij action new-pane

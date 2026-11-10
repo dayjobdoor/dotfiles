@@ -1,0 +1,21 @@
+---
+syntax: sh
+tags: [ diff, delta ]
+---
+# use as git pager (gitconfig)
+[core]
+    pager = delta
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    side-by-side = true
+
+# one-off
+git diff | delta
+delta --side-by-side a.txt b.txt
+delta --list-themes
+delta --show-syntax-themes
+
+# navigate between files/hunks in less
+n / N

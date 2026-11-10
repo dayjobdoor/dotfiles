@@ -1,0 +1,30 @@
+---
+syntax: sh
+tags: [ env, mise ]
+---
+# tools
+mise ls
+mise ls | sort -u
+mise use -g node@latest
+mise install
+mise upgrade
+mise outdated
+mise which <tool>
+
+# backends (conf.d/tools.toml)
+"github:owner/repo" = "latest"
+"npm:pkg" = "latest"
+"pipx:pkg" = "latest"
+"cargo:crate" = "latest"
+"aqua:owner/repo" = "latest"
+
+# tasks / env
+mise tasks
+mise run <task>
+mise env
+mise set KEY=value
+
+# diagnose
+mise doctor
+mise config
+mise cache clear

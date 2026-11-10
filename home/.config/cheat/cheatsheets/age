@@ -1,0 +1,18 @@
+---
+syntax: sh
+tags: [ crypto, age ]
+---
+# keys
+age-keygen -o key.txt
+age-keygen -y key.txt        # print public key
+
+# encrypt / decrypt
+age -r <pubkey> -o file.age file
+age -R recipients.txt -o file.age file
+age -p -o file.age file      # passphrase
+age -d -i key.txt file.age > file
+age -a -r <pubkey> file      # ASCII armor
+
+# ssh keys as recipients
+age -R ~/.ssh/id_ed25519.pub -o file.age file
+age -d -i ~/.ssh/id_ed25519 file.age

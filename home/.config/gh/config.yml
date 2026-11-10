@@ -1,0 +1,6 @@
+# What `gh config set` writes into this file lands in the checkout. The login (hosts.yml) is not tracked.
+version: 1
+git_protocol: https
+prompt: enabled
+aliases:
+  web: repo view --web

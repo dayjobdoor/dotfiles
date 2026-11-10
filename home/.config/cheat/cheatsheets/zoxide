@@ -1,0 +1,17 @@
+---
+syntax: sh
+tags: [ nav, zoxide ]
+---
+# jump
+z <partial-dir>
+z foo bar
+zi                  # interactive (fzf)
+z -                 # previous dir
+
+# database
+zoxide query --list
+zoxide add <path>
+zoxide remove <path>
+
+# init (shell rc)
+eval "$(zoxide init zsh)"

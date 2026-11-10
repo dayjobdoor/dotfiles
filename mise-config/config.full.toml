@@ -168,6 +168,7 @@ age = "latest"
 
 # secrets / SaaS CLIs (Go)
 doppler = "latest" # DopplerHQ/cli (Go)
+fnox = "latest"    # jdx/fnox (Rust)
 stripe = "latest"  # stripe/stripe-cli (Go)
 flyctl = "latest"
 
@@ -175,7 +176,8 @@ flyctl = "latest"
 cmdx = "latest"
 task = "latest"
 oapi-codegen = "latest"
-cheat = "latest"        # cheat sheets
+cheat = "latest"        # cheat sheets (home/.config/cheat)
+vhs = "latest"          # terminal recordings; runs ttyd and ffmpeg, both below
 # swag = "latest"
 
 # cloud / storage / git UX

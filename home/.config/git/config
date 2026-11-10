@@ -101,6 +101,14 @@
 	helper = 
 	helper = !$HOME/.local/share/mise/shims/gh auth git-credential
 
+# git-lfs (a base tool) cleans and smudges the files that .gitattributes marks `filter=lfs`; required makes a
+# checkout fail where the tool is missing, instead of storing the pointer files as content
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+
 # last, so a value in user.conf wins over the shared one above (git applies the last value it reads)
 [include]
 	path = ~/.config/git/user.conf

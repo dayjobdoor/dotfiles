@@ -1,0 +1,24 @@
+---
+syntax: sh
+tags: [ http, hurl ]
+---
+# run
+hurl file.hurl
+hurl --test file.hurl
+hurl --variable host=localhost file.hurl
+hurl --very-verbose file.hurl
+hurl --report-html out/ *.hurl
+
+# file.hurl
+GET https://example.org/api
+Authorization: Bearer {{token}}
+HTTP 200
+[Asserts]
+jsonpath "$.id" exists
+jsonpath "$.name" == "foo"
+[Captures]
+id: jsonpath "$.id"
+
+POST https://example.org/api
+{"a": 1}
+HTTP 201

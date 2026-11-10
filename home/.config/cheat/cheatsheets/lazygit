@@ -1,0 +1,21 @@
+---
+syntax: sh
+tags: [ vcs, lazygit ]
+---
+# start
+lazygit
+lazygit -p <path>
+
+# panels: 1 status / 2 files / 3 branches / 4 commits / 5 stash
+?                  # keybindings help
+space              # stage / unstage file
+a                  # stage all
+c                  # commit
+P                  # push
+p                  # pull
+n                  # new branch
+enter              # view details
+z                  # undo
+Z                  # redo
+/                  # filter
+q                  # quit

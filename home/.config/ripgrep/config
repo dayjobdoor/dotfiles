@@ -1,0 +1,9 @@
+# ripgrep reads this file through RIPGREP_CONFIG_PATH, which only the `rg` alias of mise-config/config.toml sets.
+# An exported variable would reach every child of a herdr pane, the rg of pi and omp included, and --hidden would
+# make their searches cover dotfiles. An alias affects only what is typed at a prompt.
+# --hidden also searches .git, which holds nothing worth a hit
+--hidden
+--glob=!.git
+--glob=!vendor
+--line-number
+--no-heading
