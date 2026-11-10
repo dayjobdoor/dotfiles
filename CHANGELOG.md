@@ -2,6 +2,16 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## 0.0.15 (2026-11-10)
+
+- Shell: one `compinit` per shell (mise's hook no longer runs a second), completions of uv, omp and mise load after the prompt, the init cache keys on the command line and forks nothing, and plugins, fzf and atuin are skipped without a terminal (no more `can't change option: zle` for agents). A missing or stale sheldon lock no longer makes every shell try to clone.
+- Compose: a healthcheck (xrdp listening), and `mise run up` waits for it, so an empty `PASSWORD` fails the command instead of crash-looping behind a success message.
+- Dotfiles: `lazydocker/config.yml` is the name lazydocker reads (it was `config.yaml`), the `web` abbreviation opens a real site, `sec` rejects invalid names and no longer glues a line onto a file without a final newline, fusuma's four-finger swipes use XFCE's Ctrl+Alt+arrow shortcuts, and a few settings that did nothing are gone (ghostty, starship). pi no longer greps a `~/.aliases` that nothing creates, and omp's invalid `autoLearn` key is removed.
+- Agents: omp's ponytail is the same npm release as pi's, and the pin rule in `docs/guidance.md` covers git pins. `lint:config` fails when pi's `AGENTS.md` and omp's `RULES.md` differ.
+- `full`: entries that installed no tool are gone (pyright, pandas, hacs, bash-completion, cmatrix, four conda libraries, spotify-tui, a second ruby, libstd-rust-dev); 172 tools and 32 apt packages.
+- Lint and tests: `lint:workflows` checks the dockerignore's credential patterns and validates `compose.yaml`, `lint:shell` takes any `sh` or `bash` shebang, `test:vm` stops when `cloud-init/vm.yaml` has no install marker, and cloud-init's install fails when the download does. The Docker build no longer reruns its last layers for a change in the docs.
+- Docs: the `warp` module, hostnames, the base tool list, HackGen's single checksum, menu entries, tag release steps, wrong links and several counts match the code.
+
 ## 0.0.14 (2026-11-10)
 
 - Compose: the RDP port is fixed at 3589 on 127.0.0.1 (`127.0.0.1:3589:3389`); `RDP_PORT` is gone, so a value in your `.devcontainer/.env` is ignored.

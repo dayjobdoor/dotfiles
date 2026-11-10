@@ -14,8 +14,9 @@ What the repository has to deliver, what it does not, and how you tell that a ma
 | --- | --- |
 | Base, on every machine | zsh as the login shell, the core command-line tools, the dotfiles of `home/`, the zsh plugins and abbreviations, and the XFCE desktop over xrdp (TLS only, no root login) with PipeWire audio and Japanese input. The apps are ghostty, Brave, Zed and Zen (required), and Wireshark, Obsidian, Vicinae, Ferdium and fusuma. |
 | `agent` module | The build tools, node, bun, python and uv, the coding agents pi and omp with their config, the `skills` CLI, and telemetry off. |
-| `server` module | sshd with keys only, a firewall that denies inbound traffic except ssh and RDP from private networks, docker with published ports on `127.0.0.1`, and avahi. |
+| `server` module | sshd with keys only, a firewall that denies inbound traffic except ssh and RDP from private networks, docker (and `lazydocker`) with published ports on `127.0.0.1`, and avahi. |
 | `full` module | The personal toolbox; it implies `agent`. |
+| `warp` module | Cloudflare WARP from Cloudflare's apt repository, for VMs and real hosts; the Docker image does not carry it. |
 | `secrets` module | Environment secrets as age ciphertext, for machines you own. |
 | Docker image | The base and `agent`, published to GHCR as `latest`, `X.Y` and `X.Y.Z`, with a shell or the desktop over RDP. |
 | VM recipes | `cloud-init/vm.yaml` for multipass and incus: hostname `vm`, the user `dayjobdoor`, the install. |
@@ -23,8 +24,8 @@ What the repository has to deliver, what it does not, and how you tell that a ma
 
 ## What does not ship
 
-- A second configuration tool next to mise, and a migrations runner for imperative steps.
-- A lockfile for the tools of a machine. Only the repository's own tools are locked; the image digest is the reproducible artifact.
+- A second configuration tool next to mise, and a migrations runner for imperative steps (the runner is planned in [ROADMAP.md](../ROADMAP.md)).
+- A lockfile for the tools of a machine. Only the repository's own tools are locked; the image digest is the reproducible artifact (a global lock is planned in [ROADMAP.md](../ROADMAP.md)).
 - NLA for RDP, and a restriction of the RDP clipboard, drive and audio channels. [problems.md](problems.md#rdp-security-and-known-limits) lists them.
 - Removal of apt packages by `djd module remove`; the packages stay.
 - A committed password, token, account ID or key. [SECURITY.md](../SECURITY.md) is binding.

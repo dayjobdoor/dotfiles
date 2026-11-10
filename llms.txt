@@ -31,7 +31,7 @@ The layout of the repository, with the purpose of each entry, is in [Directory](
 - [.mise/tasks/](.mise/tasks/): repo tasks
 - [.mise/config.toml](.mise/config.toml): the short repo tasks and mise settings
 - [.env.example](.env.example): the variable names for agent providers and tokens, no values
-- [.devcontainer/.env.example](.devcontainer/.env.example): the compose variable `PASSWORD`; copy it to `.devcontainer/.env`
+- [.devcontainer/.env.example](.devcontainer/.env.example): the compose variable `PASSWORD` and a commented `TUNNEL_TOKEN`; copy it to `.devcontainer/.env`
 - [.editorconfig](.editorconfig): editor formatting rules
 - [.shellcheckrc](.shellcheckrc): shellcheck settings
 - [install.sh](install.sh): the installer that `curl | sh` runs

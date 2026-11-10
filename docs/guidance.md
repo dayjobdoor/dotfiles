@@ -40,7 +40,7 @@ The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name
 
 ## Update a pinned desktop app
 
-Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.toml`, pinned to a version and a SHA-256 per platform.
+Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.toml`, pinned to a version and a SHA-256 per platform. HackGen is the exception: one zip for both platforms, so one `url` and one `checksum`.
 
 1. Read the new release page and pick the files of both platforms (`linux-x64` and `linux-arm64`). Obsidian's latest release can be mobile-only, so check that it has the Linux archives.
 2. Download each file and run `shasum -a 256 <file>`.
@@ -51,7 +51,8 @@ Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.
 The pi extensions are pinned in `home/.config/pi/agent/settings.json` (`npm:<name>@<version>` and `git:<host>/<repo>@<commit>`), and the omp plugins in `home/.config/omp/profiles/god/plugins/package.json` (an exact version, and `#<commit>` on the git URL). Nothing locks them, so a bump is a manual edit. Keep both agents on the same version of an extension that they share (`context-mode`, `ponytail`).
 
 1. For an npm package, run `npm view <name> version time --json` and pick the newest version that is at least three days old, the same age rule as for the mise tools.
-2. For a git package, run `git ls-remote <url> HEAD` and take that commit.
+2. For a git package, run `git ls-remote <url> HEAD` and take that commit, unless it is younger than three days; then take the newest commit that is not (`git log --before='3 days ago' -1`).
+   Use the same package source in both agents: an npm version in pi and a git commit in omp would drift apart.
 3. Change the pin in both files, then start pi once with `PI_CODING_AGENT_DIR` set to an empty temporary directory (`pi -p hello`). It prints `installed <name>@<version>` for each package, and an unknown pin form stops it there.
 
 ## Update the pinned tools
@@ -61,10 +62,10 @@ To refresh `.mise/mise.lock`, follow these steps on a machine where you trust th
 1. Run `mise lock --bump` with an empty config directory:
 
    ```sh
-   MISE_CONFIG_DIR=$(mktemp -d) mise lock --bump
+   MISE_CONFIG_DIR=$(mktemp -d) MISE_MINIMUM_RELEASE_AGE=3d mise lock --bump
    ```
 
-   The empty directory keeps the tools of your own global config out of the npm graph in `.mise/locks/`.
+   The empty directory keeps the tools of your own global config out of the npm graph in `.mise/locks/`, and with it the three-day `minimum_release_age` of `mise-config/config.toml`, so the variable puts it back.
 
 2. Commit `.mise/mise.lock` and the changes under `.mise/locks/`.
 
@@ -128,7 +129,7 @@ This repository has released since 0.0.1; the steps below are for a fork or a ne
 1. Run `git init` unless the folder is already a repository, then `git add -A`.
 2. Run `git status` and `git ls-files`. Check that neither lists `.devcontainer/.env`, `age.txt`, or `miserc.local.toml`. All three are gitignored.
 3. Run `mise trust` in the checkout, then `git config core.hooksPath .githooks`, so that gitleaks runs on each commit, and make the first commit. The hook needs mise and the trust: without them every commit fails.
-4. Create the repository on GitHub, add it as `origin`, and enable private vulnerability reporting in its settings. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
+4. Create the repository on GitHub, add it as `origin`, and enable private vulnerability reporting in its settings. In a fork, also change `REGISTRY_IMAGE` in `.github/workflows/push.yaml`, which is hard-coded to `ghcr.io/dayjobdoor/dotfiles`. [SECURITY.md](../SECURITY.md#reporting-a-vulnerability) points reporters to it.
 5. Push to `main`. CI runs. When it passes, `tag.yaml` creates the tag `0.0.1` and a GitHub release, and `push.yaml` publishes the GHCR image.
 6. Read the logs of the jobs that run only on GitHub: the amd64 run of `image`, the incus path of the `vm` job on both architectures, and the merge job of `push.yaml`. A local act run on an arm64 Mac covers only the arm64 run of `image`.
 7. From a machine that is not logged in to GHCR, run `docker manifest inspect ghcr.io/<owner>/dotfiles:latest`, where `<owner>` is the lower-case name of your GitHub user or organization. If it fails with `unauthorized`, set the visibility of the `dotfiles` package to public in its GHCR settings.

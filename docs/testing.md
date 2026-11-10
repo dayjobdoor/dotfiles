@@ -10,9 +10,9 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 
 `mise run lint` runs six checks in parallel. Each check installs only its own tools. `lint` has no body of its own. It depends on the six `lint:*` tasks.
 
-- `lint:shell` runs shellcheck and `shfmt -i 4` over every file whose first line is a `sh` or `bash` shebang, plus `home/.profile`, `.bash_profile`, and `.bashrc`, and `zsh -n` on each zsh startup file separately. It does not lint the inline `postinstall` scripts in the TOML files. When `shfmt` finds a difference, it prints `lint: shell is not formatted; run mise run lint:fix`.
+- `lint:shell` runs shellcheck and `shfmt -i 4` over every file whose first line is a `sh` or `bash` shebang (with or without options, directly or through `env`), plus `home/.profile`, `.bash_profile`, and `.bashrc`, and `zsh -n` on each zsh startup file separately. It does not lint the inline `postinstall` scripts in the TOML files. When `shfmt` finds a difference, it prints `lint: shell is not formatted; run mise run lint:fix`.
 - `lint:config` runs `mise fmt` and `mise tasks validate`. It skips the gitignored `*.local.toml` files. It also requires that the `min_version` line of `.mise/config.toml`, the `min_version` line of `mise-config/config.toml`, and every `jdx/mise-action` step (an unquoted `version:` line) name the same mise release, because no bot bumps them. `install.sh` is not a pin, because it reads `min_version`. The check fails and names the source when a pin is missing or reformatted.
-- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, and runs hadolint. It fails on a workflow named `*.yml`, because the other checks read `*.yaml` only.
+- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, runs hadolint, checks that `Dockerfile.dockerignore` still holds the credential patterns, and validates `compose.yaml` with `docker compose config` where docker exists. It fails on a workflow named `*.yml`, because the other checks read `*.yaml` only.
 - `lint:design` lints `DESIGN.md`.
 - `lint:docs` runs the checks in the next list, and also runs alone in the `lint-docs` job of `docs.yaml`.
 - `lint:secrets` runs gitleaks over the whole git history. When there is no git directory, it runs over the files, so the secret scan never skips.
@@ -84,12 +84,12 @@ Step 14 in detail:
 | `AllowRootLogin=true` in `sesman.ini` | `FAIL xrdp-root-login`, and `ok xrdp-tls` |
 | a real file in place of a dotfile | `FAIL dotfiles`, and the output lists the file |
 
-Every `FAIL sshd` line must also say `not keys-only`. The hook cannot see a `Match` for another user or for an address ([scope](architecture.md#a-module-is-a-mise-config-environment)), so the test stops at `Match all` and a harmless `Match`. A real sshd evaluates `Match` blocks only with `-C`, which is why the stub does the same.
+Every `FAIL sshd` line must also say `not keys-only`. The hook cannot see a `Match` for another user or for an address ([scope](problems.md#sshd-match-blocks-are-only-partly-covered)), so the test stops at `Match all` and a harmless `Match`. A real sshd evaluates `Match` blocks only with `-C`, which is why the stub does the same.
 
 The secrets round trip, step 18:
 
 - The key has mode 600 and its directory mode 700, and `djd secret keygen` refuses to overwrite it and leaves it unchanged.
-- The first `djd secret set` runs with the module unselected, the usual case, and the module is selected before the second. Both values decrypt through `mise exec`. This is the test of the `raw=true` task ([architecture.md](architecture.md#secrets-use-the-age-support-of-mise)).
+- The first `djd secret set` runs with the module unselected, the usual case, and the module is selected before the second. Both values decrypt through `mise exec`. This is the test of the `raw=true` task ([problems.md](problems.md#secrets)).
 - The ciphertext lands in `config.secrets.toml` without the plaintext.
 - `djd secret set NAME=value` exits 2 and writes nothing.
 - `djd doctor` reports the secrets module as ok, then as failed for a missing key, for a different key, and for a key with any group or other bit (0400 and 0600 pass), and each failure names its own cause.
@@ -111,22 +111,24 @@ The `test:desktop` task builds the image (a cached build after `test`) and start
 | 9 | Logout | The test ends `xfce4-session`, which also ends the session bus. No `pipewire`, `pipewire-pulse`, or `wireplumber` of the user remains after 30 s. A second login gets the same two audio defaults from daemons with new PIDs. | Before `~/.xsession` ended what it started, the daemons outlived the logout, and the supervisor started a `wireplumber` against the dead bus. |
 | 10 | Container restart | The test restarts the server container, logs in again, and repeats the sink and source checks. | A restart leaves the stale PipeWire socket of the first session in `/run`, and `~/.xsession` must not take it for a live server. The client disconnects first, because it could otherwise reconnect and make the wait pass on its session. |
 
+Outside the numbered stages, `check_no_proxy_modules` asserts that `xrdp.ini` in the server offers no `vnc-any` or `neutrinordp-any` session and still has its `[Xorg]` session; `hooks/desktop-final` removes the two generic sessions, which would let the login screen name any host and port.
+
 `tests/xsession-audio.sh` runs the real `~/.xsession` against stub daemons, and the image test runs it too. It took 31 s in an `ubuntu:26.04` container on a Mac (measured once). It checks that:
 
 - The desktop starts without waiting for a server that is still starting.
 - wireplumber starts after the server answers and again after it dies.
 - A wireplumber that keeps dying is given up on after five quick runs, while a 30 s run resets the count.
-- The session bus is made with `--exit-with-session`, so it ends with the session.
+- The session bus is made with `--exit-with-session`, so it ends with the session, and the daemons never use a bus address inherited from the login environment.
 - A server that never answers prints one line to stderr and nothing to stdout, and starts nothing.
 - A server that stops answering gets no new wireplumber, and the supervisor itself ends.
 - A server that already answers is left alone.
-- Nothing the script started outlives the desktop.
+- Nothing the script started outlives the desktop, and the exit status of the script is the desktop's.
 
 It needs Linux, because it finds leftovers through `/proc`.
 
 ### vm, on amd64 and arm64
 
-The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml` up to its `# djd-install-below` line (the key import and the install below it are left out). In CI that is an incus system container (`images:ubuntu/26.04/cloud`). It pipes `install.sh` into `sh -s -- server`, as the README does, with the tree under test as the clone source. Both the install and `tests/vm-checks.sh` run with `DJD_SKIP_SSH_CHECKS=1`, because the VM has no authorized key, which the server module's `post-packages` hook would otherwise refuse. Then `tests/vm-checks.sh` runs inside it. The script refuses to run unless `DJD_TEST_VM=1`, and exits 2 with a message that names `mise run test:vm`, because it changes the machine: ufw rules, an sshd drop-in, and module removals. Only `test:vm` sets the variable. `test:vm` names the VM `djd-test-<pid>-<random>`, and it waits for cloud-init for at most 900 s (`timeout 900` runs inside the VM). A timeout prints `vm: cloud-init did not finish within 900 s`, and a cloud-init failure prints `vm: cloud-init failed (exit N)` followed by `cloud-init status --long`. The EXIT trap of `tests/vm-checks.sh` removes the test container, its network, and the sshd guard drop-in, so a failed or interrupted run leaves none of them. The checks are:
+The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml` up to its `# djd-install-below` line (the key import and the install below it are left out). In CI that is an incus system container (`images:ubuntu/26.04/cloud`). It pipes `install.sh` into `sh -s -- server warp` (the README's `server` install plus the warp module), with the tree under test as the clone source. Both the install and `tests/vm-checks.sh` run with `DJD_SKIP_SSH_CHECKS=1`, because the VM has no authorized key, which the server module's `post-packages` hook would otherwise refuse. Then `tests/vm-checks.sh` runs inside it. The script refuses to run unless `DJD_TEST_VM=1`, and exits 2 with a message that names `mise run test:vm`, because it changes the machine: ufw rules, an sshd drop-in, and module removals. Only `test:vm` sets the variable. `test:vm` names the VM `djd-test-<pid>-<random>`, and it waits for cloud-init for at most 900 s (`timeout 900` runs inside the VM). A timeout prints `vm: cloud-init did not finish within 900 s`, and a cloud-init failure prints `vm: cloud-init failed (exit N)` followed by `cloud-init status --long`. The EXIT trap of `tests/vm-checks.sh` removes the test container, its network, and the sshd guard drop-in, so a failed or interrupted run leaves none of them. The checks are:
 
 - `cloud-init/vm.yaml` passes the cloud-init schema check, as a whole.
 - `djd doctor` passes, also under a Japanese locale, where a control shows that `ufw` would print its status in Japanese. It reports ok for the sshd and xrdp checks.
@@ -151,7 +153,7 @@ The task uses the first of incus and multipass that it finds. CI installs incus 
 | Script | Proves | Run by | Where |
 | --- | --- | --- | --- |
 | `tests/xsession-audio.sh` | The `~/.xsession` supervisor | `test:offline`, `test:desktop` | The image, the desktop container |
-| `tests/djd-module.sh` | `djd module` with a stub `mise`: selection order, the secrets-with-agent warning, empty `MISE_ENV` items, the server-removal warning, the exit 2 and message for a missing or unknown module name, and the removal of Brave's apt source | `test:offline` | The image |
+| `tests/djd-module.sh` | `djd module` with a stub `mise`: selection order, the secrets-with-agent warning, empty `MISE_ENV` items, the server-removal warning, the exit 2 and message for a missing or unknown module name, the injection probe (a module word with `$(...)` is refused), and that the `#USAGE` choices match the canonical order | `test:offline` | The image |
 | `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses | `test:offline` | The image |
 | `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, nests a git repository and a submodule entry with ignored files inside, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
 | `tests/desktop-apps.sh` | The four desktop apps, and that Wireshark, Obsidian, Vicinae, Ferdium and fusuma are on `PATH` with a working menu entry | `test:desktop`, `tests/vm-checks.sh` | The image, VM |
@@ -189,7 +191,7 @@ Two failures do not annotate their cause. A failure inside a container script of
 
 ## Running CI with act
 
-`mise run ci [job...]` runs the jobs `lint` and `image` with [act](https://github.com/nektos/act). Both run by default. The task stops unless `GITHUB_TOKEN` is set, and it checks that before it builds the scratch repository that act runs on. [How to run CI locally](guidance.md#run-ci-locally) shows the commands.
+`mise run ci [job...]` runs the jobs `lint` and `image` with [act](https://github.com/nektos/act). Both run by default. The task stops unless `GITHUB_TOKEN` is defined (an empty value runs anonymously), and it checks that before it builds the scratch repository that act runs on. [How to run CI locally](guidance.md#run-ci-locally) shows the commands.
 
 - `.actrc` maps the `ubuntu-26.04` runners to `ghcr.io/catthehacker/ubuntu:act-24.04`, because catthehacker publishes no 26.04 image.
 - `mise run ci --dry-run` plans every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml`, and `push.yaml` without running steps, and it rejects job names. It feeds the release workflows a sample tag push and a sample CI `workflow_run` event.

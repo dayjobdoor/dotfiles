@@ -33,7 +33,7 @@ Brave aborts inside a container unless it runs with `--no-sandbox`, because Dock
 
 ### The in-app updaters of Zed and Zen
 
-Zed and Zen each carry an in-app updater that would replace files in the mise install directory without mise's digest check and without the release age. `ZED_UPDATE_EXPLANATION` in the base `[env]` makes Zed skip its update poll, and the Zen `postinstall` writes `distribution/policies.json` with `DisableAppUpdate` and `DisableTelemetry`. A headless screenshot of Zen's `about:policies` listed both as active (November 2026). Updates go through `mise upgrade`. mise also puts a tool's own bin directories ahead of `PATH` while a `postinstall` runs, so both scripts reset `PATH` to `/usr/bin:/bin`, and `filter_bins` limits what each tool puts on `PATH`.
+Zed and Zen each carry an in-app updater that would replace files in the mise install directory without mise's digest check and without the release age. `ZED_UPDATE_EXPLANATION` in the base `[env]` makes Zed skip its update poll, and the Zen `postinstall` writes `distribution/policies.json` with `DisableAppUpdate` and `DisableTelemetry`. A headless screenshot of Zen's `about:policies` listed both as active (November 2026). Updates go through `mise upgrade`. Two other kinds of update are not switched off: Obsidian and Ferdium (Electron) update themselves after their first launch, so a pin holds only until then (see the comment in `config.toml`), and omp has `update.auto` and `marketplace.autoUpdate` on in its own `config.yml`, which is deliberate, because pi and omp are exempt from the release age. mise also puts a tool's own bin directories ahead of `PATH` while a `postinstall` runs, so both scripts reset `PATH` to `/usr/bin:/bin`, and `filter_bins` limits what each tool puts on `PATH`.
 
 ## Tooling quirks
 
@@ -63,7 +63,7 @@ Everything else is the xrdp package default.
 
 ### Protocol negotiation
 
-Server with `security_layer=tls`. Each row is `xfreerdp3 /v:srv /u:ubuntu /p:... /cert:ignore <option>`, read against the `Security protocol` line of `/var/log/xrdp.log`.
+Server with `security_layer=tls`. Each row is `xfreerdp3 /v:srv /u:dayjobdoor /p:... /cert:ignore <option>`, read against the `Security protocol` line of `/var/log/xrdp.log`.
 
 | Client option | Result | `xrdp.log` |
 | --- | --- | --- |

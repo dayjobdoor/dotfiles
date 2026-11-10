@@ -13,7 +13,7 @@ The stack, the constraints on it, the options that were rejected, and the lookup
 | Shell | zsh as the login shell, bash kept working; plugins by sheldon, shortcuts by zsh-abbr, prompt by starship | `.profile` stays POSIX and starts no program. |
 | Desktop | XFCE over xrdp (TLS only, no root login), PipeWire audio, fcitx5 with Mozc | Part of the base, so every machine and the image get it. |
 | Containers | One Docker image from `ubuntu:26.04`, built by one Dockerfile and compose | No systemd inside; the desktop entrypoint starts xrdp. |
-| VMs | cloud-init (`cloud-init/vm.yaml`) on multipass or incus | The same user `dayjobdoor` and hostname `vm` as the image. |
+| VMs | cloud-init (`cloud-init/vm.yaml`) on multipass or incus | The same user `dayjobdoor` as the image; the hostname is `vm` here and `container` in compose. |
 | Secrets | age ciphertext in the mise `[env]` table of the `secrets` module | Only ciphertext reaches the repository. |
 | Agents | pi and omp, with node, bun, python and uv, in the `agent` module | Their config lives under `home/.config/{pi,omp}`. |
 | CI | GitHub Actions, run locally with act; images go to GHCR | Every job runs the mise task that you run locally. |
@@ -63,10 +63,10 @@ A module is the file `mise-config/config.<module>.toml`. `djd module add` and `d
 
 | Module | apt packages | mise tools | Runs in |
 | --- | --- | --- | --- |
-| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree sqlite3 openssh-client gnupg fastfetch make`, and for the desktop `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp freerdp3-x11 pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool wireshark apparmor libinput-tools libnss3 libgbm1 libcups2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libxkbcommon0 libxss1 libxtst6 libsecret-1-0 libnotify4` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit jj jj-starship bottom micro herdr shellcheck shfmt`, and `zed` and `zen` from GitHub releases; `hackgen`, the HackGen NF font, `obsidian`, `vicinae` and `ferdium`, from pinned `http:` URLs; `ruby` and the gem `fusuma` | every machine, the Docker image included |
+| base, from `config.toml` | `ca-certificates curl git zsh sudo locales tzdata less vim unzip tree sqlite3 openssh-client gnupg fastfetch make`, and for the desktop `xfce4 xfce4-terminal xfce4-screenshooter xfce4-taskmanager xfce4-clipman-plugin xfce4-xkb-plugin xrdp xorgxrdp freerdp3-x11 pipewire pipewire-pulse wireplumber pipewire-module-xrdp pulseaudio-utils dbus-x11 fcitx5-mozc language-pack-ja language-pack-ja-base manpages-ja fonts-noto-cjk fonts-noto-color-emoji ghostty brave-browser libasound2t64 mesa-vulkan-drivers xsel xdotool wireshark apparmor libinput-tools libnss3 libgbm1 libcups2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libxkbcommon0 libxss1 libxtst6 libsecret-1-0 libnotify4` | `usage starship zoxide fzf ripgrep fd bat lsd sd jq yq delta gh lazygit git-lfs jj jj-starship bottom micro herdr shellcheck shfmt sheldon`, and `zed` and `zen` from GitHub releases; `hackgen`, the HackGen NF font, `obsidian`, `vicinae` and `ferdium`, from pinned `http:` URLs; `ruby` and the gem `fusuma` | every machine, the Docker image included |
 | `agent` | `build-essential pkg-config libssl-dev` | `node` at the lts channel, `bun`, `python`, `uv`, `pi`, `omp`, `skills` | the Docker image, machines for agents |
 | `server` | `openssh-server avahi-daemon ufw docker.io docker-compose-v2 docker-buildx` | `lazydocker` | VMs |
-| `full`, which requires `agent` | 33 packages, counted in the section below | 183 tools | opt-in, and the weekly CI |
+| `full`, which requires `agent` | 32 packages, counted in the section below | 172 tools | opt-in, and the weekly CI |
 | `warp` | `cloudflare-warp`, from Cloudflare's apt repository | none | VMs and real hosts, never the Docker image |
 | `secrets` | none | none | machines you own, never sandboxes |
 
@@ -150,16 +150,16 @@ flowchart TD
 
 ### Size of the full module
 
-The `full` module has 33 apt packages. 21 are CLI packages, such as build libraries and network tools. 12 are GUI libraries and programs that no longer wait for a desktop selection, because the desktop is part of the base. They are GTK and WebKit development libraries, flatpak, and a terminal music stack (`mpd`, `mpc`, `ncmpcpp`). ruby comes from mise only, and sqlite3 and fastfetch come from the base apt list. dotnet is commented out because its installer rejects 26.04, and vegeta and taskctl install on amd64 only.
+The `full` module has 32 apt packages. 20 are CLI packages, such as build libraries and network tools. 12 are GUI libraries and programs that no longer wait for a desktop selection, because the desktop is part of the base. They are GTK and WebKit development libraries, flatpak, and a terminal music stack (`mpd`, `mpc`, `ncmpcpp`). ruby comes from mise only, and sqlite3 and fastfetch come from the base apt list. dotnet is commented out because its installer rejects 26.04, and vegeta and taskctl install on amd64 only.
 
-These commands regenerate the counts. They print 183 tools and 33 apt packages.
+These commands regenerate the counts. They print 172 tools and 32 apt packages.
 
 ```sh
 awk '/^\[tools\]/{t=1;next} /^\[/{t=0} t&&/^"?[a-z]/' mise-config/config.full.toml | wc -l
 awk '/^\[bootstrap.packages\]/{p=1;next} /^\[/{p=0} p&&/^"apt:/' mise-config/config.full.toml | wc -l
 ```
 
-Plan for at least 10 GB of free disk. That figure is an estimate. One install of 155 of the 181 tools that the module had then (before `fnox` and `vhs` joined) used 7.5 GB of installs plus 2.5 GB of cache. It was measured once, in October 2026, on an arm64 Mac running OrbStack. The other 26 tools, and the two added since, were not measured.
+Plan for at least 10 GB of free disk. That figure is an estimate. One install of 155 of the 181 tools that the module had then (it has 172 now, after `fnox` and `vhs` joined and eleven entries went) used 7.5 GB of installs plus 2.5 GB of cache. It was measured once, in October 2026, on an arm64 Mac running OrbStack. The other 26 tools, and the two added since, were not measured.
 
 ## djd commands
 
@@ -175,7 +175,7 @@ Plan for at least 10 GB of free disk. That figure is an estimate. One install of
 | `djd module add <module>...` | Selects the modules (a missing or unknown name exits 2 with a message) and applies the selection. `full` selects `agent` too. Prints a warning when `secrets` and `agent` are both selected, because every agent tool then sees the decrypted values. Prints a warning when `server` is not selected, because every machine runs xrdp and only `server` carries the RDP firewall rules. |
 | `djd module remove <module>...` | Unselects the modules, unapplies their files, and applies what remains. A module that was never applied causes no error. It refuses to remove `agent` while `full` is selected (exit 2). The packages stay. |
 | `djd secret keygen` | Creates the age key at `~/.config/djd/age.txt`, and refuses to overwrite an existing key. |
-| `djd secret set <name>` | Encrypts a prompted value into the secrets module. The task is `raw=true` ([architecture.md](architecture.md#secrets-use-the-age-support-of-mise) says why). |
+| `djd secret set <name>` | Encrypts a prompted value into the secrets module. The task is `raw=true` ([problems.md](problems.md#secrets) says why). |
 
 Only `djd module` and `djd secret` declare arguments, so only their `--help` lists them. `djd apply`, `djd update`, and `djd status` pass extra flags to the mise command they run, as in `djd apply --upgrade`. `djd doctor` ignores them. The `djd` wrapper unsets your own `MISE_ENV`, which would otherwise replace the module selection, and `install.sh` inherits that through the wrapper.
 
@@ -217,7 +217,7 @@ Repository tasks (`.mise/config.toml` and the files of `.mise/tasks/`; `make hel
 
 A standalone `mise dot apply` also runs the `pre-dotfiles` and `post-dotfiles` hooks. mise runs the hooks of every selected module in order, base first, and only when their part runs, so `djd apply --dry-run`, `--skip dotfiles`, and `--only` without `dotfiles` move no file. mise runs hooks and the `bootstrap` task on every run, so a hook must be safe to repeat. [architecture.md](architecture.md#hooks-live-in-the-module-that-needs-them) gives the reasons for each hook.
 
-The sshd check of `hooks/sshd-keys-only` covers the effective settings of the current user, not every possible login. [architecture.md](architecture.md#a-module-is-a-mise-config-environment) gives its scope.
+The sshd check of `hooks/sshd-keys-only` covers the effective settings of the current user, not every possible login. [problems.md](problems.md#sshd-match-blocks-are-only-partly-covered) gives its scope.
 
 ## Shell startup files
 
@@ -226,8 +226,8 @@ The sshd check of `hooks/sshd-keys-only` covers the effective settings of the cu
 | `~/.profile` | bash login shells and zsh through `.zshenv` | Sets the XDG directories, `DJD_DIR`, `PATH` with the mise shims and `~/.local/bin`, `LANG`, `TZ` with the default `Asia/Tokyo`, `EDITOR`, and the history files `PYTHON_HISTORY` and `NODE_REPL_HISTORY`. less keeps its history under the XDG state directory by its own rule, so `.profile` does not set `LESSHISTFILE`. Then reads `~/.config/djd/profile.local`. It is POSIX and has no side effects. |
 | `~/.zshenv` | every zsh | Sets `skip_global_compinit=1`, so that the `compinit` of `/etc/zsh/zshrc` does not drop `.zcompdump` into `ZDOTDIR`. Sets `ZDOTDIR=~/.config/zsh` and sources `.profile`. |
 | `~/.config/zsh/.zshenv` | every zsh that starts with `ZDOTDIR` already exported, which is a nested shell | Sources `~/.zshenv`, so nested shells load `.profile` too. |
-| `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal, through `herdr-dev` (`~/.local/bin/herdr-dev`), which first ensures the dev preset tabs: 101 (`btm`), 102 (`fastfetch`), Dev, Docs (when `pi` is installed) and lazydocker (when docker answers). `HERDR_DEV_CWD` (default `~/.dotfiles`) and `HERDR_DEV_DATA` set where the preset starts and looks for `cat.txt`. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal, nor for `zsh -lic cmd`. |
-| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion (a dump younger than a day is reused with `compinit -C`), `mise activate` first, so that the tool inits after it find the installed binaries and not the shims, then the zsh plugins through `sheldon source` (before compinit, so zsh-completions' fpath is indexed), then starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), and the completions of uv, omp and mise, and reads `$ZDOTDIR/.zshrc.local`. The cached tool inits are keyed by the tool, its resolved binary path, and a checksum of the init command line, so an upgrade or an edited argument regenerates them. It exports `DJD_ARCH=x86_64` on x86_64, for the arch badge of starship. Without sheldon or its lock it loads no plugin and prints nothing. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
+| `~/.config/zsh/.zprofile` | zsh login shells | Starts herdr on a real terminal, through `herdr-dev` (`~/.local/bin/herdr-dev`), which first ensures the dev preset tabs: 101 (`btm`), 102 (`fastfetch`), Dev, Docs (when `pi` is installed) and lazydocker (when `lazydocker` is installed, which only `server` and `full` do, and docker answers). `HERDR_DEV_CWD` (default `~/.dotfiles`) and `HERDR_DEV_DATA` set where the preset starts and looks for `cat.txt`. It does not start herdr when `DJD_NO_MUX` is set, as the Docker images do, nor inside herdr, nor in an IDE terminal, nor for `zsh -lic cmd`. |
+| `~/.config/zsh/.zshrc` | interactive zsh | Sets up history, completion (a dump younger than a day is reused with `compinit -C`), `mise activate` first, so that the tool inits after it find the installed binaries and not the shims, then the zsh plugins through `sheldon source` (before compinit, so zsh-completions' fpath is indexed), then starship, zoxide, fzf, atuin when installed (after fzf, so atuin owns Ctrl-R), and the completions of uv, omp and mise, and reads `$ZDOTDIR/.zshrc.local`. The cached tool inits are keyed by the tool, its resolved binary path, and the init command line itself (no checksum, so no fork), so an upgrade or an edited argument regenerates them. It exports `DJD_ARCH=x86_64` on x86_64, for the arch badge of starship. Without a terminal on stdin (`zsh -ic cmd` of an agent) it skips the plugins, fzf and atuin, which need a line editor, and defers nothing. Without sheldon, or with a missing or stale lock (older than `plugins.toml`), it loads no plugin and prints nothing. Its `chpwd` hook runs `ls -la` in the top-level shell only. |
 | `~/.config/zsh/.zlogin` | zsh login shells | Prints an interactive banner with fortune and cowsay, when installed. Prints a second banner with figlet and lolcat, when installed. A login shell that runs a command (`zsh -lc`, `zsh -lic`) prints nothing. |
 | `~/.config/zsh/.zlogout` | interactive zsh login shells, on exit | Runs fastfetch, or prints a short banner when it is missing. `zsh -lc` does not read it, and `zsh -lic cmd` reads it but prints nothing. |
 | `~/.bash_profile` and `~/.bashrc` | bash | `.bash_profile` sources `.profile` and `.bashrc`; `.bashrc` sources `.profile` only when `DJD_DIR` is unset. They run the interactive-only setup: history (appended, not overwritten), starship, zoxide, omp completions, and `mise activate` before them, then reads `~/.config/djd/bashrc.local`, so that the cached inits are keyed by the installed binary's path. starship's init keeps the `PROMPT_COMMAND` it finds, so mise's hook survives. `.bashrc` exports `DJD_ARCH` like `.zshrc`. |

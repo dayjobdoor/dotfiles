@@ -75,7 +75,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 | ghostty | Kanagawa Dragon, background `#112233` (surface), foreground `#D4C69A` (on-surface) | `home/.config/ghostty/config` |
 | starship | `[palettes.color]`, the dragon colors above (its unused `white` is left out) | `home/.config/starship.toml` |
 | herdr | built-in `kanagawa` | `home/.config/herdr/config.toml` |
-| lazygit, lazydocker | not themed; named ANSI colors (`green`, `blue`, `white`), so they follow the terminal palette | `home/.config/lazygit/config.yml`, `home/.config/lazydocker/config.yaml` |
+| lazygit, lazydocker | not themed; lazydocker uses named ANSI colors (`green`, `blue`, `white`) and lazygit sets none, so both follow the terminal palette | `home/.config/lazygit/config.yml`, `home/.config/lazydocker/config.yml` |
 | micro | not themed; micro's own `default` colorscheme | `home/.config/micro/settings.json` |
 | lsd | not themed; its own palette of ANSI names and 256-color numbers | `home/.config/lsd/colors.yaml` |
 | fzf, XFCE | not themed; this repo sets no fzf colors and no XFCE theme | none |
@@ -83,7 +83,7 @@ The front matter holds the Kanagawa Dragon palette that starship uses and ghostt
 
 ## Typography
 
-One monospace family in ghostty, the only themed terminal: HackGen35 Console NF (Nerd Font patched, Japanese full width at exactly two columns). Ghostty sets 13pt with `font-thicken = true`. TUIs inherit the terminal font. The token says 13px because the spec allows only px, em and rem.
+One monospace family in ghostty, the only themed terminal: HackGen35 Console NF (Nerd Font patched, Japanese full width at exactly two columns). Ghostty sets 13pt. TUIs inherit the terminal font. The token says 13px because the spec allows only px, em and rem.
 
 Ubuntu has no HackGen package, so the base installs the pinned release as the mise tool `http:hackgen` (`mise-config/config.toml`), and Noto CJK covers what HackGen lacks. Japanese input is fcitx5-mozc.
 

@@ -11,7 +11,7 @@ Pointers before you search: the terms of this repository, the documentation of t
 | flavor | The set of modules that one Docker image installs, passed as `DJD_MODULES`. The published image is `agent` on the base, which includes the desktop. The `full` flavor, `agent full`, is built only by `full-weekly.yaml`. |
 | checkout | The git working tree at `~/.dotfiles`, which can be a symlink to a tree elsewhere. `~/.config/mise` links to its `mise-config/`. |
 | image test | A task that builds a Docker image and asserts inside containers of it. `test` and `test:desktop` test the one image. `test:vm` is the VM test. |
-| module | A mise config environment, `mise-config/config.<module>.toml`, that `djd module add` selects. The base config always applies. The modules are `agent`, `server`, `full`, and `secrets`. The desktop is part of the base. |
+| module | A mise config environment, `mise-config/config.<module>.toml`, that `djd module add` selects. The base config always applies. The modules are `agent`, `server`, `full`, `warp`, and `secrets`. The desktop is part of the base. |
 | hook | A script that mise runs before or after a bootstrap part. The scripts are in `mise-config/hooks/`. |
 | shim | A small executable in `~/.local/share/mise/shims` that runs the version of a tool that mise selects. |
 | drop-in | A small file in a `*.d` directory that adds to or overrides the main config file, such as `/etc/ssh/sshd_config.d/10-djd.conf`. |
@@ -74,6 +74,7 @@ Where each tool and project comes from. The versions are in the configs: `latest
 | `delta` | [dandavison/delta](https://github.com/dandavison/delta) |  |
 | `gh` | [cli/cli](https://github.com/cli/cli) |  |
 | `lazygit` | [jesseduffield/lazygit](https://github.com/jesseduffield/lazygit) |  |
+| `git-lfs` | [git-lfs/git-lfs](https://github.com/git-lfs/git-lfs) |  |
 | `jj` | [jj-vcs/jj](https://github.com/jj-vcs/jj) |  |
 | `jj-starship` | [dmmulroy/jj-starship](https://github.com/dmmulroy/jj-starship) |  |
 | `bottom` | [ClementTsang/bottom](https://github.com/ClementTsang/bottom) |  |
@@ -98,6 +99,7 @@ Where each tool and project comes from. The versions are in the configs: `latest
 | `ghostty` | [ghostty-org/ghostty](https://github.com/ghostty-org/ghostty) | Ubuntu archive (`apt`) |
 | `xrdp` | [neutrinolabs/xrdp](https://github.com/neutrinolabs/xrdp) | Ubuntu archive (`apt`) |
 | `brave-browser` | [brave.com](https://brave.com) | Brave's apt repository |
+| `cloudflare-warp` | [pkg.cloudflareclient.com](https://pkg.cloudflareclient.com) | Cloudflare's apt repository (the `warp` module) |
 | `wireshark` | [wireshark.org](https://www.wireshark.org) | Ubuntu archive (`apt`) |
 | XFCE, PipeWire, fcitx5-mozc and the other packages | [packages.ubuntu.com](https://packages.ubuntu.com/resolute/) | Ubuntu archive (`apt`), listed in [Modules](tech.md#modules) |
 

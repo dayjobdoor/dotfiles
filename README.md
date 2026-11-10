@@ -10,8 +10,8 @@ Ubuntu 26.04 dotfiles for coding-agent machines, servers and VMs, every one with
 Jump to: [Start](#start), [Modules](#modules), [djd](#djd), [Remove](#remove), [Fork](#fork), [Development](#development), [Documentation](#documentation).
 
 - **One tool.** No chezmoi, Ansible or Stow. The repo is the global mise config, and every machine role is a mise config environment.
-- **Modules, not forks.** `agent`, `server`, `full` and `secrets` add up per machine, on top of a base that includes the desktop, and come off again with `djd module remove`.
-- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, and installs the base and the server module into a fresh incus system container (incus runs Linux containers and VMs).
+- **Modules, not forks.** `agent`, `server`, `full`, `warp` and `secrets` add up per machine, on top of a base that includes the desktop, and come off again with `djd module remove`.
+- **Tested end to end.** CI builds the images on amd64 and arm64, logs in over RDP, and installs the base, the server module and the warp module into a fresh incus system container (incus runs Linux containers and VMs).
 - **Public by design.** Secrets are committed only as age ciphertext, workflows are audited by jactionlint and pinned to commits, and gitleaks scans the history in CI and the staged changes in an opt-in pre-commit hook.
 
 ## Start
@@ -25,7 +25,7 @@ Pick where it runs. All of them end in the same Ubuntu 26.04 machine with the ba
 | multipass (macOS, Windows, Linux) | a VM with the base and `server` | [multipass](#multipass) |
 | incus (Linux) | a system container with the base and `server` | [incus](#incus) |
 
-The VM recipes install the `server` module (sshd, firewall, docker) on a machine with systemd; the Docker image has no systemd and no `server` module. [architecture.md](docs/architecture.md#a-container-and-a-vm-differ-in-three-things-only) lists the three differences. Every target uses the user `dayjobdoor` and, where it names the machine, the hostname `vm`. The desktop needs a password for RDP, and none is committed ([SECURITY.md](SECURITY.md#the-desktop)), so each recipe sets one.
+The VM recipes install the `server` module (sshd, firewall, docker) on a machine with systemd; the Docker image has no systemd and no `server` module. [architecture.md](docs/architecture.md#a-container-and-a-vm-differ-in-three-things-only) lists the three differences. Every target uses the user `dayjobdoor`; the VM recipes name the machine `vm` and compose names the container `container`. The desktop needs a password for RDP, and none is committed ([SECURITY.md](SECURITY.md#the-desktop)), so each recipe sets one.
 
 ## Install on a machine
 
@@ -83,12 +83,12 @@ The desktop over RDP runs from a clone of this repository, through compose:
 ```sh
 git clone https://github.com/dayjobdoor/dotfiles && cd dotfiles
 cp .devcontainer/.env.example .devcontainer/.env   # set PASSWORD
-mise run up                                         # or: docker compose -f .devcontainer/compose.yaml up -d --build ubuntu
+mise run up                                         # or: docker compose -f .devcontainer/compose.yaml up -d --build --wait ubuntu
 ```
 
-Connect an RDP client to `localhost:3589` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The image has xfreerdp3 (`xfreerdp3 /v:localhost:3589 /u:dayjobdoor`), which the tests use; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
+`--wait` makes the command fail when the container does not become healthy (the compose healthcheck is xrdp listening), as it does with an empty `PASSWORD`, which the entrypoint refuses. Connect an RDP client to `localhost:3589` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The image has xfreerdp3 (`xfreerdp3 /v:localhost:3589 /u:dayjobdoor`), which `test:desktop` also uses, in a client container of its own; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
 
-`mise run up` and `make up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). The compose build reads `GITHUB_TOKEN` from the environment, a token without scopes or an empty one.
+`mise run up` and `make up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). The compose build reads `GITHUB_TOKEN` from the environment, a token without scopes or an empty one. Unlike `mise run build`, `mise run up` and the devcontainer do not stop when it is unset; the tool installs then run anonymously, and the API limit can stop them.
 
 | Command | Effect | Files, browser profiles and settings in the container |
 | --- | --- | --- |
@@ -149,9 +149,9 @@ For Docker, add two `iptables -I DOCKER-USER` rules, the ones in `.github/workfl
 | Module | Adds |
 | --- | --- |
 | base | zsh, git, make, core CLI tools (ripgrep, fd, jq, gh, lazygit, jj, starship, herdr, …), dotfiles, and the desktop: XFCE over xrdp (TLS only, no root login) with an RDP client (xfreerdp3), audio redirection (PipeWire), Japanese input (fcitx5-mozc), Noto CJK and HackGen NF fonts, ghostty, Brave, Zen Browser and Zed (all four required), Wireshark, Obsidian, Vicinae, Ferdium and fusuma |
-| `agent` | node, bun, python, uv, build tools, the coding agents pi and omp (oh-my-pi), the `skills` CLI for agent skills, the global AGENTS.md of pi and omp, telemetry off |
+| `agent` | node, bun, python, uv, build tools, the coding agents pi and omp (oh-my-pi), the `skills` CLI for agent skills, the global instructions of pi and omp (`AGENTS.md` for pi, `RULES.md` for omp), telemetry off |
 | `server` | openssh-server (keys only), avahi, ufw firewall (RDP from private networks only), docker (published ports on `127.0.0.1` by default); see [SECURITY.md](SECURITY.md#server-module) |
-| `full` | the whole personal toolbox (183 tools; plan for at least 10 GB of disk, an estimate that [tech.md](docs/tech.md#modules) explains); implies `agent` |
+| `full` | the whole personal toolbox (172 tools; plan for at least 10 GB of disk, an estimate that [tech.md](docs/tech.md#modules) explains); implies `agent` |
 | `warp` | Cloudflare WARP (`cloudflare-warp`, from Cloudflare's apt repository); for VMs and real hosts, not the container; register once with `warp-cli registration new` and `warp-cli connect` |
 | `secrets` | your age-encrypted environment secrets; only for machines you own |
 
@@ -196,7 +196,7 @@ rm ~/.config/mise                        # the link to this repository's mise co
 rm -rf ~/.dotfiles                       # a clone; check `git -C ~/.dotfiles status` and push first. If it is a link to your own checkout, use `rm ~/.dotfiles` instead
 ```
 
-`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. These also stay, and you delete them by hand if you want them gone: `~/.config/djd` (your age key `age.txt`, `profile.local` and `bashrc.local`), `~/.local/state/djd` (the restart and sshd stamps), the zsh plugin checkouts in `~/.local/share/sheldon`, `~/.cache/zsh` and `~/.cache/bash`, and `/etc/locale.conf`. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` brings back password logins and published ports on every address, and `djd module remove` prints a warning ([tech.md](docs/tech.md#modules) has the details).
+`~/.local/share/mise` and `~/.local/bin/mise` hold mise and the installed tools. These also stay, and you delete them by hand if you want them gone: `~/.config/djd` (your age key `age.txt`, `profile.local` and `bashrc.local`), `~/.local/state/djd` (the restart and sshd stamps), the zsh plugin checkouts in `~/.local/share/sheldon`, `~/.cache/zsh` and `~/.cache/bash`, and what the base wrote outside the home: `/etc/locale.conf`, `/etc/apt/apt.conf.d/90djd-conffiles`, `/etc/apparmor.d/djd-electron`, the `wireshark` and `input` group memberships, and the HackGen font and the app menu entries and icons under `~/.local/share`. Packages, ufw rules and the `docker` group stay; remove them with `apt`, `ufw` and `gpasswd -d "$USER" docker`. Files moved aside as `*.djd-backup-*` are yours to move back. Removing `server` brings back password logins and published ports on every address, and `djd module remove` prints a warning ([tech.md](docs/tech.md#modules) has the details).
 
 ## Fork
 
@@ -230,7 +230,7 @@ make lint:fix                         # rewrite shell and mise TOML formatting
 mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:latest with no network and no build (also: make test:offline)
 make test                             # builds the image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
 make test:desktop                     # the image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
-make test:vm                          # fresh incus or multipass VM: base and server install, hardening, module removal
+make test:vm                          # fresh incus or multipass VM: base, server and warp install, hardening, module removal
 make ci                               # every CI job act can run: lint, image (ARGS=image for one)
 make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
