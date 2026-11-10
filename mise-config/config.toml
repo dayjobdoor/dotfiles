@@ -63,8 +63,9 @@ mkdir = "mkdir -p"
 ls = "lsd --group-directories-first"
 cat = "bat -p"
 ping = "ping -c 3"
-# -N prints non-ASCII names as they are; -C colors even into a pipe, as `ls --color` does
-tree = "tree -NC"
+# -C colors even into a pipe, as `ls --color` does; no -N, which would print the control bytes of a file name raw (without it
+# tree still prints UTF-8 names as they are)
+tree = "tree -C"
 
 [bootstrap.packages]
 "apt:ca-certificates" = "latest"

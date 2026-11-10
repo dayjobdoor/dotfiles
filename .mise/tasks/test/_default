@@ -95,9 +95,15 @@ docker run --rm "$image" zsh -lc '
 ok agent env without a login shell, pi and omp config
 # an alias replaces a command and is a mise [shell_alias]; a shortcut is a zsh-abbr abbreviation (never both)
 docker run --rm "$image" mise shell-alias get cat | grep -qx 'bat -p'
-docker run --rm "$image" mise shell-alias get tree | grep -qx 'tree -NC'
-if docker run --rm "$image" mise shell-alias get ll >/dev/null 2>&1; then exit 1; fi
-if docker run --rm "$image" mise shell-alias get nosuch >/dev/null 2>&1; then exit 1; fi
+docker run --rm "$image" mise shell-alias get tree | grep -qx 'tree -C'
+if docker run --rm "$image" mise shell-alias get ll >/dev/null 2>&1; then
+    echo "ll is a mise shell_alias, but it is a shortcut and belongs in zsh-abbr" >&2
+    exit 1
+fi
+if docker run --rm "$image" mise shell-alias get nosuch >/dev/null 2>&1; then
+    echo "mise shell-alias get succeeds for an alias that does not exist, so the check on ll proves nothing" >&2
+    exit 1
+fi
 ok shell aliases come from mise
 # sheldon fetched the pinned plugins (offline: the image holds them), zsh-abbr loads with its submodule zsh-job-queue
 # and reads the abbreviations file, and a login zsh has zsh-defer. No .functions file is left to source.

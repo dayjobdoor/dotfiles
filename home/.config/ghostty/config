@@ -18,6 +18,10 @@ cursor-style-blink = true
 
 mouse-hide-while-typing = true
 
+# a file name with an OSC 52 sequence (a directory listing, a prompt, git output) could otherwise overwrite the clipboard
+# without a word, because ghostty's default allows clipboard writes from the terminal; set `allow` to get that back
+clipboard-write = ask
+
 wait-after-command = true
 
 # a single space hides the title

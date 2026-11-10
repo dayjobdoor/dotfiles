@@ -82,7 +82,7 @@ zstyle ':completion:*' rehash 1
 
 # not in a subshell: `$(cd dir && pwd)` would capture the listing
 chpwd() {
-    (( ZSH_SUBSHELL )) || ls -la
+    (( ZSH_SUBSHELL )) || command ls -la
 }
 
 [[ $CPUTYPE == x86_64 ]] && export DJD_ARCH=x86_64 # the arch badge of starship.toml
