@@ -14,8 +14,9 @@
 #   - add and remove without a module, or with a word that is no module, exit 2 and say why ("name at least one
 #     module", "unknown module") and write nothing; list reads MISE_ENV and calls nothing.
 #
-# The task is run as a script with the variables mise's #USAGE parsing would hand it, so the argument choices
-# are not covered here. `mise` and `sudo` are stubs on PATH: the real ones would touch the machine.
+# The task is run as a script with the variables mise's #USAGE parsing would hand it, so mise's own refusal of a
+# word outside the choices is not covered here; the last check only compares the #USAGE choices line with `order`.
+# `mise` and `sudo` are stubs on PATH: the real ones would touch the machine.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
