@@ -46,6 +46,14 @@ Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.
 2. Download each file and run `shasum -a 256 <file>`.
 3. Change `version` and both `checksum` lines, then run `mise run test:vm` or `mise run test:desktop`.
 
+## Update the pinned agent extensions
+
+The pi extensions are pinned in `home/.config/pi/agent/settings.json` (`npm:<name>@<version>` and `git:<host>/<repo>@<commit>`), and the omp plugins in `home/.config/omp/profiles/god/plugins/package.json` (an exact version, and `#<commit>` on the git URL). Nothing locks them, so a bump is a manual edit. Keep both agents on the same version of an extension that they share (`context-mode`, `ponytail`).
+
+1. For an npm package, run `npm view <name> version time --json` and pick the newest version that is at least three days old, the same age rule as for the mise tools.
+2. For a git package, run `git ls-remote <url> HEAD` and take that commit.
+3. Change the pin in both files, then start pi once with `PI_CODING_AGENT_DIR` set to an empty temporary directory (`pi -p hello`). It prints `installed <name>@<version>` for each package, and an unknown pin form stops it there.
+
 ## Update the pinned tools
 
 To refresh `.mise/mise.lock`, follow these steps on a machine where you trust the checkout.

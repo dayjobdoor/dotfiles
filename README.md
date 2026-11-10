@@ -246,7 +246,7 @@ make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly,
 | [docs/directory.md](docs/directory.md) | reference | you need to know where a file lives, which names are allowed and which paths never enter the repository |
 | [docs/problems.md](docs/problems.md) | reference | something behaves oddly, or you judge a limit such as the RDP security |
 | [docs/references.md](docs/references.md) | reference | you look for a term, the documentation of a part, or the repository of a tool |
-| [docs/guidance.md](docs/guidance.md) | how-to | you work on the repository, for example run CI, raise the mise release or publish a release |
+| [docs/guidance.md](docs/guidance.md) | how-to | you work on the repository, for example run CI, raise the mise release, update the pinned agent extensions or publish a release |
 | [docs/maintenance.md](docs/maintenance.md) | reference | you change a workflow, cut a release or need the release chain |
 | [docs/testing.md](docs/testing.md) | reference | you change a test, or need to know what a CI job proves |
 | [ROADMAP.md](ROADMAP.md) | plan | you look for planned work by horizon |

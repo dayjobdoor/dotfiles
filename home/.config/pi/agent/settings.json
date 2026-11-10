@@ -6,7 +6,7 @@
   },
   "defaultModel": "preview/Kimi-K2.7-Code",
   "defaultProvider": "sakura",
-  "defaultThinkingLevel": "middium",
+  "defaultThinkingLevel": "medium",
   "enabledModels": [
     "anthropic/claude-sonnet-5-5",
     "sakura/preview/Kimi-K2.7-Code"
@@ -17,11 +17,11 @@
     "bun"
   ],
   "packages": [
-    "npm:@gotgenes/pi-anthropic-auth",
-    "npm:pi-auto-compact",
-    "npm:context-mode",
-    "npm:@dietrichgebert/ponytail",
-    "git:github.com/michael-denyer/pstack-claude"
+    "npm:@gotgenes/pi-anthropic-auth@3.4.4",
+    "npm:pi-auto-compact@1.3.1",
+    "npm:context-mode@2.1.7",
+    "npm:@dietrichgebert/ponytail@5.3.3",
+    "git:github.com/michael-denyer/pstack-claude@7e89063099c5e0c9e7ec7e8f2e0ea8de7d7d189d"
   ],
   "skills": [
     "~/.agents/skills"
