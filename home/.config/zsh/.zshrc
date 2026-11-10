@@ -60,6 +60,7 @@ _djd_init() {
 # Plugins: sheldon prints the commands that source them, pinned in ~/.config/sheldon/plugins.toml and fetched by
 # hooks/sheldon-lock. Cached like the tool inits below; `djd apply` clears the cache after a changed pin. It runs before
 # compinit, because zsh-completions only adds its directory to fpath and compinit indexes what is there when it runs.
+export ENHANCD_DIR=$XDG_STATE_HOME/enhancd
 _djd_init sheldon sheldon source
 
 # a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh

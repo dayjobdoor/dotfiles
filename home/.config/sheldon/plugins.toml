@@ -7,6 +7,7 @@ shell = "zsh"
 
 [templates]
 defer = "{% for file in files %}zsh-defer source \"{{ file }}\"\n{% endfor %}"
+PATH = 'export PATH="$PATH:{{ dir }}"'
 
 [plugins.zsh-defer]
 github = "romkatv/zsh-defer"
@@ -49,4 +50,20 @@ apply = ["defer"]
 [plugins.git-open]
 github = "paulirish/git-open"
 rev = "63c0e77aaf18b72c839b1113c1e2f9514413643b"
+apply = ["defer"]
+
+# j, jc, jo and jco, over a database in $XDG_DATA_HOME/autojump. The release (22.5.3) starts with `python`, which
+# Ubuntu does not have; the master commit below starts with `python3`. It runs next to zoxide's z and zi.
+[plugins.autojump]
+github = "wting/autojump"
+rev = "ee21082751da739c65fe0ec2d02ca95d4266aebc"
+dir = "bin"
+apply = ["PATH", "defer"]
+
+# cd with a history and a filter (fzf): it replaces the cd function of the shell. Its history is in
+# $XDG_STATE_HOME/enhancd, set in .zshrc.
+[plugins.enhancd]
+github = "b4b4r07/enhancd"
+rev = "b911969f32c69402954da97d84b549303638cb1f"
+use = ["init.sh"]
 apply = ["defer"]
