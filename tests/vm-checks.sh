@@ -37,7 +37,11 @@ if grep -q '^Status: active' <<<"$ja"; then
     echo "ufw still prints English under ja_JP.UTF-8: the locale check proves nothing" >&2
     exit 1
 fi
-doctor=$(LC_ALL=ja_JP.UTF-8 djd doctor)
+# doctor prints its FAIL lines on stdout, so they are shown here: set -e would stop at the assignment and drop them
+doctor=$(LC_ALL=ja_JP.UTF-8 djd doctor) || {
+    echo "djd doctor failed under ja_JP.UTF-8: $doctor" >&2
+    exit 1
+}
 # server is selected, and the desktop is in the base: doctor checks what the hooks enforce (the sheldon lock is the
 # final hook's work), and a missing line would mean it skipped them
 for check in ubuntu plugins sshd xrdp-tls xrdp-root-login; do
@@ -173,7 +177,10 @@ grep -q '^FAIL sshd' <<<"$doctor_out" || {
 }
 # without the drop-in the same apply succeeds, so the refusal was the drop-in's doing
 djd apply >/dev/null
-djd doctor >/dev/null
+doctor=$(djd doctor 2>&1) || {
+    echo "djd doctor failed once the drop-in was removed: $doctor" >&2
+    exit 1
+}
 ok sshd override refused by apply and doctor
 
 # the desktop never adds --no-sandbox to Brave (only the Docker image does). Control: the file the grep would

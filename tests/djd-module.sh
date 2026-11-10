@@ -55,12 +55,13 @@ new_home() {
     export HOME
 }
 set_selection() { printf '%s\n' "$1" >"$HOME/.dotfiles/mise-config/miserc.local.toml"; }
-# run <MISE_ENV> <action> [module...]: sets rc, $HOME/out, $HOME/err
+# run <MISE_ENV> <action> [module...]: sets rc, $HOME/out, $HOME/err. The task runs in $HOME, so a file that a word
+# makes it create lands where the injection check looks.
 run() {
     local selected=$1 action=$2
     shift 2
     rc=0
-    MISE_ENV=$selected usage_action=$action usage_module="$*" bash "$task" >"$HOME/out" 2>"$HOME/err" || rc=$?
+    (cd "$HOME" && MISE_ENV=$selected usage_action=$action usage_module="$*" bash "$task") >"$HOME/out" 2>"$HOME/err" || rc=$?
 }
 want_rc() { [ "$rc" = "$2" ] || fail "$1: exit $rc, want $2: $(cat "$HOME/err")"; }
 want_selection() {
@@ -125,13 +126,25 @@ run "server,,secrets" add agent
 want_rc "empty item in MISE_ENV" 0
 want_selection "empty item in MISE_ENV" 'env = ["agent", "server", "secrets"]'
 
-# a word that is no module never reaches the selection (usage's choices stop it first; this is the second line)
-new_home
+# a word that is no module never reaches the selection (usage's choices stop it first; this is the second line). The
+# word has no space, so the task sees one word, and it would create $HOME/pwned if anything evaluated it.
 # shellcheck disable=SC2016 # the literal $(...) is the point: it must not run
-run "" add 'agent$(touch pwned)'
+bogus='agent$(touch${IFS}pwned)'
+new_home
+run "" add "$bogus"
 want_rc "add a bogus module" 2
 want_err "add a bogus module" "unknown module"
 want_selection "add a bogus module" none
+[ ! -s "$HOME/log" ] || fail "add a bogus module called: $(cat "$HOME/log")"
+[ ! -e "$HOME/pwned" ] || fail "a module name ran as a command"
+# remove refuses the same way, before it unapplies the valid word in front of the bad one
+new_home
+set_selection 'env = ["agent", "server"]'
+run agent,server remove server "$bogus"
+want_rc "remove a bogus module" 2
+want_err "remove a bogus module" "unknown module"
+want_selection "remove a bogus module" 'env = ["agent", "server"]'
+[ ! -s "$HOME/log" ] || fail "remove a bogus module called: $(cat "$HOME/log")"
 [ ! -e "$HOME/pwned" ] || fail "a module name ran as a command"
 
 # full needs agent; removing both at once is fine

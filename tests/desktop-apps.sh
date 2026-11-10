@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The desktop's four required apps, as the desktop user in the image (.mise/tasks/test/desktop) or the VM
 # (tests/vm-checks.sh): the command runs and the XFCE menu entry points at something executable. The extra apps
-# (Wireshark, Obsidian, Vicinae, Ferdium, fusuma) only have to be on PATH with a menu entry that points at something
-# executable; Electron programs print no version without a display, so they are not run.
+# (Wireshark, Obsidian, Vicinae, Ferdium) only have to be on PATH with a menu entry that points at something
+# executable, and fusuma, a gem that has no menu entry, on PATH; Electron programs print no version without a
+# display, so they are not run.
 # DJD_APPS_LAUNCH=1 (the image test only, which runs it after the RDP login) also starts brave-browser and zen headless,
 # and ghostty and zed inside the running XFCE session, where each must put a window on screen.
 set -euo pipefail

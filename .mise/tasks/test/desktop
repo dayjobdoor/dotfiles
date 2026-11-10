@@ -167,6 +167,7 @@ check_no_proxy_modules() {
 # client, or a client that cannot speak that layer would make the refusal below pass for any server; its xrdp.log
 # shows the RDP layer was selected there and refused on $server. The legacy client then tries a second account on
 # $server, so a wrongly accepted one would start its own session and leave the first client's alone.
+# check_legacy_refused PID: PID is the xfce4-session of that first session, which has to survive.
 check_legacy_refused() {
     local rc
     mkprobe "$control"

@@ -70,9 +70,10 @@ daemons_on_session_bus() {
     [ "$(grep ' bus=' "$state/log" | grep -c -v -F -- " bus=unix:path=$state/bus" || true)" = 0 ]
 }
 
-# Every stub appends its PID to $state/pids, and the server stub its delay sleep to $state/sleeps, so the cleanup kills
-# those and nothing else. A stub that has exec'd `sleep` keeps its PID. The supervisor loop in the script ends when its
-# server stops answering, which the removal of $state/up causes, and a held desktop ends with $state/logout.
+# The daemon stubs (pipewire, wireplumber, pipewire-pulse) append their PID to $state/pids, and the server stub its
+# delay sleep to $state/sleeps, so the cleanup kills those and nothing else; the other stubs end on their own. A stub
+# that has exec'd `sleep` keeps its PID. The supervisor loop in the script ends when its server stops answering, which
+# the removal of $state/up causes, and a held desktop ends with $state/logout.
 cleanup() {
     [ -z "$root" ] && return 0
     local dir=$root marker=$state
@@ -184,7 +185,7 @@ echo "== a slow server does not hold the desktop back"
 setup
 # The stub answers after 10 s; reaching the desktop must take at most 2 s, and the poller must outlast the 10 s.
 login 10
-wait_for 2 logged 'desktop starts' || fail "the desktop did not start within 2 s: the script waits for the audio server"
+wait_for 2 logged 'desktop starts' || fail "the desktop did not start within 2 s: the script waits for the audio server, or the stub dbus-launch refused it (the log says so for a call without --exit-with-session)"
 server_up && fail "the stub server answered before the desktop started, so the scenario proves nothing"
 wait_for 15 server_up || fail "the stub server never answered"
 wait_for 8 connected 1 || fail "wireplumber never connected after the server answered (it gave up waiting)"
