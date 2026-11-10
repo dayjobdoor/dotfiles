@@ -16,7 +16,7 @@ services:
     secrets:
       - djd_rdp_password
     ports:
-      - "127.0.0.1:${RDP_PORT:-33389}:3389"
+      - "127.0.0.1:3589:3389"
     shm_size: 512m # browsers in the session crash with the 64m default
     restart: unless-stopped
     init: true # docker-init is PID 1: it forwards signals to xrdp and reaps zombies
