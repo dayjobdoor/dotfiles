@@ -4,11 +4,19 @@
 set -euo pipefail
 name=${1:-SECRET}
 file=${ENV_FILE:-.env}
+# a valid variable name is also a safe regex below: `sec A.B` would otherwise match AXB=, and `sec A=B` would write a line
+# that no dotenv reader takes as A or as B
+if [[ ! $name =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "sec: $name is not a valid variable name" >&2
+    exit 2
+fi
 if [[ -f $file ]] && grep -q "^${name}=" "$file"; then
     echo "sec: $name is already in $file" >&2
     exit 1
 fi
 (
     umask 077
+    # a file without a final newline would get the new line glued to its last one
+    if [[ -s $file && -n $(tail -c1 "$file") ]]; then printf '\n' >>"$file"; fi
     printf '%s=%s\n' "$name" "$(openssl rand -base64 32)" >>"$file"
 )

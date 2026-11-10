@@ -248,6 +248,3 @@ shell = ["jj-starship"]
 style = "fg:dd bg:gray"
 format = "[$output]($style bold) "
 
-[gcloud]
-disabled = true
-

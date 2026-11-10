@@ -6,7 +6,6 @@ theme = Kanagawa Dragon
 
 font-family = "HackGen35 Console NF"
 font-size = 13.0
-font-thicken = true
 
 # DESIGN.md surface / on-surface; change them there first
 background = #112233
@@ -30,5 +29,3 @@ title = " "
 window-padding-x = 8
 window-padding-y = 8
 window-padding-balance = true
-
-quick-terminal-screen = mouse

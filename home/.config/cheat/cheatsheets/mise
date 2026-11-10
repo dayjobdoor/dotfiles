@@ -11,7 +11,7 @@ mise upgrade
 mise outdated
 mise which <tool>
 
-# backends (conf.d/tools.toml)
+# backends (mise-config/config.<module>.toml)
 "github:owner/repo" = "latest"
 "npm:pkg" = "latest"
 "pipx:pkg" = "latest"

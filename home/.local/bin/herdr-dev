@@ -143,7 +143,17 @@ elif server_running; then
         # the agent module installs pi; a machine without it gets no Docs tab
         if ! has_tab Docs && command -v pi >/dev/null 2>&1; then
             P=$(new_tab Docs "$HOME/Developer/docs") || return 1
-            herdr agent start pi --kind pi --pane "$P" -- -c >/dev/null
+            # the pane's shell is still starting, and while it runs a tool's init (omp completions) herdr sees that
+            # program in the pane and refuses with agent_kind_mismatch; asking again a moment later succeeds
+            started=
+            for _ in 1 2 3 4 5; do
+                if herdr agent start pi --kind pi --pane "$P" -- -c >/dev/null 2>&1; then
+                    started=1
+                    break
+                fi
+                sleep 1
+            done
+            [ -n "$started" ] || echo "herdr-dev: pi did not start in the Docs tab" >&2
         fi
 
         # the lazydocker tab only when docker answers and lazydocker is installed
