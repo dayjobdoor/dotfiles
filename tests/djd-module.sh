@@ -94,6 +94,15 @@ run "" add full
 want_rc "add full" 0
 want_selection "add full" 'env = ["agent", "full"]'
 
+# warp stands alone (it does not pull in agent), and is written between full and secrets
+new_home
+run "" add warp
+want_rc "add warp" 0
+want_selection "add warp" 'env = ["warp"]'
+run secrets add warp full
+want_rc "add warp full to secrets" 0
+want_selection "add warp full to secrets" 'env = ["agent", "full", "warp", "secrets"]'
+
 # RDP without the firewall rules of server: every machine has xrdp
 new_home
 run "" add agent
@@ -202,9 +211,14 @@ done
 new_home
 run server,full list
 want_rc list 0
-printf 'agent -\nserver selected\nfull selected\nsecrets -\n' >"$HOME/want"
+printf 'agent -\nserver selected\nfull selected\nwarp -\nsecrets -\n' >"$HOME/want"
 cmp -s "$HOME/out" "$HOME/want" || fail "list prints: $(cat "$HOME/out")"
 want_selection list none
 [ ! -s "$HOME/log" ] || fail "list called: $(cat "$HOME/log")"
+
+# the usage spec's choices (what `djd module add` accepts from the shell) and the canonical order name the same modules
+choices=$(sed -n 's/^#USAGE   choices //p' "$task" | tr -d '"')
+canon=$(sed -n 's/^order=(\(.*\))$/\1/p' "$task")
+[ -n "$choices" ] && [ "$choices" = "$canon" ] || fail "usage choices '$choices' differ from order '$canon'"
 
 echo "djd-module: ok"

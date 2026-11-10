@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs inside the VM after the README's `curl | sh -s -- server` install (see .mise/tasks/test/vm).
+# Runs inside the VM after the README's `curl | sh -s -- server` install plus the warp module (see .mise/tasks/test/vm).
 set -euo pipefail
 # ufw rules, an sshd drop-in and module removals: a developer's own machine must never run this
 if [ "${DJD_TEST_VM:-}" != 1 ]; then
@@ -147,6 +147,17 @@ plan=$(mise bootstrap plan --detailed-exitcode 2>&1) || {
     exit 1
 }
 ok converged
+
+# warp: the package starts its own systemd unit, and the daemon answers before anyone registers a device (a
+# registration creates one on Cloudflare's side, so this test never makes it). The status goes through a variable:
+# a failing warp-cli would otherwise vanish behind grep
+systemctl is-active --quiet warp-svc
+warp_status=$(warp-cli --accept-tos status 2>&1)
+grep -q 'Registration Missing' <<<"$warp_status" || {
+    printf '%s\n' "$warp_status" >&2
+    exit 1
+}
+ok warp-svc runs and waits for a registration
 
 # sshd keeps the first value it reads, so a drop-in that sorts before ours can turn passwords back on. apply
 # and doctor must both refuse that. The drop-in goes in with the EXIT trap (cleanup) already set, so a red or

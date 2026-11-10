@@ -3,14 +3,14 @@
 #MISE quiet=true
 #USAGE arg "<action>" { choices "list" "add" "remove"; }
 #USAGE arg "[module]..." var=#true help="Modules to add or remove" {
-#USAGE   choices "agent" "server" "full" "secrets"
+#USAGE   choices "agent" "server" "full" "warp" "secrets"
 #USAGE }
 set -euo pipefail
 # fixed: mise reads miserc.local.toml from ~/.config/mise, a link into this checkout
 DJD_DIR="$HOME/.dotfiles"
 
 # the canonical order, so later modules win key collisions
-order=(agent server full secrets)
+order=(agent server full warp secrets)
 modules=()
 # usage hands variadic args over as one shell-quoted string; its choices limit the words to known modules, and the
 # loop below refuses any other word, so the names are safe as array subscripts

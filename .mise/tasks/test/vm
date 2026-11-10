@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Fresh Ubuntu VM (incus or multipass): curl | sh install of the base and server, hardening, module removal"
-# cloud-init, the README's `curl | sh -s -- server` (cloning this tree instead of GitHub), then
+# cloud-init, the README's `curl | sh -s -- server` plus the warp module (cloning this tree instead of GitHub), then
 # tests/vm-checks.sh inside the VM. Uses the first of incus (CI, Linux) and multipass found.
 # GITHUB_TOKEN, if set, is handed to mise in the VM. DJD_KEEP_VM=1 (exactly 1) keeps the VM after the run, to inspect a failure.
 # -E: the ERR trap also fires inside vm_create and vm_sh
@@ -83,7 +83,7 @@ vm_sh 'git -c init.defaultBranch=main init -q ~/djd-src && cd ~/djd-src && git a
 # module's post-packages hook refuses to turn passwords off for a user who has none. vm-checks.sh applies again, so
 # it needs the variable too.
 # shellcheck disable=SC2016
-vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_REPO="file://$HOME/djd-src" sh -s -- server <~/djd-src/install.sh'
+vm_sh 'MISE_GITHUB_TOKEN=$(cat ~/.djd-github-token) DJD_SKIP_SSH_CHECKS=1 DJD_REPO="file://$HOME/djd-src" sh -s -- server warp <~/djd-src/install.sh'
 # DJD_TEST_VM: vm-checks.sh refuses to run anywhere else. GITHUB_ACTIONS reaches the VM so that its failures annotate
 # too; %q quotes it for the shell inside the VM.
 gha=$(printf '%q' "${GITHUB_ACTIONS:-}")

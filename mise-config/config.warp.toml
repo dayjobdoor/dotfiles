@@ -1,0 +1,18 @@
+# Module warp: Cloudflare WARP, the VPN client, for a machine that is a VM or a real host. Not for the container image:
+# warp-svc needs a systemd unit for the usual way of running, and a connected client takes over the routes and the DNS
+# of the whole machine (in a container the tunnel also needs NET_ADMIN and /dev/net/tun, which compose does not grant).
+# After `djd module add warp`, register once by hand: `warp-cli registration new`, then `warp-cli connect`.
+
+# The suite is the Ubuntu codename; this repository targets 26.04 only. The fingerprint is the one of the key that
+# https://pkg.cloudflareclient.com/pubkey.gpg serves. Cloudflare publishes no second place to compare it with, so it
+# is trust on first use (a changed key stops the install); the key has no expiry date.
+[bootstrap.apt.sources.cloudflare-warp]
+uris = "https://pkg.cloudflareclient.com"
+suites = "resolute"
+components = "main"
+architectures = "amd64 arm64"
+key = "https://pkg.cloudflareclient.com/pubkey.gpg"
+fingerprint = ["C068 A2B5 7717 7519 3CBE 1F2F 6E2D D217 4FA1 C3BA"]
+
+[bootstrap.packages]
+"apt:cloudflare-warp" = "latest"

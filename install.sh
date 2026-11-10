@@ -2,7 +2,7 @@
 # Bootstrap these dotfiles on Ubuntu 26.04.
 #   curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | sh -s -- [module...]
 #   <checkout>/install.sh [module...]
-# Modules: agent server full secrets. No modules re-applies the current selection.
+# Modules: agent server full warp secrets. No modules re-applies the current selection.
 set -eu
 
 DJD_REPO="${DJD_REPO:-https://github.com/dayjobdoor/dotfiles.git}"
