@@ -50,6 +50,8 @@ if command -v pipewire >/dev/null && ! pw-cli info 0 >/dev/null 2>&1; then
             # back-off, so a wireplumber that dies at once is not started again in a tight loop
             sleep 1
         done
+        # Normal loop exits do not run the TERM trap, so stop pulse here too.
+        kill "$pulse" 2>/dev/null
     ) &
     supervisor=$!
 fi

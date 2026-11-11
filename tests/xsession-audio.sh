@@ -10,7 +10,8 @@
 #     made with --exit-with-session so that it ends with the session.
 #   - wireplumber and pipewire-pulse start after the server answers. wireplumber starts again after it dies while the
 #     server still runs, and is given up on after five runs in a row that each lasted under 30 s.
-#   - When the server never answers, one line goes to stderr (and nothing to stdout), no daemon starts, and the desktop still starts.
+#   - When the server never answers, one line goes to stderr (and nothing to stdout), pipewire starts but neither
+#     wireplumber nor pipewire-pulse does, and the desktop still starts.
 #   - A server that already answers (a VM's socket-activated one) gets no second server and no second wireplumber, and
 #     is left running when the session ends.
 #   - When the desktop exits, every process the script started ends and no wireplumber starts after that. While the
@@ -55,12 +56,14 @@ exited() { [ -s "$state/rc" ]; }
 leftovers() { grep -l -a -s -F -- "STATE=$1" /proc/[0-9]*/environ 2>/dev/null | wc -l; }
 none_left() { [ "$(leftovers "$1")" -eq 0 ]; }
 # The supervisor is the shell that starts wireplumber: the stub records its parent ($PPID). A zombie has ended too.
-supervisor_gone() {
+process_gone() {
     local pid
-    pid=$(cat "$state/sup.pid")
+    pid=$(cat "$1")
     kill -0 "$pid" 2>/dev/null || return 0
     grep -q '^State:[[:space:]]*Z' "/proc/$pid/status" 2>/dev/null
 }
+supervisor_gone() { process_gone "$state/sup.pid"; }
+pulse_gone() { process_gone "$state/pulse.pid"; }
 all_alive() {
     local pid
     while read -r pid; do kill -0 "$pid" 2>/dev/null || return 1; done <"$state/pids"
@@ -146,6 +149,7 @@ EOF
 #!/bin/sh
 if [ -e "$STATE/up" ]; then server=up; else server=down; fi
 echo $$ >>"$STATE/pids"
+echo $$ >"$STATE/pulse.pid"
 echo "pipewire-pulse starts server=$server bus=${DBUS_SESSION_BUS_ADDRESS:-none}" >>"$STATE/log"
 exec sleep 600
 EOF
@@ -213,6 +217,7 @@ kill "$(cat "$state/wp.pid")"
 # the supervisor ends after its back-off, when the server no longer answers; one that kept starting wireplumber would
 # log "fails" first (five runs with a back-off each, so the limit is longer than that)
 wait_for 10 supervisor_gone || fail "the supervisor was still running 10 s after wireplumber died with no server"
+wait_for 5 pulse_gone || fail "pipewire-pulse outlived the supervisor after the server stopped answering"
 [ "$(count 'wireplumber fails')" = 0 ] || fail "wireplumber was started again although the server no longer answered"
 echo "ok the supervisor stops when the server does"
 cleanup
@@ -226,6 +231,7 @@ wait_for 12 connected 5 || fail "wireplumber was not started five times"
 elapsed=$(($(date +%s) - started))
 [ "$elapsed" -ge 4 ] || fail "five wireplumber runs took $elapsed s: no back-off between the runs"
 wait_for 5 supervisor_gone || fail "the supervisor was still running 5 s after the fifth quick death"
+wait_for 5 pulse_gone || fail "pipewire-pulse outlived the supervisor after five quick wireplumber deaths"
 [ "$(count 'wireplumber connects')" = 5 ] || fail "wireplumber was started $(count 'wireplumber connects') times, not given up on after five"
 echo "ok the supervisor gives up after five quick deaths"
 cleanup
@@ -243,7 +249,7 @@ wait_for 5 supervisor_gone || fail "the supervisor was still running 5 s after t
 echo "ok a long run resets the count"
 cleanup
 
-echo "== a server that never answers: one line, no daemon, the desktop starts"
+echo "== a server that never answers: one line, only pipewire, and the desktop starts"
 setup
 # the poll count is the script's, so a seq of three makes the wait end in 0.3 s
 cat >"$root/bin/seq" <<'EOF'
@@ -258,9 +264,10 @@ wait_for 2 logged 'desktop starts' || fail "the desktop did not start"
 wait_for 5 test -s "$root/err" || fail "the script printed nothing to stderr when the server never answered"
 [ "$(wc -l <"$root/err")" -eq 1 ] || fail "expected one line on stderr, got: $(cat "$root/err")"
 [ ! -s "$root/out" ] || fail "the script printed to stdout, which a login does not capture: $(cat "$root/out")"
+[ "$(count 'pipewire starts')" = 1 ] || fail "pipewire did not start exactly once before the server timeout"
 [ "$(count 'pipewire-pulse starts')" = 0 ] || fail "pipewire-pulse started although the server never answered"
 [ "$(count 'wireplumber')" = 0 ] || fail "wireplumber started although the server never answered"
-echo "ok one line, nothing started"
+echo "ok one line, no pulse or wireplumber"
 cleanup
 
 echo "== a server that already answers gets nothing started and is left running"
