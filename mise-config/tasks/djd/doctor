@@ -12,6 +12,13 @@ fail() {
     failed=1
 }
 selected() { [[ ,${MISE_ENV:-}, == *,"$1",* ]]; }
+ini_value() {
+    awk -v section="[$2]" -v key="$3" '
+        $0 == section { inside = 1; next }
+        /^\[/ { inside = 0 }
+        inside && index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }
+    ' "$1"
+}
 
 # the same test as install.sh
 if (. /etc/os-release && [ "${ID:-}" = ubuntu ] && [ "${VERSION_ID:-}" = 26.04 ]); then ok ubuntu; else fail ubuntu "/etc/os-release is not Ubuntu 26.04"; fi
@@ -57,8 +64,8 @@ if selected server; then
 fi
 # every machine has xrdp: the desktop is part of the base
 {
-    if grep -qx security_layer=tls /etc/xrdp/xrdp.ini; then ok xrdp-tls; else fail xrdp-tls "/etc/xrdp/xrdp.ini lacks security_layer=tls; run djd apply"; fi
-    if grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini; then ok xrdp-root-login; else fail xrdp-root-login "/etc/xrdp/sesman.ini lacks AllowRootLogin=false; run djd apply"; fi
+    if [ "$(ini_value /etc/xrdp/xrdp.ini Globals security_layer)" = tls ]; then ok xrdp-tls; else fail xrdp-tls "[Globals] in /etc/xrdp/xrdp.ini lacks security_layer=tls; run djd apply"; fi
+    if [ "$(ini_value /etc/xrdp/sesman.ini Security AllowRootLogin)" = false ]; then ok xrdp-root-login; else fail xrdp-root-login "[Security] in /etc/xrdp/sesman.ini lacks AllowRootLogin=false; run djd apply"; fi
 }
 
 # age.strict is off in the secrets module, so a missing or wrong key would leave its variables unset without a word

@@ -35,11 +35,18 @@ fi
 # running one is restarted once per change (the stamp), unless an RDP session is open: a restart would end the
 # session an apply may be running over, and the next apply tries again.
 changed=
+ini_value() {
+    awk -v section="[$2]" -v key="$3" '
+        $0 == section { inside = 1; next }
+        /^\[/ { inside = 0 }
+        inside && index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }
+    ' "$1"
+}
 set_ini() {
-    if grep -qx "$2=$3" "$1"; then return; fi
-    sudo sed -i "s/^$2=.*/$2=$3/" "$1"
-    if ! grep -qx "$2=$3" "$1"; then
-        echo "desktop-final: $1 has no $2= line to set" >&2
+    if [ "$(ini_value "$1" "$2" "$3")" = "$4" ]; then return; fi
+    sudo sed -i "/^\[$2\]/,/^\[/ s/^$3=.*/$3=$4/" "$1"
+    if [ "$(ini_value "$1" "$2" "$3")" != "$4" ]; then
+        echo "desktop-final: $1 has no $3= line in [$2] to set" >&2
         exit 1
     fi
     changed=1
@@ -59,10 +66,10 @@ drop_section() {
     fi
     changed=1
 }
-set_ini /etc/xrdp/xrdp.ini security_layer tls
+set_ini /etc/xrdp/xrdp.ini Globals security_layer tls
 drop_section /etc/xrdp/xrdp.ini vnc-any
 drop_section /etc/xrdp/xrdp.ini neutrinordp-any
-set_ini /etc/xrdp/sesman.ini AllowRootLogin false
+set_ini /etc/xrdp/sesman.ini Security AllowRootLogin false
 
 # no systemd (a container) means no running daemon to restart: the image's entrypoint starts xrdp fresh
 if systemctl is-active -q xrdp.service 2>/dev/null; then

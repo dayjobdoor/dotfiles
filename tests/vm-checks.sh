@@ -18,6 +18,13 @@ export PATH="$HOME/.local/bin:$PATH"
 export LC_ALL=C.UTF-8
 
 ok() { echo "ok $*"; }
+ini_value() {
+    awk -v section="[$2]" -v key="$3" '
+        $0 == section { inside = 1; next }
+        /^\[/ { inside = 0 }
+        inside && index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }
+    ' "$1"
+}
 
 for f in ~/.dotfiles/cloud-init/*.yaml; do
     sudo cloud-init schema -c "$f" >/dev/null
@@ -128,8 +135,8 @@ grep -qi '^ja_JP.utf8$' <<<"$(locale -a)"
 # a here-string, not a pipe: grep -q exiting early would SIGPIPE fc-list under pipefail
 grep -q 'HackGen35 Console NF' <<<"$(fc-list : family)"
 ok desktop locale and font
-grep -qx security_layer=tls /etc/xrdp/xrdp.ini
-grep -qx AllowRootLogin=false /etc/xrdp/sesman.ini
+[ "$(ini_value /etc/xrdp/xrdp.ini Globals security_layer)" = tls ]
+[ "$(ini_value /etc/xrdp/sesman.ini Security AllowRootLogin)" = false ]
 # the files are not the daemon: xrdp started when its package was installed, before the final hook set these, so the
 # running one must have been (re)started after the last change to either file
 started=$(date -d "$(systemctl show -p ActiveEnterTimestamp --value xrdp)" +%s)
