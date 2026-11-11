@@ -1,5 +1,4 @@
-# Repo development: lint, secret scan, the image build, the desktop container, tests and local CI. `make <task>` runs
-# `mise run <task>`. Longer tasks are files in .mise/tasks/ (`mise tasks ls` lists both). Machine state lives in mise-config/.
+# Repo development: lint, secret scan, the image build, the desktop container, tests and local CI. Run `mise run <task>`.
 # A task that needs tools names them (`tools`, or a `#MISE tools=` header in a file task), so `mise run <task>`
 # installs only those and a job does not fetch unrelated tools. .mise/mise.lock pins their versions.
 min_version = "2026.10.23"

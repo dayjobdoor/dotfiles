@@ -16,9 +16,6 @@ indent_size = 4
 [{.githooks/*,home/.profile,home/.bash_profile,home/.bashrc,home/.zshenv,home/.config/zsh/*,home/.local/bin/*,home/.xsession,.mise/tasks/**,mise-config/tasks/**,mise-config/hooks/*}]
 indent_size = 4
 
-[Makefile]
-indent_style = tab
-
 [{.env,.env.*}]
 indent_style = tab
 

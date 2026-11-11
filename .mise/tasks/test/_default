@@ -207,21 +207,22 @@ EOF
         sudo chmod +x /usr/local/sbin/sshd
     }
     sudo install -d /etc/ssh/sshd_config.d
-    sudo touch /etc/ssh/sshd_config.d/10-djd.conf
+    printf "PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n" | sudo tee /etc/ssh/sshd_config.d/10-djd.conf >/dev/null
     printf "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee /etc/ssh/sshd_config >/dev/null
     step stock layout
     doctor_says ok sshd
-    # the counter-case: the stock layout needs no sshd -T, so a stub that reports passwords on is never asked
-    step stock layout, stub reporting passwords on
+    # the counter-case: an empty managed drop-in must not vouch for keys-only authentication
+    step stock layout with an empty managed drop-in, stub reporting passwords on
+    sudo truncate -s 0 /etc/ssh/sshd_config.d/10-djd.conf
     sshd_t yes
-    doctor_says ok sshd
+    doctor_says FAIL sshd "not keys-only"
     # without the keys-only drop-in the greps have nothing to vouch for, so sshd -T decides (the stub still says yes)
     step the stock layout without the keys-only drop-in
     sudo rm /etc/ssh/sshd_config.d/10-djd.conf
     doctor_says FAIL sshd "not keys-only"
     sshd_t no
     doctor_says ok sshd
-    sudo touch /etc/ssh/sshd_config.d/10-djd.conf
+    printf "PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n" | sudo tee /etc/ssh/sshd_config.d/10-djd.conf >/dev/null
     # the server module is selected but was never applied in this image, so bootstrap is not converged
     doctor_says FAIL bootstrap "not converged"
 
@@ -325,7 +326,7 @@ docker run --rm "$image" zsh -lc "$doctor_lib"'
 ok doctor checks xrdp TLS and root login separately
 
 # One container: a conflicting real file shows up in doctor, stays put on `djd apply --dry-run`, and is moved
-# aside by a real apply; a checkout that moved (the `make init` path) is linked back by install.sh, the init
+# aside by a real apply; a checkout that moved after install.sh is linked back by install.sh, the init
 # caches are gone after the apply, and the machine converges afterwards. plan covers packages, files, services
 # and the firewall; doctor adds the Ubuntu release, the mise link, the login shell and the dotfiles.
 docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
@@ -349,7 +350,7 @@ docker run --rm -e MISE_GITHUB_TOKEN "$image" zsh -lc "$doctor_lib"'
     grep -qx custom ~/.bashrc
     [ -z "$(find ~ -maxdepth 1 -name "*.djd-backup-*")" ]
 
-    # ~/.dotfiles is a link to the checkout, as `make init` leaves it, and the checkout then moves: the link
+    # ~/.dotfiles is a link to the checkout, as install.sh leaves it, and the checkout then moves: the link
     # dangles, which install.sh has to remove before it can link the checkout again
     mv ~/.dotfiles ~/src
     ln -s ~/src ~/.dotfiles

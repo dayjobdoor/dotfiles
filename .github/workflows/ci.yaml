@@ -21,8 +21,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Every job runs the same mise task a developer runs locally (`make test` = `mise run test`);
-# `mise run ci <job>` runs the lint and image jobs on your machine with act.
+# Every job runs the same mise task a developer runs locally; `mise run ci <job>` runs the lint and image jobs with act.
 jobs:
   lint:
     runs-on: ubuntu-26.04

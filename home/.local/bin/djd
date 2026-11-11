@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-# a shell started before `make init` lacks ~/.local/bin, where mise lives
+# a shell started before install.sh lacks ~/.local/bin, where mise lives
 export PATH="$HOME/.local/bin:$PATH"
 # djd tasks are plain bash; installing tools belongs to `djd apply`, not to every task run
 export MISE_TASK_RUN_AUTO_INSTALL=false
