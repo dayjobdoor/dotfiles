@@ -13,10 +13,12 @@ const socketPath = process.env.HERDR_SOCKET_PATH;
 const socketEndpoint =
   process.platform === "win32" && socketPath ? `\\\\.\\pipe\\${socketPath}` : socketPath;
 const paneId = process.env.HERDR_PANE_ID;
+// Pi sets PI_CODING_AGENT in the root process too. A shell tool adds PI_SESSION_ID only to a child process.
+const parentPiSessionId = process.env.PI_SESSION_ID;
 const source = "herdr:pi";
 
 function enabled() {
-  return HERDR_ENV === "1" && !!socketPath && !!paneId;
+  return HERDR_ENV === "1" && !!socketPath && !!paneId && !parentPiSessionId;
 }
 
 function sendRequestAttempt(request: unknown, timeoutMs: number): Promise<boolean> {
@@ -234,7 +236,7 @@ export default function (pi) {
     }
     rootSession = true;
     updateSessionRef(ctx);
-    await reportSession(event?.reason);
+    void reportSession(event?.reason);
     // A reload can replace this extension mid-run without emitting another agent_start.
     agentActive = ctx?.isIdle?.() === false;
     publishState(true);

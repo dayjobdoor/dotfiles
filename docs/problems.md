@@ -8,6 +8,10 @@ Pitfalls, accepted costs and known limits. Each entry says what goes wrong and w
 
 A program can still change a tracked file through its link. lazygit rewrites its config in place when it migrates renamed keys, and `git config --global` appends to `~/.config/git/config`. Both leave the checkout dirty. A program that saves through a temporary file and a rename, such as `sed -i`, replaces the link with a regular file. `mise dot status` then reports `exists but is not a symlink`, and `djd doctor` fails. `djd apply` moves the new file aside as `*.djd-backup-*` and links the repository file again. [How to keep an edit that a program made](guidance.md#keep-an-edit-that-a-program-made) shows how to save the edit first.
 
+### Herdr's Pi integration only detects tool-spawned nested sessions
+
+The vendored Pi extension is managed by Herdr, so an integration update can overwrite its local fixes. `tests/herdr-state.sh` keeps two behaviors pinned: startup does not wait for a socket response, and a nested Pi launched by an agent shell tool does not report over the parent pane. Pi supplies `PI_SESSION_ID` to that tool environment, which makes this case detectable. Pi does not inject session metadata into user-entered `!` commands, so a nested session launched there needs an upstream Herdr/Pi handoff marker; the local extension does not claim to detect it.
+
 ### A Japanese locale breaks the firewall check
 
 The wrapper forces `LC_ALL=C.UTF-8`, and `install.sh` gets the same value because it ends by running the wrapper. With the mise release that `min_version` names, a Japanese locale breaks the firewall check, because mise decides that ufw is active by matching the English line `Status: active`. Under a Japanese locale, `mise bootstrap` then reports firewall drift forever. The desktop session sets such a locale, and ssh forwards `LC_ALL`, which sudo keeps. On those machines, run raw `mise bootstrap` commands with `LC_ALL=C.UTF-8` until mise pins the locale itself.
