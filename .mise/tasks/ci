@@ -27,27 +27,27 @@ trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # act copies the working directory into its containers; hand it tracked and unignored files only
 tests/tree.sh | tar -xf - -C "$work"
-git -C "$work" init -q
+git -C "$work" init -q -b main
 git -C "$work" add -A
 git -C "$work" -c user.name=act -c user.email=act@localhost commit -qm "act $(git rev-parse --short HEAD)"
 # act derives github.repository from origin; tag.yaml only releases for this repository
 git -C "$work" remote add origin https://github.com/dayjobdoor/dotfiles.git
 
 cd "$work"
-# runner images and options come from .actrc; -s NAME reads the secret from the environment
+# runner images and options come from .actrc; an explicit empty assignment keeps act from prompting for a token
 if [ "${usage_dry_run:-false}" = true ]; then
     printf '{"ref": "refs/tags/0.0.1"}\n' >"$work/tag.json"
     printf '{"workflow_run": {"conclusion": "success", "event": "push", "head_branch": "main",
         "head_repository": {"full_name": "dayjobdoor/dotfiles"}}}\n' >"$work/run.json"
-    act push -n -W .github/workflows/ci.yaml -s GITHUB_TOKEN
-    act push -n -W .github/workflows/docs.yaml -s GITHUB_TOKEN
-    act workflow_dispatch -n -W .github/workflows/full-weekly.yaml -s GITHUB_TOKEN
-    act workflow_run -n -W .github/workflows/tag.yaml -e "$work/run.json" -s GITHUB_TOKEN
-    act push -n -W .github/workflows/push.yaml -e "$work/tag.json" -s GITHUB_TOKEN
+    act push -n -W .github/workflows/ci.yaml -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
+    act push -n -W .github/workflows/docs.yaml -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
+    act workflow_dispatch -n -W .github/workflows/full-weekly.yaml -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
+    act workflow_run -n -W .github/workflows/tag.yaml -e "$work/run.json" -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
+    act push -n -W .github/workflows/push.yaml -e "$work/tag.json" -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
     exit
 fi
 for job in "${selected[@]}"; do
     echo "ci: $job"
     # .actrc maps both runner labels to one image, so one matrix entry runs each job once
-    act push -W .github/workflows/ci.yaml -j "$job" --matrix runner:ubuntu-26.04 -s GITHUB_TOKEN
+    act push -W .github/workflows/ci.yaml -j "$job" --matrix runner:ubuntu-26.04 -s "GITHUB_TOKEN=${GITHUB_TOKEN}"
 done
