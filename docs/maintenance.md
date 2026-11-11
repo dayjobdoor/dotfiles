@@ -67,7 +67,7 @@ The measured values are single runs from 9 November 2026 (the CI run of commit 8
 
 The wait and the smoke test have run on GitHub: releases 0.0.6 (5 November 2026) and 0.0.7 (6 November 2026) passed the `tag.yaml` step "Trigger GHCR build and wait for it" and the smoke step of every build leg. No failed publish has turned the job red yet.
 
-`push.yaml` builds the image for each platform with no build cache and pushes by digest. A smoke step then pulls the pushed image by digest and runs `docker run --rm "$REGISTRY_IMAGE@$DIGEST" sh -c "$SMOKE"`. `SMOKE` is `djd doctor`, so each architecture runs it on its own runner. The merge job creates the multi-arch tags only when every leg passed, so a red smoke test moves no tag. The base includes the desktop, so `djd doctor` also greps `xrdp.ini` for `security_layer=tls` and `sesman.ini` for `AllowRootLogin=false`.
+`push.yaml` builds the image for each platform with no build cache and pushes by digest. Its preflight requires the scope-less `DJD_GITHUB_TOKEN` repository secret for public release downloads; the privileged job token stays with GHCR login. A smoke step then pulls the pushed image by digest and runs `docker run --rm "$REGISTRY_IMAGE@$DIGEST" sh -c "$SMOKE"`. `SMOKE` is `djd doctor`, so each architecture runs it on its own runner. The merge job creates the multi-arch tags only when every leg passed, so a red smoke test moves no tag. The base includes the desktop, so `djd doctor` also checks the `security_layer=tls` value in the `[Globals]` section of `xrdp.ini` and `AllowRootLogin=false` in the `[Security]` section of `sesman.ini`.
 
 | Image | Tags that move with the newest release | Fixed tag |
 | --- | --- | --- |
