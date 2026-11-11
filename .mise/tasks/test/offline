@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #MISE description="Offline tests (no network, no token) on the current tree inside an existing djd:latest, without a build"
-#USAGE arg "[test]..." var=#true help="Tests to run; all four by default" { choices "xsession-audio" "tree-check" "djd-module" "server-hooks"; }
+#USAGE arg "[test]..." var=#true help="Tests to run; all eight by default" { choices "xsession-audio" "tree-check" "djd-module" "server-hooks" "ci" "desktop-config" "lint" "herdr-state"; }
 #USAGE flag "--image <image>" default="djd:latest" help="Image to run them in"
 set -euo pipefail
 trap 'echo "FAIL line $LINENO: $BASH_COMMAND" >&2' ERR
 
 cd "$(dirname "$0")/../../.."
 image=${usage_image:-djd:latest}
-read -ra tests <<<"${usage_test:-xsession-audio tree-check djd-module server-hooks}"
+read -ra tests <<<"${usage_test:-xsession-audio tree-check djd-module server-hooks ci desktop-config lint herdr-state}"
 
 # The tree is streamed in, so a fix is tested without rebuilding the image. One container per test: they share no
 # state, and none has a network, so "offline" is enforced. --hostname localhost: without it, under --network none,
