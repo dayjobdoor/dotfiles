@@ -5,8 +5,8 @@ set -euo pipefail
 
 # sshd keeps the first value it reads. Ubuntu's sshd_config includes sshd_config.d before any setting of its
 # own, so the drop-in wins unless another drop-in sorts first. Any other layout, such as the one-line
-# sshd_config cloud-init writes when openssh-server is missing, is checked against sshd -T, and so is a machine
-# where the drop-in itself is missing: the greps below take its presence for granted.
+# sshd_config cloud-init writes when openssh-server is missing, is checked against sshd -T, and so are a missing,
+# unreadable or corrupted managed drop-in and directives whose values have changed.
 # A Match block defeats "first value wins" for the users it matches, so any Match line also forces sshd -T,
 # evaluated for the current user from a documentation address (TEST-NET-3). That still cannot see a Match for
 # another user or another address, nor a Match in a file outside these two paths. An Include inside a drop-in, and
@@ -22,7 +22,18 @@ earlier=$(cd /etc/ssh/sshd_config.d && shopt -s nullglob && printf '%s\n' *.conf
 match=$(grep -rhiE '^[[:space:]]*(Match|Include)[[:space:]]' /etc/ssh/sshd_config.d 2>/dev/null || true)
 match+=$(grep -hiE '^[[:space:]]*Match[[:space:]]' /etc/ssh/sshd_config || true)
 unreadable=$(find /etc/ssh/sshd_config /etc/ssh/sshd_config.d -type f ! -readable 2>/dev/null || true)
-if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ ! -e /etc/ssh/sshd_config.d/10-djd.conf ] || [ -n "$earlier" ] || [ -n "$match" ] || [ -n "$unreadable" ]; then
+dropin_ok=
+if [ -r /etc/ssh/sshd_config.d/10-djd.conf ]; then
+    dropin_ok=yes
+    for key in passwordauthentication kbdinteractiveauthentication permitrootlogin; do
+        value=$(awk -v key="$key" 'tolower($1) == key { print tolower($2); exit }' /etc/ssh/sshd_config.d/10-djd.conf)
+        if [ "$value" != no ]; then
+            dropin_ok=
+            break
+        fi
+    done
+fi
+if [ "$first" != 'Include /etc/ssh/sshd_config.d/*.conf' ] || [ "$dropin_ok" != yes ] || [ -n "$earlier" ] || [ -n "$match" ] || [ -n "$unreadable" ]; then
     # sshd -T needs the privilege separation directory, which only a started ssh.service creates
     sudo install -d -m 0755 /run/sshd
     effective=$(sudo sshd -T -C "user=$(id -un),host=localhost,addr=203.0.113.1")

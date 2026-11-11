@@ -13,7 +13,7 @@ grant_docker() {
 }
 
 # DJD_SKIP_SSH_CHECKS=1 for a machine reached some other way (a VM console, `incus exec`, `multipass exec`)
-if [ -n "${DJD_SKIP_SSH_CHECKS:-}" ]; then
+if [ "${DJD_SKIP_SSH_CHECKS:-}" = 1 ]; then
     grant_docker
     exit 0
 fi
@@ -27,13 +27,18 @@ refuse() {
 [ "$(id -u)" -ne 0 ] || refuse "run the apply as a normal user with sudo: the server module turns root login off"
 has_key=
 for keys in "$HOME/.ssh/authorized_keys" "$HOME/.ssh/authorized_keys2"; do
-    if [ -f "$keys" ] && grep -qvE '^[[:space:]]*(#|$)' "$keys"; then has_key=1; fi
+    if [ -f "$keys" ] && ssh-keygen -l -f "$keys" >/dev/null 2>&1; then has_key=1; fi
 done
 [ -n "$has_key" ] || refuse "$HOME/.ssh/authorized_keys holds no key, and this module turns password logins off. Add your public key first (ssh-copy-id)"
 
 # the firewall rule that the module adds allows port 22 only
-other_port=$(grep -rhiE '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null |
-    awk '$2 != 22' || true)
+sudo install -d -m 0755 /run/sshd
+if ! effective=$(sudo sshd -T 2>&1); then
+    refuse "sshd -T failed: $effective"
+fi
+ports=$(awk '$1 == "port" { print $2 }' <<<"$effective")
+[ -n "$ports" ] || refuse "sshd -T reported no listening port"
+other_port=$(grep -v '^22$' <<<"$ports" || true)
 [ -z "$other_port" ] || refuse "sshd listens on a port other than 22 ($other_port), but the firewall rule opens 22 only; change the ssh rule in config.server.toml first"
 
 grant_docker
