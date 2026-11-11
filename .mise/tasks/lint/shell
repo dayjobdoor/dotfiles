@@ -10,6 +10,10 @@ fix=${usage_fix:-false}
 # A read loop, not mapfile: macOS still ships bash 3.2. The scripts are found by their shebang, not by a
 # list, so a new one is checked; no git, because the docker lint run has no .git. The profiles have no shebang.
 shell=(home/.profile home/.bash_profile home/.bashrc)
+files=$(mktemp)
+trap 'rm -f "$files"' EXIT
+# A standalone find keeps a traversal error visible to set -e; process substitution would hide its status.
+find . \( -name .git -o -name .jj -o -name node_modules \) -prune -o -type f -print0 >"$files"
 while IFS= read -r -d '' f; do
     # || true: a file without a final newline still fills first, but read exits 1
     IFS= read -r first <"$f" || true
@@ -17,7 +21,7 @@ while IFS= read -r -d '' f; do
     if [[ $first =~ ^'#!'[[:space:]]*(/usr)?/bin/(env[[:space:]]+(-S[[:space:]]+)?)?(ba)?sh([[:space:]]|$) ]]; then
         shell+=("${f#./}")
     fi
-done < <(find . \( -name .git -o -name .jj -o -name node_modules \) -prune -o -type f -print0)
+done <"$files"
 shellcheck "${shell[@]}"
 # printer flags make shfmt ignore .editorconfig, so -i 4 holds for every script in the list
 if [ "$fix" = true ]; then

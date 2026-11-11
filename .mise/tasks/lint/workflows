@@ -12,24 +12,52 @@ for stray in .github/workflows/*.yml; do
     fi
 done
 jactionlint .github/workflows/*.yaml .github/dependabot.yml
-# act stops at an interactive image prompt for any runner label .actrc does not map; comment lines are no labels
+# The job token can publish over the image that agent sandboxes pull; installers only need a scope-less API token.
+# shellcheck disable=SC2016 # this is the literal workflow expression, not a shell expansion
+grep -qF 'github_token=${{ secrets.DJD_GITHUB_TOKEN }}' .github/workflows/push.yaml || {
+    echo "lint: release tools must use the scope-less DJD_GITHUB_TOKEN, not the job's packages:write token" >&2
+    exit 1
+}
+# act stops at an interactive image prompt for any runner label .actrc does not map. Read runs-on values and matrix
+# runner arrays only; a command or comment that prints a label does not select a runner.
 while IFS= read -r label; do
     grep -q -- "^-P ${label//./\\.}=" .actrc || {
         echo "lint: runner $label is not mapped in .actrc" >&2
         exit 1
     }
-done < <(sed 's/^[[:space:]]*#.*//' .github/workflows/*.yaml | grep -oE 'ubuntu-[0-9a-z.-]+' | sort -u)
+done < <(awk '
+    /^[ \t]*(runs-on|runner):[ \t]*/ {
+        line = $0
+        sub(/^[ \t]*(runs-on|runner):[ \t]*/, "", line)
+        sub(/[ \t]#.*/, "", line)
+        while (match(line, /ubuntu-[0-9a-z.-]+/)) {
+            print substr(line, RSTART, RLENGTH)
+            line = substr(line, RSTART + RLENGTH)
+        }
+    }
+' .github/workflows/*.yaml | sort -u)
 # DL3066: the Dockerfile renames the base image's ubuntu user to dayjobdoor before USER, so the name always resolves
 hadolint --ignore DL3066 .devcontainer/Dockerfile
 # the dockerignore is what keeps credentials out of a locally built image, and nothing else would notice a pattern
 # going missing from it
-for pattern in '**/.env' '**/.env.*' '**/*.local.toml' '**/age.txt' '**/gh/hosts.yml' '**/*.pem' '**/*.key' '.secrets' \
+for pattern in '**/.env' '**/.env.*' '**/*.local.toml' '**/*.local' '**/age.txt' '**/gh/hosts.yml' \
+    '**/rclone/rclone.conf' '**/auth.json' '**/*.pem' '**/*.key' '.secrets' '.vars' \
     'home/.config/pi/agent/models.json' 'home/.config/omp/profiles/*/agent/models.yml'; do
     grep -qxF -- "$pattern" .devcontainer/Dockerfile.dockerignore || {
         echo "lint: .devcontainer/Dockerfile.dockerignore lost the pattern $pattern" >&2
         exit 1
     }
 done
+# Docker uses the last matching rule, so a later negation can undo a required positive pattern above.
+while IFS= read -r pattern; do
+    case $pattern in
+    '!**/.env.example' | '!home/.local') ;;
+    !*)
+        echo "lint: .devcontainer/Dockerfile.dockerignore has an unexpected negation $pattern" >&2
+        exit 1
+        ;;
+    esac
+done <.devcontainer/Dockerfile.dockerignore
 # compose.yaml is otherwise only exercised by a person; the docker lint run has no docker, and CI does. PASSWORD and
 # GITHUB_TOKEN are the variables its secrets read: config needs them defined, not meaningful
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then

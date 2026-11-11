@@ -42,7 +42,13 @@ collect() { # source, expected number of pins, then the pins that the source's s
         collect "$f" 1 $(sed -n 's/^min_version = "\(.*\)"$/\1/p' "$f")
     done
     for f in .github/workflows/*.yaml; do
-        collect "$f" "$(grep -c 'jdx/mise-action@' "$f" || true)" $(sed -n 's/^ *version: \([0-9][0-9.]*\)$/\1/p' "$f")
+        count=$(awk '/^[ \t]*-[ \t]+uses:[ \t]*jdx\/mise-action@/ { n++ } END { print n + 0 }' "$f")
+        mapfile -t action_pins < <(awk '
+            /^[ \t]*-[ \t]+/ { mise_action = 0 }
+            /^[ \t]*-[ \t]+uses:[ \t]*jdx\/mise-action@/ { mise_action = 1 }
+            mise_action && $1 == "version:" && $2 ~ /^[0-9][0-9.]*$/ { print $2 }
+        ' "$f")
+        collect "$f" "$count" "${action_pins[@]}"
     done
 }
 if [ "$(sort -u <<<"$pins" | grep -c .)" -ne 1 ]; then
