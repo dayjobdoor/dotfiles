@@ -179,14 +179,11 @@ Plan for at least 10 GB of free disk. That figure is an estimate. One install of
 
 Only `djd module` and `djd secret` declare arguments, so only their `--help` lists them. `djd apply`, `djd update`, and `djd status` pass extra flags to the mise command they run, as in `djd apply --upgrade`. `djd doctor` ignores them. The `djd` wrapper unsets your own `MISE_ENV`, which would otherwise replace the module selection, and `install.sh` inherits that through the wrapper.
 
-## Make targets
+## Repository tasks
 
-`make <task>` runs `mise run <task>`, and `make <task> ARGS=<args>` passes arguments. `make build ARGS=full` runs `mise run build full`. `make` hands `ARGS` to the recipe as an environment variable, and the shell splits it into words. It never reads `ARGS` as shell syntax, so `ARGS='x; cmd'` passes the two words `x;` and `cmd`. `make help` lists the tasks. Two groups differ.
+Run repository tasks with `mise run <task>` and pass arguments directly, as in `mise run build full`. `mise tasks ls` lists them. Before mise exists, run `./install.sh` directly. Machine operations use `djd apply`, `djd update`, `djd status`, `djd doctor`, `djd module` and `djd secret`, so they keep the wrapper's locale and working directory.
 
-- `make init` runs `./install.sh $(ARGS)`. It runs before mise exists, so the machine needs make. A fresh Ubuntu cloud image can lack it, and `sudo apt-get install make` adds it. `./install.sh` needs no make, and the base apt list installs make for later runs.
-- `make apply`, `make update`, `make status`, `make doctor`, `make module`, and `make secret` run `djd`, so they keep its locale and its working directory.
-
-Repository tasks (`.mise/config.toml` and the files of `.mise/tasks/`; `make help` lists them):
+Repository tasks (`.mise/config.toml` and the files of `.mise/tasks/`):
 
 | Task | Does |
 | --- | --- |
@@ -244,7 +241,7 @@ The tables group the variables by where they matter. The scope names are install
 | --- | --- | --- | --- |
 | `DJD_DIR` | login | `~/.dotfiles` | Path of the checkout, which `.profile` always exports as `$HOME/.dotfiles`. It is not an override: `install.sh` and the djd tasks always use `~/.dotfiles`, because mise reads `~/.config/mise` and `dotfiles.root` there. |
 | `DJD_REPO` | install | the GitHub URL of this repository | Repository that `install.sh` clones. |
-| `DJD_SKIP_SSH_CHECKS` | install, tasks | unset | When non-empty, the server module's `post-packages` hook skips its refusals (no authorized key, root, a port other than 22). For a machine that is reached through a console, `incus exec` or `multipass exec`. `test:vm` sets it. |
+| `DJD_SKIP_SSH_CHECKS` | install, tasks | unset | When exactly `1`, the server module's `post-packages` hook skips its refusals (no authorized key, root, a port other than 22). For a machine that is reached through a console, `incus exec` or `multipass exec`. `test:vm` sets it. |
 | `MISE_VERSION` | install | the `min_version` of `mise-config/config.toml`, with a `v` prefix | mise release that `install.sh` installs when mise is missing or older than `min_version`. A value in the environment overrides the release to install, with or without the `v`. Without a `min_version`, `install.sh` stops. |
 | `DJD_BOOTSTRAP_FLAGS` | install | empty | Extra flags that `djd apply` passes to `mise bootstrap`. The Docker build passes `--skip tools,dotfiles`, `--only tools`, and `--only dotfiles`. |
 | `MISE_ENV` | install, shim | unset | The module selection, which mise reads from `miserc.local.toml`. The `djd` wrapper, and so `install.sh`, and `djd module` unset a value of your own. A shimmed process passes it to its children, where it outranks a project's `.miserc.toml` (see [the module selection](problems.md#a-project-that-selects-its-own-mise-environment-hides-the-modules)). |

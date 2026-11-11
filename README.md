@@ -53,7 +53,7 @@ Anonymous GitHub API limits can stop tool installs. mise reads `MISE_GITHUB_TOKE
 curl -fsSL https://raw.githubusercontent.com/dayjobdoor/dotfiles/main/install.sh | MISE_GITHUB_TOKEN=<token> sh -s -- agent
 ```
 
-From a checkout, run `./install.sh agent server`. `make init ARGS="agent server"` does the same but needs make, which a fresh Ubuntu cloud image may not include (`sudo apt-get install make` first). Without module arguments it re-applies the current selection, which on a fresh machine is the base config. To install your own fork, see [Fork](#fork).
+From a checkout, run `./install.sh agent server`. Without module arguments it re-applies the current selection, which on a fresh machine is the base config. To install your own fork, see [Fork](#fork).
 
 After the install, log in again, because the login shell changes to zsh (and the `server` module adds you to the `docker` group). Then run `djd doctor`. On a machine with the base config and `agent`, a healthy result is:
 
@@ -88,7 +88,7 @@ mise run up                                         # or: docker compose -f .dev
 
 `--wait` makes the command fail when the container does not become healthy (the compose healthcheck is xrdp listening), as it does with an empty `PASSWORD`, which the entrypoint refuses. Connect an RDP client to `localhost:3589` as `dayjobdoor` with that `PASSWORD`. The port is bound to `127.0.0.1` only. The image has xfreerdp3 (`xfreerdp3 /v:localhost:3589 /u:dayjobdoor`), which `test:desktop` also uses, in a client container of its own; Windows App and mstsc were not tried against the TLS-only setting. The TLS certificate is new at every container start, so a client that remembers it on first use warns after each restart. [SECURITY.md](SECURITY.md#known-limits-of-the-rdp-service) lists this and the other known limits of the RDP service.
 
-`mise run up` and `make up` are the same task and need the checkout trusted by mise (`mise trust`, once per clone). The compose build reads `GITHUB_TOKEN` from the environment, a token without scopes or an empty one. Unlike `mise run build`, `mise run up` and the devcontainer do not stop when it is unset; the tool installs then run anonymously, and the API limit can stop them.
+`mise run up` needs the checkout trusted by mise (`mise trust`, once per clone). The compose build reads `GITHUB_TOKEN` from the environment, a token without scopes or an empty one. Unlike `mise run build`, `mise run up` and the devcontainer do not stop when it is unset; the tool installs then run anonymously, and the API limit can stop them.
 
 | Command | Effect | Files, browser profiles and settings in the container |
 | --- | --- | --- |
@@ -224,18 +224,19 @@ These places also matter:
 export GITHUB_TOKEN=                  # build, test, test:desktop and ci stop without it: a token with no scopes, or empty for none (SECURITY.md#github-tokens)
 git config core.hooksPath .githooks   # gitleaks on every commit
 mise trust                            # once per clone, by you on a machine you accept it on (AGENTS.md bans it elsewhere)
-make                                  # list tasks
-make lint                             # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel (make lint:shell, lint:docs ... run one)
-make lint:fix                         # rewrite shell and mise TOML formatting
-mise run test:offline [test]          # the four offline tests on the current tree in an existing djd:latest with no network and no build (also: make test:offline)
-make test                             # builds the image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
-make test:desktop                     # the image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
-make test:vm                          # fresh incus or multipass VM: base, server and warp install, hardening, module removal
-make ci                               # every CI job act can run: lint, image (ARGS=image for one)
-make ci ARGS=--dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
+mise tasks ls                        # list tasks
+mise run lint                        # shell, mise configs, workflows + Dockerfile, DESIGN.md, docs links and secrets, in parallel
+mise run lint:fix                    # rewrite shell and mise TOML formatting
+mise run test:offline [test]         # the eight offline tests on the current tree in an existing djd:latest with no network and no build
+mise run test                        # builds the image, then the offline tests, doctor, PATH, shell startup, backup and checkout re-apply, secrets round trip
+mise run test:desktop                # the image: RDP login starts XFCE through ~/.xsession, xrdp-sink is the default audio sink, and brave, ghostty, zen and zed run
+mise run test:vm                     # fresh incus or multipass VM: base, server and warp install, hardening, module removal
+mise run ci                          # every CI job act can run: lint and image
+mise run ci image                    # one CI job
+mise run ci --dry-run                # plan every job of ci, docs, full-weekly, tag and push, release ones included
 ```
 
-`make <task>` is `mise run <task>`, with a few exceptions that the [make targets](docs/tech.md#make-targets) section lists. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead, except for `DESIGN.md` (both run) and the Markdown under `home/.config/pi` and `home/.config/omp` (only `ci.yaml` runs) ([maintenance.md](docs/maintenance.md#workflows)).
+Repo tasks run through `mise run`; [repository tasks](docs/tech.md#repository-tasks) lists them. Repo tools are pinned in `.mise/mise.lock`, and [docs/guidance.md](docs/guidance.md#update-the-pinned-tools) says how to update them. [docs/testing.md](docs/testing.md) says what each CI job proves, and AGENTS.md has the rules, including where tests may run. A push or pull request that changes only Markdown, `docs/` or `llms.txt` skips `ci.yaml` and runs `docs.yaml` instead, except for `DESIGN.md` (both run) and the Markdown under `home/.config/pi` and `home/.config/omp` (only `ci.yaml` runs) ([maintenance.md](docs/maintenance.md#workflows)).
 
 ## Documentation
 

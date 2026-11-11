@@ -2,6 +2,18 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## Unreleased
+
+- SSH: the `server` guard accepts only a key that `ssh-keygen` parses and reads the effective port with `sshd -T`, so a truncated `authorized_keys`, an unreadable drop-in or an `Include` outside `/etc/ssh/sshd_config.d` can no longer let an apply disable password logins for a host with no usable key. `DJD_SKIP_SSH_CHECKS` skips the refusals only when it is exactly `1`, and the drop-in fast path checks its three managed values instead of its existence.
+- Desktop: the xrdp hook and `djd doctor` read `security_layer` from `[Globals]` and `AllowRootLogin` from `[Security]`, so a decoy setting in another section no longer hides an insecure value.
+- X session: a supervisor that gives up leaves no `pipewire-pulse` behind, so logging out no longer depends on the PID of a loop that has already ended.
+- Herdr: Pi's `session_start` no longer waits for a socket that does not answer, and a nested Pi started by an agent shell tool no longer reports over the parent pane's session. A nested session from a user-entered `!` command is still undetectable, and Herdr overwrites the managed extension on update ([problems](docs/problems.md#herdrs-pi-integration-only-detects-tool-spawned-nested-sessions)).
+- Release: `push.yaml` builds with `DJD_GITHUB_TOKEN`, a scope-less repository secret, instead of the job's `packages: write` token, and refuses to build before that secret exists.
+- CI: `mise run ci` passes an explicit empty `GITHUB_TOKEN=` and gives act a `main` scratch branch, so an anonymous run no longer prompts and the main-only workflows are selected.
+- Lint: `lint:secrets` keeps Git mode whenever `.git` exists, `lint:shell` fails on a `find` error, `lint:workflows` refuses a missing credential ignore pattern or a later negation, `lint:config` reads only mise-action steps, `lint:docs` handles duplicate-heading anchors and unknown repository roots, and the runner check reads `runs-on` only.
+- Makefile: `make <task>` is gone; `mise run <task>`, `mise tasks ls`, `./install.sh` and `djd` are the only entry points.
+- Tests: `test:offline` gains `ci`, `desktop-config`, `herdr-state` and `lint`.
+
 ## 0.0.15 (2026-11-10)
 
 - Shell: one `compinit` per shell (mise's hook no longer runs a second), completions of uv, omp and mise load after the prompt, the init cache keys on the command line and forks nothing, and plugins, fzf and atuin are skipped without a terminal (no more `can't change option: zle` for agents). A missing or stale sheldon lock no longer makes every shell try to clone.

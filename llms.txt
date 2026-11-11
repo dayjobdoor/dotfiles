@@ -9,7 +9,7 @@ A coding agent runs `install.sh`, `djd`, `mise bootstrap`, `mise dot` or `mise t
 - [README](README.md): install and the `djd doctor` check, modules, djd, secrets, desktop over RDP, VMs, remove, fork, development tasks, and a table of which doc to read when
 - [Requirements](docs/requirements.md): scope, what ships, what does not, and what done looks like
 - [Architecture](docs/architecture.md): how it is built and why: symlinks, the install flow, modules, hooks, secrets, shell startup, the desktop apps, the RDP service, Docker images and CI decisions
-- [Tech](docs/tech.md): the stack, the constraints, the rejected options, and the lookup tables: modules and what they declare, djd commands, make targets, bootstrap order and hooks, shell startup files, environment variables, Docker images
+- [Tech](docs/tech.md): the stack, the constraints, the rejected options, and the lookup tables: modules and what they declare, djd commands, repository tasks, bootstrap order and hooks, shell startup files, environment variables, Docker images
 - [Directory](docs/directory.md): the layout tree, allowed names, forbidden paths and XDG locations
 - [Problems](docs/problems.md): pitfalls, tooling quirks, accepted costs, RDP security and known limits, and what is not verified
 - [References](docs/references.md): terms, the documentation of each part, and the repository of each tool, app and action
@@ -35,7 +35,6 @@ The layout of the repository, with the purpose of each entry, is in [Directory](
 - [.editorconfig](.editorconfig): editor formatting rules
 - [.shellcheckrc](.shellcheckrc): shellcheck settings
 - [install.sh](install.sh): the installer that `curl | sh` runs
-- [Makefile](Makefile): `make <task>` runs `mise run <task>`
 - [.mise/mise.lock](.mise/mise.lock): the pinned versions of the repo tools
 - [.githooks/](.githooks/): the pre-commit hook
 - [.actrc](.actrc): the act runner images

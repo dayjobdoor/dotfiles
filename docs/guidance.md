@@ -22,14 +22,14 @@ To plan every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml` and 
 mise run ci --dry-run
 ```
 
-The `vm` job does not run under act. To run it, use `make test:vm` on a machine with incus or multipass.
+The `vm` job does not run under act. To run it, use `mise run test:vm` on a machine with incus or multipass.
 
 ## Keep a VM after a failed test
 
-If `make test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM` to `1`. Any other value, an empty one included, deletes the VM:
+If `mise run test:vm` fails and you want to inspect the VM, set `DJD_KEEP_VM` to `1`. Any other value, an empty one included, deletes the VM:
 
 ```sh
-DJD_KEEP_VM=1 make test:vm
+DJD_KEEP_VM=1 mise run test:vm
 ```
 
 The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name> is up` once cloud-init has finished. The task waits for cloud-init for at most 900 s. A VM whose cloud-init failed or timed out is never named, so look for it with `incus list` or `multipass list`. When you finish, delete it with `incus delete -f <name>` or `multipass delete --purge <name>`, depending on the tool that ran.
@@ -123,6 +123,8 @@ A program that saves a managed file through a rename replaces its link with a re
 If you run `djd apply` without `mise dot add`, it moves the regular file aside as `~/.config/starship.toml.djd-backup-<epoch>-<pid>` and links the checkout file again, but the edit stays in the backup until you copy it into the checkout by hand.
 
 ## Publish the first release
+
+Create `DJD_GITHUB_TOKEN` under Settings → Secrets and variables → Actions before the first push. Use a classic token with no scopes or a fine-grained token with no permissions, as [GitHub tokens](../SECURITY.md#github-tokens) explains. The release stops before its image build when the secret is absent; it never substitutes the job token that can publish packages.
 
 This repository has released since 0.0.1; the steps below are for a fork or a new copy, whose release chain has not run against GHCR yet, so watch its first run.
 

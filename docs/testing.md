@@ -4,7 +4,7 @@ What each CI job and each test proves, and where a new test goes. [maintenance.m
 
 ## Jobs in ci.yaml
 
-Every job runs a mise task that you can run locally. `make <task>` runs `mise run <task>`.
+Every job runs a mise task that you can run locally with `mise run`.
 
 ### lint
 
@@ -12,10 +12,10 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 
 - `lint:shell` runs shellcheck and `shfmt -i 4` over every file whose first line is a `sh` or `bash` shebang (with or without options, directly or through `env`), plus `home/.profile`, `.bash_profile`, and `.bashrc`, and `zsh -n` on each zsh startup file separately. It does not lint the inline `postinstall` scripts in the TOML files. When `shfmt` finds a difference, it prints `lint: shell is not formatted; run mise run lint:fix`.
 - `lint:config` runs `mise fmt` and `mise tasks validate`. It skips the gitignored `*.local.toml` files. It also requires that the `min_version` line of `.mise/config.toml`, the `min_version` line of `mise-config/config.toml`, and every `jdx/mise-action` step (an unquoted `version:` line) name the same mise release, because no bot bumps them. `install.sh` is not a pin, because it reads `min_version`. The check fails and names the source when a pin is missing or reformatted.
-- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, runs hadolint, checks that `Dockerfile.dockerignore` still holds the credential patterns, and validates `compose.yaml` with `docker compose config` where docker exists. It fails on a workflow named `*.yml`, because the other checks read `*.yaml` only.
+- `lint:workflows` runs jactionlint over the workflows and `dependabot.yml`, compares the runner labels with `.actrc`, runs hadolint, checks that `Dockerfile.dockerignore` still holds every credential pattern and no unexpected later negation, and validates `compose.yaml` with `docker compose config` where docker exists. It fails on a workflow named `*.yml`, because the other checks read `*.yaml` only.
 - `lint:design` lints `DESIGN.md`.
 - `lint:docs` runs the checks in the next list, and also runs alone in the `lint-docs` job of `docs.yaml`.
-- `lint:secrets` runs gitleaks over the whole git history. When there is no git directory, it runs over the files, so the secret scan never skips.
+- `lint:secrets` runs gitleaks over the whole git history whenever `.git` exists; Git errors fail the check. Only a copy without `.git` runs over the files.
 
 `lint:fix` rewrites shell and mise TOML formatting.
 
@@ -25,7 +25,7 @@ Every job runs a mise task that you can run locally. `make <task>` runs `mise ru
 - Every repo path in an inline code span exists. A leading `./` is allowed, and a path under a top-level name that existed in the git history but not now is reported. Without a git history, as in the docker lint run, only today's names count.
 - Every `mise run` and `djd` command in a span names a real task or command, and every word after `make` does.
 - Every `DJD_` variable in the docs appears in the code.
-- Every `DJD_` variable in the code appears in some doc. `DJD_BAD`, `DJD_CHECK` and `DJD_CHECK2` (secret names that `test` makes up) and `DJD_COMMANDS` (a Makefile variable) are exempt.
+- Every `DJD_` variable in the code appears in some doc. `DJD_BAD`, `DJD_CHECK` and `DJD_CHECK2` (secret names that `test` makes up) are exempt.
 - Every `tests/*.sh` is named in `docs/directory.md` and is run by a task under `.mise/tasks/`. A bare name inside a quoted or space-delimited list counts as a reference, so a test with a common word for a name could pass trivially.
 
 ### The image tests, on amd64 and arm64
@@ -67,8 +67,8 @@ Step 14 in detail:
 | --- | --- |
 | `os-release` with another `VERSION_ID`, or with `ID=debian` | `FAIL ubuntu` |
 | the login shell set to bash | `FAIL login-shell` |
-| the stock sshd layout with `10-djd.conf` | `ok sshd` |
-| the stock layout, with a stub that reports passwords on | `ok sshd`, because the stock layout needs no `sshd -T` |
+| the stock sshd layout with valid `10-djd.conf` directives | `ok sshd` |
+| the stock layout with an empty `10-djd.conf` and a stub that reports passwords on | `FAIL sshd`, because the managed directives do not vouch for the effective settings |
 | `Match all` with `PasswordAuthentication yes`, where the sshd stub honors `-C` and the hook has to pass it | `FAIL sshd` |
 | `Match User nobody` with `X11Forwarding no` | `ok sshd` |
 | an earlier drop-in that turns passwords on | `FAIL sshd` |
@@ -119,7 +119,7 @@ Outside the numbered stages, `check_no_proxy_modules` asserts that `xrdp.ini` in
 - wireplumber starts after the server answers and again after it dies.
 - A wireplumber that keeps dying is given up on after five quick runs, while a 30 s run resets the count.
 - The session bus is made with `--exit-with-session`, so it ends with the session, and the daemons never use a bus address inherited from the login environment.
-- A server that never answers prints one line to stderr and nothing to stdout, and starts nothing.
+- A server that never answers prints one line to stderr and nothing to stdout, starts PipeWire, but starts neither pulse nor WirePlumber.
 - A server that stops answering gets no new wireplumber, and the supervisor itself ends.
 - A server that already answers is left alone.
 - Nothing the script started outlives the desktop, and the exit status of the script is the desktop's.
@@ -144,7 +144,7 @@ The `test:vm` task starts a fresh Ubuntu 26.04 machine from `cloud-init/vm.yaml`
 - `djd module remove server` succeeds. The sshd drop-in and `daemon.json` disappear, the desktop (`~/.xsession`, the Japanese locale) stays, and the ufw SSH rule stays.
 - Brave's menu entry carries no `--no-sandbox`. Only the Docker image adds it.
 
-The task uses the first of incus and multipass that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to every user on the runner (`chmod 666`). It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `make test:vm` runs the same checks with multipass. Both get the checkout through `tests/tree.sh`. The VM is deleted at the end of a run. `DJD_KEEP_VM=1` (exactly `1`) keeps it, to inspect a failure.
+The task uses the first of incus and multipass that it finds. CI installs incus from the Ubuntu archive, initializes it with `incus admin init --minimal`, and opens the daemon socket to every user on the runner (`chmod 666`). It also accepts the `incusbr0` bridge in Docker's `DOCKER-USER` chain, because Docker sets the `FORWARD` policy to `DROP` and would cut the containers off. On a Mac, `mise run test:vm` runs the same checks with multipass. Both get the checkout through `tests/tree.sh`. The VM is deleted at the end of a run. `DJD_KEEP_VM=1` (exactly `1`) keeps it, to inspect a failure.
 
 [guidance.md](guidance.md#test-with-multipass) records the run of `test:vm` on multipass.
 
@@ -154,7 +154,11 @@ The task uses the first of incus and multipass that it finds. CI installs incus 
 | --- | --- | --- | --- |
 | `tests/xsession-audio.sh` | The `~/.xsession` supervisor | `test:offline`, `test:desktop` | The image, the desktop container |
 | `tests/djd-module.sh` | `djd module` with a stub `mise`: selection order, the secrets-with-agent warning, empty `MISE_ENV` items, the server-removal warning, the exit 2 and message for a missing or unknown module name, the injection probe (a module word with `$(...)` is refused), and that the `#USAGE` choices match the canonical order | `test:offline` | The image |
-| `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses | `test:offline` | The image |
+| `tests/server-hooks.sh` | The server `post-packages` hook refuses an apply that would lock the user out of ssh, says why, and leaves the user out of the docker group when it refuses; the shared keys-only check rejects a corrupted managed drop-in | `test:offline` | The image |
+| `tests/ci.sh` | The real local-act task passes an explicit empty token and uses a `main` scratch branch, against an act stub | `test:offline` | The image |
+| `tests/desktop-config.sh` | The xrdp hook and doctor use the intended INI section, reject decoy settings elsewhere, and converge after repair | `test:offline` | The image |
+| `tests/lint.sh` | Secret-scan mode selection, the release installer's token source, credential dockerignore guards, and shell file-enumeration failures, using stub linters | `test:offline` | The image |
+| `tests/herdr-state.sh` | The real Pi Herdr extension does not await a silent socket during startup, a tool-spawned nested Pi does not report over its parent, and a root Pi still reports | `test:offline` | The image |
 | `tests/tree-check.sh` | What `tests/tree.sh` leaves out of the archive, judged by the repository's own `.gitignore`: it runs in an empty `HOME`, has one canary file for each kind of secret the `.gitignore` covers, nests a git repository and a submodule entry with ignored files inside, and plants a hostile global ignore file and `core.excludesFile` that the archive must not reflect | `test:offline` | The image |
 | `tests/desktop-apps.sh` | The four desktop apps, and that Wireshark, Obsidian, Vicinae, Ferdium and fusuma are on `PATH` with a working menu entry | `test:desktop`, `tests/vm-checks.sh` | The image, VM |
 | `tests/vm-checks.sh` | The base, server and warp install, including that xrdp runs with the hardened settings and that `warp-svc` is active and waiting for a registration | `test:vm` | incus or multipass |
@@ -195,6 +199,6 @@ Two failures do not annotate their cause. A failure inside a container script of
 
 - `.actrc` maps the `ubuntu-26.04` runners to `ghcr.io/catthehacker/ubuntu:act-24.04`, because catthehacker publishes no 26.04 image.
 - `mise run ci --dry-run` plans every job of `ci.yaml`, `docs.yaml`, `full-weekly.yaml`, `tag.yaml`, and `push.yaml` without running steps, and it rejects job names. It feeds the release workflows a sample tag push and a sample CI `workflow_run` event.
-- act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged and nested git repositories, and ignores the git configuration and global ignore file of the host. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
+- act receives a copy of the tracked and unignored files from `tests/tree.sh`, which skips files that are deleted but not yet staged and nested git repositories, and ignores the git configuration and global ignore file of the host. The scratch repository is always on `main`. `age.txt`, `miserc.local.toml`, and the `.secrets` file of act never enter its containers.
 - Lint fails on any `ubuntu-*` runner label that `.actrc` does not map, because act stops at an interactive image prompt for an unmapped label.
 

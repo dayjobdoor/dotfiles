@@ -13,14 +13,14 @@ Ubuntu 26.04-only dotfiles managed by mise. Read [docs/requirements.md](docs/req
 
 ## Verify
 
-CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus or multipass VM, never on the host. `make lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`make lint test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all four, and `xsession-audio` is the slow one, see [docs/testing.md](docs/testing.md#test-map)). A whole CI job runs with act (`mise run ci image`).
+CI runs the same mise tasks (`lint`, `test`, `test:desktop`, `test:vm`). Tests that install or apply anything run in Docker or a throwaway incus or multipass VM, never on the host. `mise run lint` runs on the host and installs its user-level tools there. On a machine where the repo is trusted by mise, run the tasks directly (`mise run lint && mise run test`), run one lint check (`mise run lint:docs`, `lint:shell`, `lint:config`, `lint:workflows`, `lint:design`, `lint:secrets`), or run the offline tests alone on an existing `djd:latest` (`mise run test:offline djd-module`; no name runs all eight, and `xsession-audio` is the slow one, see [docs/testing.md](docs/testing.md#test-map)). A whole CI job runs with act (`mise run ci image`).
 
 Without trusting the repo on the host, the task files run directly, and lint runs inside the image. `tests/tree.sh` streams only tracked and unignored files as a tar archive (nothing is mounted), so ignored files such as `age.txt` stay on the host:
 
 ```sh
 export GITHUB_TOKEN=   # empty builds anonymously; or a token with no scopes (SECURITY.md#github-tokens). Never `gh auth token`
 bash .mise/tasks/lint/docs   # needs only bash; docs links, anchors, paths and commands
-.mise/tasks/test/offline     # the four offline tests on an existing djd:latest
+.mise/tasks/test/offline     # the eight offline tests on an existing djd:latest
 .mise/tasks/build && .mise/tasks/test/_default
 .mise/tasks/test/desktop     # builds the same image first
 .mise/tasks/test/vm   # incus or multipass
@@ -42,7 +42,7 @@ tests/tree.sh | docker run --rm -i -e GITHUB_TOKEN djd:latest zsh -lc 'mkdir /tm
 | dotfiles in `~` | `home/` (literal names, e.g. `home/.config/git/config`) |
 | zsh plugins, abbreviations | `home/.config/sheldon/plugins.toml` (sheldon, each plugin pinned by `rev`), `home/.config/zsh-abbr/user-abbreviations`; `home/.config/zsh/.zshrc` loads them. Aliases that replace a command are `[shell_alias]` in `mise-config/config.toml` |
 | djd commands | `mise-config/tasks/djd/<name>` (bash, `#MISE description=`, `#MISE quiet=true`) |
-| repo tasks (lint, build, test, test:offline, test:desktop, test:vm, ci) | `.mise/tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `.mise/tasks/lint/` of `lint:*` checks), short ones in `.mise/config.toml`. The `Makefile` runs `make <task>` as `mise run <task>`, except `init` (runs `install.sh`) and apply, update, status, doctor, module and secret (run `djd`) |
+| repo tasks (lint, build, test, test:offline, test:desktop, test:vm, ci) | `.mise/tasks/<name>` (bash, `#MISE`/`#USAGE` headers; `lint` is the directory `.mise/tasks/lint/` of `lint:*` checks), short ones in `.mise/config.toml` |
 | an offline test (no network, no token) | `tests/<name>.sh` with a `# Contract` header. Add its name to the `choices` and to the default list in `.mise/tasks/test/offline`, which `mise run test` calls, and name it in the layout of `docs/directory.md`; `lint:docs` fails when the docs or the tasks miss it |
 | a check that needs systemd, RDP or an image (the [test map](docs/testing.md#test-map) lists every test) | `tests/vm-checks.sh` (it refuses to run unless `test:vm` sets `DJD_TEST_VM=1`), `.mise/tasks/test/desktop`, or a `doctor_says` scenario in `.mise/tasks/test/_default` |
 | docs | `docs/requirements.md` for what ships, `docs/architecture.md` for how and why, `docs/tech.md` for the stack and the lookup tables, `docs/directory.md` for where files live, `docs/problems.md` for pitfalls and limits, `docs/references.md` for terms and sources, `docs/maintenance.md` for workflows and releases, `docs/testing.md` for tests, `docs/guidance.md` for procedures; `ROADMAP.md` for what is planned and `CHANGELOG.md` for what shipped; `llms.txt` lists them |

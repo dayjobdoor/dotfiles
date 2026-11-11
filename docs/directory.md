@@ -8,7 +8,6 @@ The tree shows the main parts. `git ls-files | cut -d/ -f1 | sort -u` lists ever
 
 ```
 install.sh              entry point: checks for Ubuntu 26.04, links ~/.dotfiles and ~/.config/mise, installs mise, runs djd tasks
-Makefile                make <task> runs mise run <task>, with a few exceptions
 .mise/                  the repo's own mise project, separate from mise-config/
   config.toml           repo tasks and the tools each task declares
   mise.lock, .mise/locks/  those tools pinned, with checksums, and the npm dependency graph (`mise lock` writes locks/ in the .mise/ of the project root)
@@ -28,7 +27,7 @@ mise-config/            linked as ~/.config/mise, the global config
   tasks/djd/            the djd commands, as global file tasks
   hooks/                dotfile-conflicts, server-post-packages, server-pre-dotfiles, sshd-keys-only, desktop-final and sheldon-lock: hook scripts that are too long for an inline [bootstrap.hooks] string; sshd-keys-only is not a hook of its own but the check that server-pre-dotfiles and `djd doctor` both run
 home/                   dotfile group home, symlinked file by file into ~ (home/.config/pi and home/.config/omp hold the pi and omp config)
-tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, xsession-audio.sh, djd-module.sh, and server-hooks.sh
+tests/                  tree.sh, tree-check.sh, vm-checks.sh, desktop-apps.sh, desktop-config.sh, xsession-audio.sh, djd-module.sh, server-hooks.sh, ci.sh, lint.sh and herdr-state.sh
 cloud-init/vm.yaml      the cloud-init file for incus and multipass
 .devcontainer/          Dockerfile, Dockerfile.dockerignore, desktop-entrypoint.sh, compose.yaml, devcontainer.json, .env.example
 .githooks/              pre-commit hook that runs gitleaks
