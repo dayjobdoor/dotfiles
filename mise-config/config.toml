@@ -253,7 +253,8 @@ fc-cache -f "$d"
 # pin is deliberate: Obsidian's latest release can be mobile-only (v1.13.8 holds an .apk and nothing else), so `latest`
 # could pick a release without Linux files and fail the apply, and the Electron apps update themselves after their first
 # launch (SECURITY.md), so a pin holds only until then. mise checks the digest that GitHub reports for each asset (and
-# its attestation, where there is one), so no checksum is kept here. `mise run bump:apps` moves the three pins to the
+# its attestation, where there is one), so no checksum is kept here: a file re-uploaded under the pinned version would pass,
+# where a checksum in this file would fail it (the backend accepts a `checksum` line per platform; docs/architecture.md). `mise run bump:apps` moves the three pins to the
 # newest eligible releases (the three-day minimum_release_age applies) and changes the version line only; `mise up --bump`
 # would also move a pin, but rewrites the whole table in its own formatting (strip_components becomes a string, the
 # platform tables become one inline table). (The backend leaves a .AppImage or .deb as one raw file; the postinstalls below
