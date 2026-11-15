@@ -3,7 +3,7 @@
 # (tests/vm-checks.sh): the command runs and the XFCE menu entry points at something executable. The extra apps
 # (Wireshark, Obsidian, Vicinae, Ferdium) only have to be on PATH with a menu entry that points at something
 # executable, and fusuma, a gem that has no menu entry, on PATH; Electron programs print no version without a
-# display, so they are not run.
+# display, so they are not run. The AppArmor profile of Obsidian and Ferdium must attach to the installed binary.
 # DJD_APPS_LAUNCH=1 (the image test only, which runs it after the RDP login) also starts brave-browser and zen headless,
 # and ghostty and zed inside the running XFCE session, where each must put a window on screen.
 set -euo pipefail
@@ -160,3 +160,22 @@ while IFS='|' read -r cmd id version; do
     extra_checked=$((extra_checked + 1))
 done <<<"$extras"
 [ "$extra_checked" = "$(grep -c . <<<"$extras")" ] || fail "checked $extra_checked extra apps, the list has $(grep -c . <<<"$extras")"
+
+# /etc/apparmor.d/djd-electron attaches a profile to Obsidian and Ferdium by the path of the binary, which is inside the
+# install directory of the mise tool and so changes with the backend and the version. A path that no installed binary
+# matches is a profile that never applies: Ubuntu then denies the program its user namespaces and its sandbox cannot
+# start, and nothing else says so. AppArmor is absent from the image, where the file is inert, but the path is still
+# the one to match, so this runs there as well.
+profiles=/etc/apparmor.d/djd-electron
+[ -r "$profiles" ] || fail "$profiles is missing"
+for cmd in obsidian ferdium; do
+    bin=$(readlink -f "$(mise which "$cmd")")
+    attach=$(sed -n "s|^profile djd-$cmd \(.*\) flags=.*|\1|p" "$profiles")
+    [ -n "$attach" ] || fail "$profiles has no djd-$cmd profile"
+    # an AppArmor * stops at a /, so it becomes [^/]*; @{HOME} is the home directory
+    re=${attach//@\{HOME\}/$HOME}
+    re=${re//./\\.}
+    re=${re//\*/[^/]*}
+    [[ $bin =~ ^$re$ ]] || fail "the djd-$cmd profile attaches to $attach, and the installed $cmd is $bin"
+done
+echo "ok the AppArmor profiles attach to the installed Obsidian and Ferdium"
