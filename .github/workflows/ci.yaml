@@ -68,9 +68,9 @@ jobs:
           version: 2026.10.23
           install: false
       # `docker build` loads its image into the runner's docker, whose default image store (containerd's) gzips all
-      # 6.4 GB of layers and unpacks them again: 130 s of a 260 s build on amd64 and 110 s on arm64. The classic store
-      # (overlay2) takes 7 to 12 s for the same export, and is what a developer's docker usually runs (probe of
-      # November 2026). act has no systemd and uses the host's docker, so the step does not run there.
+      # 6.4 GB of layers and unpacks them again, about 115 s. The classic store (overlay2) takes 18 to 25 s for the same
+      # export, and is what a developer's docker usually runs; the whole build was about 87 s shorter (probe of
+      # November 2026, docs/maintenance.md). act has no systemd and uses the host's docker, so the step does not run there.
       - name: Use the classic image store
         if: ${{ !env.ACT }}
         run: |
