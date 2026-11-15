@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#MISE description="Pin the newest eligible release of Obsidian, Vicinae and Ferdium in mise-config/config.toml (reads versions, installs nothing)"
+set -euo pipefail
+cd "$(dirname "$0")/../../.."
+
+config=mise-config/config.toml
+tools=(github:obsidianmd/obsidian-releases github:vicinaehq/vicinae github:ferdium/ferdium-app)
+
+# mise-config as the global config, so that these are the tools mise reads and its minimum_release_age (three days)
+# decides which release is eligible. `mise outdated --bump` asks GitHub and installs nothing, so this runs on a Mac as
+# well, where the Linux assets would not install. A row is: tool, requested, current, bump, latest, config file; the
+# bump column is [NONE] for a tool that is current.
+rows=$(MISE_CONFIG_DIR="$PWD/mise-config" mise outdated --bump --no-header "${tools[@]}")
+
+changed=0
+while read -r name requested _ bump _; do
+    [ -n "$name" ] && [ "$bump" != "[NONE]" ] || continue
+    # the first version line below the tool's own table header, which is not one of its platform tables
+    awk -v header="[tools.\"$name\"]" -v new="$bump" '
+        $0 == header { inside = 1 }
+        inside && /^version = / { sub(/"[^"]*"/, "\"" new "\""); inside = 0 }
+        { print }' "$config" >"$config.new"
+    mv "$config.new" "$config"
+    echo "bump:apps: $name $requested -> $bump"
+    changed=1
+done <<<"$rows"
+
+if [ "$changed" = 0 ]; then
+    echo "bump:apps: Obsidian, Vicinae and Ferdium are current"
+else
+    echo "bump:apps: now run mise run test:desktop (it installs them, and mise checks GitHub's digest of each file)"
+fi

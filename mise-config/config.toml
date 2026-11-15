@@ -233,8 +233,9 @@ EOF
 asset_pattern = "zen.linux-x86_64.tar.xz"
 [tools."github:zen-browser/desktop".platforms.linux-arm64]
 asset_pattern = "zen.linux-aarch64.tar.xz"
-# HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. To bump it, change `version` and the
-# checksum together. mise strips the zip's top directory, so the .ttf files sit flat in the install dir. The
+# HackGen NF, the terminal font in DESIGN.md, has no Ubuntu package. Its GitHub release carries no digest, so a
+# `github:` tool could not check it: this is an `http:` tool with the SHA-256 written here. To bump it, change `version`
+# and the checksum together. mise strips the zip's top directory, so the .ttf files sit flat in the install dir. The
 # files are copied out, because a versioned install dir is gone after the next upgrade; PATH is reset for the
 # reason given at the Zed entry.
 [tools."http:hackgen"]
@@ -248,20 +249,22 @@ rm -rf "$d"; mkdir -p "$d"
 install -m644 "$MISE_TOOL_INSTALL_PATH"/*.ttf "$d"
 fc-cache -f "$d"
 '''
-# Obsidian, Vicinae and Ferdium are `http:` tools pinned to a release and to the SHA-256 of each platform's file, where
-# zed and zen follow `latest`. The pin is deliberate: an `http:` tool needs no GitHub API call (anonymous callers get
-# 60 an hour), mise checks the digest that is written here, and Obsidian's latest release can be mobile-only, so
-# `latest` could pick a release without Linux files. (Either backend leaves a .AppImage or .deb as one raw file; the
-# postinstalls below do the unpacking.) The pin holds only for the first launch of Obsidian and Ferdium, which update
-# themselves (SECURITY.md). To update one, change its version and both checksums (`shasum -a 256` of the two files).
+# Obsidian, Vicinae and Ferdium are `github:` tools pinned to an exact release, where zed and zen follow `latest`. The
+# pin is deliberate: Obsidian's latest release can be mobile-only (v1.13.8 holds an .apk and nothing else), so `latest`
+# could pick a release without Linux files and fail the apply, and the Electron apps update themselves after their first
+# launch (SECURITY.md), so a pin holds only until then. mise checks the digest that GitHub reports for each asset (and
+# its attestation, where there is one), so no checksum is kept here. `mise run bump:apps` moves the three pins to the
+# newest eligible releases (the three-day minimum_release_age applies), and `mise up --bump <tool>` does the same on a
+# Linux machine and installs the result. (The backend leaves a .AppImage or .deb as one raw file; the postinstalls below
+# do the unpacking.) HackGen stays an `http:` tool above: its release carries no digest for mise to check.
 # Each postinstall puts one program in the tool's own bin/ (mise shims only that dir), so the helpers next to it, such
 # as chrome-sandbox, stay off PATH, and copies the menu entry and icon out, with Exec on the mise shim. Obsidian and
 # Ferdium are Electron apps: Ubuntu blocks unprivileged user namespaces for programs without an AppArmor profile, and
 # their sandbox needs them, so /etc/apparmor.d/djd-electron below allows them for these two programs only. Nothing here
 # passes --no-sandbox (tests/vm-checks.sh checks the menu entries). Vicinae's AppImage is unpacked once, so it needs
 # no FUSE.
-[tools."http:obsidian"]
-version = "1.15.0"
+[tools."github:obsidianmd/obsidian-releases"]
+version = "1.15.1"
 strip_components = 1
 postinstall = '''
 export PATH=/usr/bin:/bin
@@ -280,13 +283,11 @@ MimeType=x-scheme-handler/obsidian;
 StartupWMClass=obsidian
 EOF
 '''
-[tools."http:obsidian".platforms.linux-x64]
-url = "https://github.com/obsidianmd/obsidian-releases/releases/download/v{{ version }}/obsidian-{{ version }}.tar.gz"
-checksum = "sha256:75594ae09914ca0191dde13c0697dee653322287a3a806c15519332d9ada14d3"
-[tools."http:obsidian".platforms.linux-arm64]
-url = "https://github.com/obsidianmd/obsidian-releases/releases/download/v{{ version }}/obsidian-{{ version }}-arm64.tar.gz"
-checksum = "sha256:7e1bdd82fc65dcc3c03de5b8a85a8d79258f94642ba27987c2d1188b9763e903"
-[tools."http:vicinae"]
+[tools."github:obsidianmd/obsidian-releases".platforms.linux-x64]
+asset_pattern = "obsidian-{{ version }}.tar.gz"
+[tools."github:obsidianmd/obsidian-releases".platforms.linux-arm64]
+asset_pattern = "obsidian-{{ version }}-arm64.tar.gz"
+[tools."github:vicinaehq/vicinae"]
 version = "0.30.0"
 postinstall = '''
 export PATH=/usr/bin:/bin
@@ -309,14 +310,12 @@ Categories=Utility;
 StartupWMClass=vicinae
 EOF
 '''
-[tools."http:vicinae".platforms.linux-x64]
-url = "https://github.com/vicinaehq/vicinae/releases/download/v{{ version }}/Vicinae-x86_64.AppImage"
-checksum = "sha256:bc9df9cb0190244e728a67a42e00217650f3e7b0b32f6c91721bddb2de3ea904"
-[tools."http:vicinae".platforms.linux-arm64]
-url = "https://github.com/vicinaehq/vicinae/releases/download/v{{ version }}/Vicinae-aarch64.AppImage"
-checksum = "sha256:317c3885279f8161cb0b08d7e337b32956e2373a973a7ba34d0034c6878187b9"
+[tools."github:vicinaehq/vicinae".platforms.linux-x64]
+asset_pattern = "Vicinae-x86_64.AppImage"
+[tools."github:vicinaehq/vicinae".platforms.linux-arm64]
+asset_pattern = "Vicinae-aarch64.AppImage"
 # Ferdium's release is a .deb: the postinstall unpacks it into the tool's dir (dpkg-deb -x needs no root).
-[tools."http:ferdium"]
+[tools."github:ferdium/ferdium-app"]
 version = "7.2.3"
 postinstall = '''
 export PATH=/usr/bin:/bin
@@ -336,12 +335,10 @@ Categories=Network;InstantMessaging;
 StartupWMClass=Ferdium
 EOF
 '''
-[tools."http:ferdium".platforms.linux-x64]
-url = "https://github.com/ferdium/ferdium-app/releases/download/v{{ version }}/Ferdium-linux-{{ version }}-amd64.deb"
-checksum = "sha256:f8a3f5d3b6bc4e6af6a91f291fe807b97a84aa20b91313c65e860ea95d54adba"
-[tools."http:ferdium".platforms.linux-arm64]
-url = "https://github.com/ferdium/ferdium-app/releases/download/v{{ version }}/Ferdium-linux-{{ version }}-arm64.deb"
-checksum = "sha256:e979ee4aa1ce2710144531967e2e10501bf889cb4b9a3789028cab3e0fa8f818"
+[tools."github:ferdium/ferdium-app".platforms.linux-x64]
+asset_pattern = "Ferdium-linux-{{ version }}-amd64.deb"
+[tools."github:ferdium/ferdium-app".platforms.linux-arm64]
+asset_pattern = "Ferdium-linux-{{ version }}-arm64.deb"
 # Ubuntu's AppArmor policy denies unprivileged user namespaces to a program with no profile, and Chromium's sandbox
 # (Electron: Obsidian and Ferdium) needs them. This profile names the two programs and lifts only that restriction
 # (flags=(unconfined) leaves the rest alone). hooks/desktop-final loads it where AppArmor runs; elsewhere the file is inert.
@@ -350,11 +347,11 @@ content = """
 abi <abi/4.0>,
 include <tunables/global>
 
-profile djd-obsidian @{HOME}/.local/share/mise/installs/http-obsidian/*/obsidian flags=(unconfined) {
+profile djd-obsidian @{HOME}/.local/share/mise/installs/github-obsidianmd-obsidian-releases/*/obsidian flags=(unconfined) {
   userns,
 }
 
-profile djd-ferdium @{HOME}/.local/share/mise/installs/http-ferdium/*/root/opt/Ferdium/ferdium flags=(unconfined) {
+profile djd-ferdium @{HOME}/.local/share/mise/installs/github-ferdium-ferdium-app/*/root/opt/Ferdium/ferdium flags=(unconfined) {
   userns,
 }
 """
