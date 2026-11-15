@@ -29,6 +29,21 @@ jobs:
         with:
           version: 2026.10.23
           install: false
+      # `docker build` loads its image into the runner's docker, whose default image store (containerd's) gzips all
+      # the layers and unpacks them again: about 100 to 130 s for the 6.4 GB of the default image. The classic store
+      # (overlay2) takes 7 to 12 s for the same export, and is what a developer's docker usually runs (probe of
+      # November 2026). act has no systemd and uses the host's docker, so the step does not run there.
+      - name: Use the classic image store
+        if: ${{ !env.ACT }}
+        run: |
+          set -o pipefail
+          sudo mkdir -p /etc/docker
+          if [ -s /etc/docker/daemon.json ]; then sudo cat /etc/docker/daemon.json; else echo '{}'; fi |
+            jq '.features["containerd-snapshotter"] = false' | sudo tee /etc/docker/daemon.json.new >/dev/null
+          sudo mv /etc/docker/daemon.json.new /etc/docker/daemon.json
+          sudo systemctl restart docker
+          for _ in $(seq 15); do docker info >/dev/null 2>&1 && break; sleep 1; done
+          test "$(docker info --format '{{.Driver}}')" = overlay2
       - name: Build full image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
