@@ -2,7 +2,7 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
-## 0.0.20
+## 0.0.20 (2026-11-15)
 
 - Tests: `tests/desktop-apps.sh` checks that the AppArmor profiles of Obsidian and Ferdium attach to the installed binaries. They match by path, and the path moved with the 0.0.19 change of backend; before, only the profile names were looked for, so a stale path would have protected nothing without any test saying so.
 - `bump:apps` writes only a version that looks like one and stops, changing nothing, when mise's output has a different shape or a tool has no table in the config. It is the way to move the pins: `mise up --bump` rewrites the whole table in its own formatting (the 0.0.19 entry named it as an alternative).
