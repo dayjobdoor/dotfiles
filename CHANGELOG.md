@@ -2,10 +2,15 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
-## Unreleased
+## 0.0.17 (2026-11-15)
+
+- Shell: a `compinit` dump older than a day is refreshed after the full run. `compinit` left it as old as it was, so every later start took the slow branch; `test` now checks it.
+- CI: the measured gain of the classic image store is about 87 s per build, with the apt layer about 7 s slower under it (probe with the stores alternating, in `docs/maintenance.md`); the first estimate for 0.0.16 counted the export alone.
+
+## 0.0.16 (2026-11-15)
 
 - CI: the `image` job and the weekly `full` build switch the runner's docker to its classic image store before they build. Loading the image into docker's default store (containerd's) gzipped and unpacked all the layers again, about 115 s of a 260 to 290 s build; with `overlay2` the export takes 18 to 25 s and the whole build is about 87 s shorter (a probe on both runners, uncached builds, the stores alternating; the apt layer was about 7 s slower under `overlay2`). The step is skipped under act.
-- Shell: uv's completion is an autoloaded `_uv` file instead of a 569 KB script sourced after every prompt, the cached inits and the `compinit` dump are compiled with `zcompile`, and the `mkdir` fork at start is gone. A `compinit` dump older than a day is refreshed after the full run; `compinit` left it as old as it was, so every later start took the slow branch, and `test` now checks it. On a pty in the image, the deferred work (plugins, completions) was done after 330 ms instead of 407 ms.
+- Shell: uv's completion is an autoloaded `_uv` file instead of a 569 KB script sourced after every prompt, the cached inits and the `compinit` dump are compiled with `zcompile`, and the `mkdir` fork at start is gone. On a pty in the image, the deferred work (plugins, completions) was done after 330 ms instead of 407 ms.
 - `lint:docs` skips the command check for spans that cannot hold a command and computes each file's heading slugs once: 54 to 80 s down to 15 to 20 s on a Mac, with the same messages for broken links, paths and commands.
 - SSH: the `server` guard accepts only a key that `ssh-keygen` parses and reads the effective port with `sshd -T`, so a truncated `authorized_keys`, an unreadable drop-in or an `Include` outside `/etc/ssh/sshd_config.d` can no longer let an apply disable password logins for a host with no usable key. `DJD_SKIP_SSH_CHECKS` skips the refusals only when it is exactly `1`, and the drop-in fast path checks its three managed values instead of its existence.
 - Desktop: the xrdp hook and `djd doctor` read `security_layer` from `[Globals]` and `AllowRootLogin` from `[Security]`, so a decoy setting in another section no longer hides an insecure value.
