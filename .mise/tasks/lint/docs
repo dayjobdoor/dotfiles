@@ -20,7 +20,10 @@ for f in $docs; do
         elif [ -n "$anchor" ] && [ -f "$target" ]; then
             # GitHub's heading slugs decide what an anchor is
             # fences skipped like the span extractor below: a `# comment` in a code block is no heading
-            slugs=$(awk '/^[ \t]*```/ { fence = !fence; next } !fence && /^#+ /' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g' | awk '
+            # once per target file, in a variable named after it (no associative array: macOS still ships bash 3.2)
+            key=slugs_${target//[^A-Za-z0-9]/_}
+            if [ -z "${!key+x}" ]; then
+                printf -v "$key" '%s' "$(awk '/^[ \t]*```/ { fence = !fence; next } !fence && /^#+ /' "$target" | sed -E 's/^#+ +//' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g; s/ /-/g' | awk '
                 {
                     slug = $0
                     if (slug in occurrences) {
@@ -33,7 +36,9 @@ for f in $docs; do
                     occurrences[slug] = 0
                     print slug
                 }
-            ')
+            ')"
+            fi
+            slugs=${!key}
             # a here-string, not a pipe: grep -q exiting early would SIGPIPE the producer under pipefail
             if ! grep -qxF -- "$anchor" <<<"$slugs"; then
                 echo "lint: $f links to a missing anchor: $link" >&2
@@ -103,7 +108,9 @@ while IFS=$'\t' read -r f line span; do
         case $allow_paths in *" $tok "*) continue ;; esac
         [ -e "$tok" ] || fail "$f" "$line" "missing path: $tok"
     done
-    # 2. commands: after `mise run` and `djd`, only the first word that is no flag
+    # 2. commands: after `mise run` and `djd`, only the first word that is no flag. A span without `mise run ` or `djd `
+    # holds none, and most of the thousands of spans hold neither: forking a grep and a sed for each took most of a minute
+    case $span in *"mise run "* | *"djd "*) ;; *) continue ;; esac
     while IFS= read -r cmd; do
         # a quote that closes the command inside a span, as in `zsh -lc 'djd doctor'`: the one a value does not balance
         for q in \' \"; do
