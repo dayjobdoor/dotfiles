@@ -44,7 +44,7 @@ Pointers before you search: the terms of this repository, the documentation of t
 
 ## Tools and repositories
 
-Where each tool and project comes from. The versions are in the configs: `latest` tools resolve at install time, the pinned `http:` tools carry a version and a checksum in `mise-config/config.toml`, and `.mise/mise.lock` pins the repo's own tools. `mise registry <name>` shows the backend that mise uses for a name.
+Where each tool and project comes from. The versions are in the configs: `latest` tools resolve at install time, the pinned desktop apps carry an exact version in `mise-config/config.toml` (`github:` tools, checked against GitHub's digest; HackGen is an `http:` tool with a checksum), and `.mise/mise.lock` pins the repo's own tools. `mise registry <name>` shows the backend that mise uses for a name.
 
 ### This repository
 
@@ -93,9 +93,9 @@ Where each tool and project comes from. The versions are in the configs: `latest
 | `zed` | [zed-industries/zed](https://github.com/zed-industries/zed) | `github:` tool, latest |
 | `zen` | [zen-browser/desktop](https://github.com/zen-browser/desktop) | `github:` tool, latest |
 | `hackgen` | [yuru7/HackGen](https://github.com/yuru7/HackGen) | `http:` tool, pinned, SHA-256 |
-| `obsidian` | [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases) | `http:` tool, pinned, SHA-256 |
-| `vicinae` | [vicinaehq/vicinae](https://github.com/vicinaehq/vicinae) | `http:` tool, pinned, SHA-256 |
-| `ferdium` | [ferdium/ferdium-app](https://github.com/ferdium/ferdium-app) | `http:` tool, pinned, SHA-256 |
+| `obsidian` | [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases) | `github:` tool, pinned |
+| `vicinae` | [vicinaehq/vicinae](https://github.com/vicinaehq/vicinae) | `github:` tool, pinned |
+| `ferdium` | [ferdium/ferdium-app](https://github.com/ferdium/ferdium-app) | `github:` tool, pinned |
 | `ghostty` | [ghostty-org/ghostty](https://github.com/ghostty-org/ghostty) | Ubuntu archive (`apt`) |
 | `xrdp` | [neutrinolabs/xrdp](https://github.com/neutrinolabs/xrdp) | Ubuntu archive (`apt`) |
 | `brave-browser` | [brave.com](https://brave.com) | Brave's apt repository |

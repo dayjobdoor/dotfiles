@@ -2,6 +2,10 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## 0.0.19
+
+- Obsidian, Vicinae and Ferdium are `github:` tools pinned to an exact version instead of `http:` tools with a checksum per platform. mise checks the digest that GitHub reports for each file, which is the checksum the config held (the digests are the same), and `mise run bump:apps` moves the pins to the newest eligible releases without installing anything; `mise up --bump <tool>` does it on a Linux machine. Obsidian is 1.15.1. The AppArmor profile of the two Electron apps names the new install directories. HackGen stays an `http:` tool, because its release carries no digest, and `mise up` still warns about that one alone.
+
 ## 0.0.18 (2026-11-15)
 
 - Tests: `test:desktop` no longer runs `tests/xsession-audio.sh`, which `test:offline` already runs against the same files in the same image: 30 s of a CI step of about 115 s (84 to 86 s now, on both runners). The stage table of `docs/testing.md` loses its stage 8.

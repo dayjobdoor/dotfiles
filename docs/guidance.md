@@ -40,13 +40,15 @@ The VM is named `djd-test-<pid>-<random number>`, and the task prints `vm: <name
 
 ## Update a pinned desktop app
 
-Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.toml`, pinned to a version and a SHA-256 per platform. HackGen is the exception: one zip for both platforms, so one `url` and one `checksum`.
+Obsidian, Vicinae and Ferdium are `github:` tools in `mise-config/config.toml`, pinned to an exact version, with the asset named per platform (`linux-x64` and `linux-arm64`). mise checks the digest that GitHub reports for each file, and the artifact attestation where there is one, so the config holds no checksum.
 
-1. Read the new release page and pick the files of both platforms (`linux-x64` and `linux-arm64`). Obsidian's latest release can be mobile-only, so check that it has the Linux archives.
-2. Download each file and run `shasum -a 256 <file>`.
-3. Change `version` and both `checksum` lines, then run `mise run test:vm` or `mise run test:desktop`.
+1. Run `mise run bump:apps`. It asks GitHub for the newest release of each (`mise outdated --bump`, which installs nothing and so also runs on a Mac) under the three-day `minimum_release_age`, and rewrites the `version` line of each tool that has one. Obsidian's newest release can be mobile-only (v1.13.8 is an .apk and nothing else): the install then fails with `No matching asset found`, so check the release page when `bump:apps` proposes a version, and edit the line by hand for an older release if need be.
+2. Run `mise run test:desktop` or `mise run test:vm`. They install the new files, and a digest that does not match fails the install. On a Linux machine, `mise up --bump` followed by the names of the three tools (the `[tools.…]` tables of the config) does the same as steps 1 and 2 in place: it edits the config of the checkout and installs the result. A plain `mise up` leaves an exact pin where it is.
+3. Commit the change in `mise-config/config.toml`.
 
-`mise up` and `djd update` print `Error getting latest version for http:obsidian: no latest version found` for each of the four. It is not a failure: an `http:` tool has a URL and no release feed, so mise cannot ask it for a newer version, and the pin only moves by the steps above. The other warning that `mise up` prints, `newer <tool> release ... ignored by minimum_release_age (3d)`, is the three-day rule at work; the release becomes eligible at the time the message gives.
+HackGen is the one `http:` tool: its release carries no digest for mise to check, so its `version` and its single `checksum` (`shasum -a 256` of the zip) are changed together by hand.
+
+`mise up` and `djd update` print `Error getting latest version for http:hackgen: no latest version found`. It is not a failure: an `http:` tool has a URL and no release feed, so mise cannot ask it for a newer version. The other warning that `mise up` prints, `newer <tool> release ... ignored by minimum_release_age (3d)`, is the three-day rule at work; the release becomes eligible at the time the message gives.
 
 ## Update the pinned agent extensions
 
