@@ -135,6 +135,15 @@ out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; zsh -ic 
 }
 ok interactive shells start silently
 
+# compinit leaves a dump that it still finds valid as old as it was, and a dump older than a day sends a start through
+# the slower full compinit; .zshrc refreshes its mtime, or every start after the first day would pay for it
+out=$(docker run --rm -t "$image" zsh -c 'zsh -ic true >/dev/null 2>&1; d=$HOME/.cache/zsh/zcompdump-$ZSH_VERSION; touch -d "2 days ago" $d; zsh -ic true >/dev/null 2>&1; [[ -n $(find $d -mmin -5) ]] && echo refreshed' | tr -d '\r')
+[ "$out" = refreshed ] || {
+    echo "the compinit dump of a shell started after a day was not refreshed" >&2
+    exit 1
+}
+ok a stale compinit dump is refreshed
+
 # Stub banner tools, each with its own output, so that a branch of .zlogin that is gone or wired to the wrong
 # tool changes the expected text: fortune | cowsay prints COW, figlet | lolcat prints LOL. fastfetch stands in for
 # the goodbye that .zlogout prints when an interactive login shell exits. A login shell that runs a command

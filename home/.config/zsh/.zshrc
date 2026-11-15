@@ -102,6 +102,9 @@ if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
     compinit -C -d $_djd_zcompdump
 else
     compinit -d $_djd_zcompdump
+    # compinit writes the dump again only when the number of completion files changed; otherwise it sources the old one
+    # and leaves it as old as it was, so without this every later start would take this slower branch too
+    [[ -f $_djd_zcompdump ]] && touch $_djd_zcompdump
 fi
 # the dump is sourced at every start: parsed once, it takes about half the time (zsh prefers a newer .zwc)
 if [[ -s $_djd_zcompdump && ( ! -s $_djd_zcompdump.zwc || $_djd_zcompdump -nt $_djd_zcompdump.zwc ) ]]; then
