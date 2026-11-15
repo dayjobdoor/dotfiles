@@ -15,11 +15,23 @@ rows=$(MISE_CONFIG_DIR="$PWD/mise-config" mise outdated --bump --no-header "${to
 changed=0
 while read -r name requested _ bump _; do
     [ -n "$name" ] && [ "$bump" != "[NONE]" ] || continue
+    # what goes into the config has to look like a version: a column that moved in a later mise would otherwise write
+    # a file name or a word there
+    [[ $bump =~ ^[0-9][0-9A-Za-z.+_-]*$ ]] || {
+        echo "bump:apps: mise printed '$bump' as the new version of $name, which is no version; its output has changed" >&2
+        exit 1
+    }
     # the first version line below the tool's own table header, which is not one of its platform tables
     awk -v header="[tools.\"$name\"]" -v new="$bump" '
         $0 == header { inside = 1 }
         inside && /^version = / { sub(/"[^"]*"/, "\"" new "\""); inside = 0 }
         { print }' "$config" >"$config.new"
+    # no version line below the header means the table is not what this expects: change nothing
+    if cmp -s "$config" "$config.new"; then
+        rm -f "$config.new"
+        echo "bump:apps: $config has no version line under [tools.\"$name\"]" >&2
+        exit 1
+    fi
     mv "$config.new" "$config"
     echo "bump:apps: $name $requested -> $bump"
     changed=1

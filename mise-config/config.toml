@@ -254,8 +254,9 @@ fc-cache -f "$d"
 # could pick a release without Linux files and fail the apply, and the Electron apps update themselves after their first
 # launch (SECURITY.md), so a pin holds only until then. mise checks the digest that GitHub reports for each asset (and
 # its attestation, where there is one), so no checksum is kept here. `mise run bump:apps` moves the three pins to the
-# newest eligible releases (the three-day minimum_release_age applies), and `mise up --bump <tool>` does the same on a
-# Linux machine and installs the result. (The backend leaves a .AppImage or .deb as one raw file; the postinstalls below
+# newest eligible releases (the three-day minimum_release_age applies) and changes the version line only; `mise up --bump`
+# would also move a pin, but rewrites the whole table in its own formatting (strip_components becomes a string, the
+# platform tables become one inline table). (The backend leaves a .AppImage or .deb as one raw file; the postinstalls below
 # do the unpacking.) HackGen stays an `http:` tool above: its release carries no digest for mise to check.
 # Each postinstall puts one program in the tool's own bin/ (mise shims only that dir), so the helpers next to it, such
 # as chrome-sandbox, stay off PATH, and copies the menu entry and icon out, with Exec on the mise shim. Obsidian and
