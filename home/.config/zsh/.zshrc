@@ -30,7 +30,7 @@ setopt extended_glob
 
 autoload -Uz colors && colors
 
-mkdir -p $XDG_CACHE_HOME/zsh
+[[ -d $XDG_CACHE_HOME/zsh ]] || mkdir -p $XDG_CACHE_HOME/zsh # a fork at every start otherwise
 zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
 zstyle ':completion:*' use-cache on
 # mise first: its hook runs at once and puts the installed tools' own directories before the shims, so
@@ -58,6 +58,8 @@ _djd_init() {
         mkdir -p ${file:h}
         # write aside and rename, so an interrupted or concurrent shell never leaves a partial file
         "${@:2}" >| $file.$$ && mv -f $file.$$ $file || { rm -f $file.$$; return 0 }
+        # zsh sources file.zwc, the parsed form, when it is newer than the file: about a third less time per start
+        zcompile $file 2>/dev/null
     fi
     source $file
 }
@@ -76,6 +78,22 @@ if [[ -t 0 && -s $_djd_lock && $_djd_lock -nt $XDG_CONFIG_HOME/sheldon/plugins.t
 fi
 unset _djd_lock
 
+# uv's completion script is 569 KB, and sourcing it took 90 ms of every shell. As a file named _uv in fpath it is an
+# autoloaded function instead: nothing is read until the first <Tab> after `uv`. It lives under init/, so `djd apply`
+# clears it with the other caches, and the key is the binary's resolved path, like the inits below. A new file is not in
+# the compinit dump yet, so the dump goes with it (the next compinit scans fpath once).
+if (( $+commands[uv] )); then
+    () {
+        local d=$XDG_CACHE_HOME/zsh/init/uv-${${commands[uv]:A}//[^[:alnum:]]/_}
+        if [[ ! -s $d/_uv ]]; then
+            mkdir -p $d && uv generate-shell-completion zsh >| $d/_uv.$$ && mv -f $d/_uv.$$ $d/_uv &&
+                rm -f $XDG_CACHE_HOME/zsh/zcompdump-*(N)
+            rm -f $d/_uv.$$
+        fi
+        [[ -s $d/_uv ]] && fpath=($d $fpath)
+    }
+fi
+
 # a dump younger than a day is trusted (compinit -C skips the scan of every fpath file, about 40 ms); a newer zsh
 # starts a fresh dump (the version is in the file name)
 autoload -Uz compinit
@@ -84,6 +102,10 @@ if [[ -n $_djd_zcompdump(#qN.mh-24) ]]; then
     compinit -C -d $_djd_zcompdump
 else
     compinit -d $_djd_zcompdump
+fi
+# the dump is sourced at every start: parsed once, it takes about half the time (zsh prefers a newer .zwc)
+if [[ -s $_djd_zcompdump && ( ! -s $_djd_zcompdump.zwc || $_djd_zcompdump -nt $_djd_zcompdump.zwc ) ]]; then
+    zcompile $_djd_zcompdump 2>/dev/null
 fi
 unset _djd_zcompdump
 
@@ -109,9 +131,9 @@ if [[ -t 0 ]]; then
     # after fzf: both bind Ctrl-R, and the later one wins
     _djd_init atuin atuin init zsh
 fi
-# completions are sourced after the prompt (uv's alone is 569 KB and took 72 ms), through the zsh-defer that sheldon
-# loaded; without sheldon they load at once
-for _djd_c in "uv generate-shell-completion zsh" "omp completions zsh" "mise completion zsh"; do
+# completions are sourced after the prompt, through the zsh-defer that sheldon loaded; without sheldon they load at
+# once (uv's is the _uv file in fpath above)
+for _djd_c in "omp completions zsh" "mise completion zsh"; do
     if (( $+functions[zsh-defer] )); then
         zsh-defer _djd_init ${_djd_c%% *} ${=_djd_c}
     else
