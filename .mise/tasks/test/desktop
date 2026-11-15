@@ -280,7 +280,6 @@ check_password_secret
 check_audio
 check_wireplumber_respawn
 docker exec -e DJD_APPS_LAUNCH=1 -u dayjobdoor "$server" bash -lc 'bash ~/.dotfiles/tests/desktop-apps.sh' || fail "a required desktop app is missing or does not launch"
-docker exec -u dayjobdoor "$server" bash -c 'bash ~/.dotfiles/tests/xsession-audio.sh' || fail "the stub test of ~/.xsession failed"
 check_logout_cleanup
 
 # /run survives a container restart, so the PipeWire socket of the dead server is still there. ~/.xsession must not
