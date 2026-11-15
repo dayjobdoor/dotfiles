@@ -46,6 +46,8 @@ Obsidian, Vicinae, Ferdium and HackGen are `http:` tools in `mise-config/config.
 2. Download each file and run `shasum -a 256 <file>`.
 3. Change `version` and both `checksum` lines, then run `mise run test:vm` or `mise run test:desktop`.
 
+`mise up` and `djd update` print `Error getting latest version for http:obsidian: no latest version found` for each of the four. It is not a failure: an `http:` tool has a URL and no release feed, so mise cannot ask it for a newer version, and the pin only moves by the steps above. The other warning that `mise up` prints, `newer <tool> release ... ignored by minimum_release_age (3d)`, is the three-day rule at work; the release becomes eligible at the time the message gives.
+
 ## Update the pinned agent extensions
 
 The pi extensions are pinned in `home/.config/pi/agent/settings.json` (`npm:<name>@<version>` and `git:<host>/<repo>@<commit>`), and the omp plugins in `home/.config/omp/profiles/god/plugins/package.json` (an exact version, and `#<commit>` on the git URL). Nothing locks them, so a bump is a manual edit. Keep both agents on the same version of an extension that they share (`context-mode`, `ponytail`).

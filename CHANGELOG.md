@@ -2,6 +2,11 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## Unreleased
+
+- Tests: `test:desktop` no longer runs `tests/xsession-audio.sh`, which `test:offline` already runs against the same files in the same image: 30 s of a CI step of about 110 s. The stage table of `docs/testing.md` loses its stage 8.
+- Docs: `docs/guidance.md` says why `mise up` and `djd update` warn `no latest version found` for the four pinned `http:` tools, and what the `minimum_release_age` warnings mean.
+
 ## 0.0.17 (2026-11-15)
 
 - Shell: a `compinit` dump older than a day is refreshed after the full run. `compinit` left it as old as it was, so every later start took the slow branch; `test` now checks it.
