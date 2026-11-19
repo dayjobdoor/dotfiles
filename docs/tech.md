@@ -101,9 +101,9 @@ Base:
 
 `server`:
 
-- The sshd drop-in `/etc/ssh/sshd_config.d/10-djd.conf` allows keys only and denies root login. The `pre-dotfiles` hook `hooks/server-pre-dotfiles` checks it.
+- The sshd drop-in `/etc/ssh/sshd_config.d/10-djd.conf` allows keys only, denies root login and X11 forwarding and sets a 60-second keepalive (`ClientAliveInterval`, three misses drop the session). The `pre-dotfiles` hook `hooks/server-pre-dotfiles` checks it.
 - ufw denies incoming traffic, limits 22/tcp, and allows 3389/tcp from private networks only. No mDNS rule exists, because `before.rules` of ufw already accepts multicast.
-- `/etc/docker/daemon.json` binds published ports to `127.0.0.1` by default, through `ip` and `default-network-opts`. docker restarts when the file changes.
+- `/etc/docker/daemon.json` binds published ports to `127.0.0.1` by default, through `ip` and `default-network-opts`, and sets `log-driver` to `local`, which rotates container logs. docker restarts when the file changes.
 - The `post-packages` hook refuses the apply before the drop-in is written when it would lock the user out once passwords and root login are off and the firewall allows port 22 only. The refusals, the `docker` group step and `DJD_SKIP_SSH_CHECKS=1` are in [Bootstrap phases and hooks](#bootstrap-phases-and-hooks), step 2.
 - `djd module remove server` deletes the sshd drop-in and `daemon.json`, so password logins and published ports on every address return. It leaves the packages and the ufw rules, so SSH stays reachable, and it prints a warning.
 

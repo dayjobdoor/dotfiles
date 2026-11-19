@@ -19,18 +19,23 @@ content = """
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
+X11Forwarding no
+ClientAliveInterval 60
+ClientAliveCountMax 3
 """
 mode = "0644"
 owner = "root"
 group = "root"
 
 # Published container ports bind to 127.0.0.1 unless `-p` names an address: Docker's port rules bypass ufw.
+# The `local` log driver rotates logs; the default json-file driver never does.
 # `ip` covers the default bridge, default-network-opts the networks created later (compose's).
 [bootstrap.files."/etc/docker/daemon.json"]
 content = """
 {
   "ip": "127.0.0.1",
-  "default-network-opts": { "bridge": { "com.docker.network.bridge.host_binding_ipv4": "127.0.0.1" } }
+  "default-network-opts": { "bridge": { "com.docker.network.bridge.host_binding_ipv4": "127.0.0.1" } },
+  "log-driver": "local"
 }
 """
 mode = "0644"

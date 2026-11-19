@@ -2,9 +2,14 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
-## Unreleased
+## 0.0.24
 
+- server: the docker log driver is `local`, which rotates container logs (the default `json-file` never does), and the sshd drop-in turns X11 forwarding off and sets a 60-second keepalive. Measured on a Linode: docker had no log limit, sshd had no keepalive, X11 forwarding was on.
 - README: the section on a server over the internet says to exclude the server from Cloudflare WARP on the client (measured: latency under load about halved), and that BBR made no measurable difference.
+
+## 0.0.23
+
+- Workflows: mise-action 5.2.7 and login-action 4.8.0 (Dependabot, #2).
 
 ## 0.0.22 (2026-11-19)
 
