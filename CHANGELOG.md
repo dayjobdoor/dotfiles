@@ -2,6 +2,10 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## Unreleased
+
+- README: the section on a server over the internet says to exclude the server from Cloudflare WARP on the client (measured: latency under load about halved), and that BBR made no measurable difference.
+
 ## 0.0.22 (2026-11-19)
 
 - omp: `autolearn.enabled: true`, the key's real name (the `autoLearn` that 0.0.15 removed was never valid). omp 19 turned it on by default, where 18 had it off; it is stated here so that a default that changes again does not change this setup.
