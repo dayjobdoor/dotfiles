@@ -2,7 +2,7 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
-## 0.0.21
+## 0.0.21 (2026-11-15)
 
 - Docs: the 0.0.19 change of Obsidian, Vicinae and Ferdium to `github:` tools moved their integrity check from a SHA-256 held in the repository to the digest GitHub reports when the file is installed, and that is a weaker guarantee, not the same one: a file re-uploaded under the pinned version passes now. `docs/architecture.md` (the trust-anchor table), `SECURITY.md` and the comment in `config.toml` say so, and name the option that restores it (a `checksum` line per platform, which the backend accepts).
 
