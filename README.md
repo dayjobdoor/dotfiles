@@ -70,6 +70,12 @@ ok xrdp-root-login
 
 Doctor exits 1 and prints a `FAIL <check>: <reason>` line for each failed check. A machine with the `server` module also gets `ok sshd`, and one with `secrets` gets `ok secrets`. The lines above are the output of `djd doctor` in the image.
 
+### A server you reach over the internet
+
+A fresh VPS usually has only root. Create `dayjobdoor` as root with bash, passwordless sudo (a `visudo`-checked file in `/etc/sudoers.d/`) and your public key in `~/.ssh/authorized_keys`, and check that `ssh dayjobdoor@host` and `sudo -n true` work. Only then run the installer as that user over ssh, with `server`, and keep the root session open until the new login works: the module turns root and password logins off, so a key that does not work would lock you out.
+
+RDP stays closed to the internet. Set a password for the RDP login (`sudo passwd dayjobdoor`; nothing else uses it, because sshd takes keys only), hold a tunnel with `ssh -N -L 33389:localhost:3389 dayjobdoor@host`, and connect an RDP client to `localhost:33389`. FreeRDP logged in this way on a Linode with Ubuntu 26.04 on amd64 in November 2026 (TLS 1.3, the XFCE session started); Windows App and mstsc were not tried.
+
 ## Docker
 
 The image is the base (with the desktop) and the `agent` module. It has no sshd, firewall or docker daemon. A shell in it, from GHCR:
