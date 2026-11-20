@@ -138,7 +138,7 @@ Every `uses:` in `.github/workflows/` is pinned to a commit; the table gives the
 | Action | Release |
 | --- | --- |
 | [actions/checkout](https://github.com/actions/checkout) | v7.0.1 |
-| [jdx/mise-action](https://github.com/jdx/mise-action) | v5.2.7 |
+| [jdx/mise-action](https://github.com/jdx/mise-action) | v5.2.8 |
 | [docker/setup-buildx-action](https://github.com/docker/setup-buildx-action) | v4.4.1 |
 | [docker/login-action](https://github.com/docker/login-action) | v4.8.0 |
 | [docker/metadata-action](https://github.com/docker/metadata-action) | v6.2.0 |

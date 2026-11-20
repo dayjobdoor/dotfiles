@@ -2,6 +2,10 @@
 
 What each release changed, newest first, in the style of [Keep a Changelog](https://keepachangelog.com). The versions are the GitHub releases, `X.Y.Z` tags that `tag.yaml` cuts after a green CI run on `main`; planned work is in [ROADMAP.md](ROADMAP.md). `tag.yaml` cuts the next patch release after every green push run on `main`, so a change adds its entry under the next version, or under a new `Unreleased` heading until that release exists.
 
+## 0.0.25
+
+- Workflows: mise-action 5.2.8 (Dependabot, #3).
+
 ## 0.0.24 (2026-11-19)
 
 - server: the docker log driver is `local`, which rotates container logs (the default `json-file` never does), and the sshd drop-in turns X11 forwarding off and sets a 60-second keepalive. Measured on a Linode: docker had no log limit, sshd had no keepalive, X11 forwarding was on.
